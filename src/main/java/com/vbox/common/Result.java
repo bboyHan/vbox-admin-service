@@ -84,4 +84,11 @@ public class Result<R> {
         return new ResponseEntity<>(NOT_FOUND);
     }
 
+    public static <R> ResponseEntity<R> forbidden(R data) {
+        return new ResponseEntity<>(data, FORBIDDEN);
+    }
+
+    public static <R> ResponseEntity<R> unauthorized(R data) {
+        return new ResponseEntity<>(data, UNAUTHORIZED);
+    }
 }

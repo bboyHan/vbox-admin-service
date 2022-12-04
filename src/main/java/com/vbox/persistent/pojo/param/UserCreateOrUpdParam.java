@@ -5,14 +5,14 @@ import lombok.Data;
 import java.time.LocalDateTime;
 
 @Data
-public class UserParam {
+public class UserCreateOrUpdParam {
 
     private Long id;
     private Long roleId;
     private Long deptId;
-    private String nickname;
-    private String email;
-    private String remark;
+    private String account;
+    private Integer gender;
+    private String pass;
     private LocalDateTime createTime;
 
 }

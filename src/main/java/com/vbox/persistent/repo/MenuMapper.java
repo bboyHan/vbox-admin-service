@@ -14,6 +14,17 @@ public interface MenuMapper extends BaseMapper<Menu> {
     @Select("select * from sys_menu")
     List<Menu> listMenu();
 
+    @Select("<script>" +
+            " select * from sys_menu" +
+            " <when test='ids!=null'>" +
+            " where id in " +
+            " <foreach collection='ids' item='item' open='(' separator=',' close=')'>" +
+            " #{item}" +
+            " </foreach>" +
+            " </when>" +
+            "</script>")
+    List<Menu> listMenuInIds(List<String> ids);
+
     @Delete("delete from sys_menu where pid = #{pid}")
     int deleteChildMenus(Long pid);
 

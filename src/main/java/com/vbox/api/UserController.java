@@ -3,7 +3,7 @@ package com.vbox.api;
 import com.vbox.common.Result;
 import com.vbox.common.ResultOfList;
 import com.vbox.persistent.pojo.param.UserLoginParam;
-import com.vbox.persistent.pojo.param.UserParam;
+import com.vbox.persistent.pojo.param.UserCreateOrUpdParam;
 import com.vbox.persistent.pojo.vo.UserInfoVO;
 import com.vbox.persistent.pojo.vo.UserVO;
 import com.vbox.service.system.UserService;
@@ -34,7 +34,7 @@ public class UserController {
     }
 
     @GetMapping("/getUserInfo")
-    public ResponseEntity<Result<Object>> getUserInfo(@RequestHeader Map<String,String> headers) throws Exception {
+    public ResponseEntity<Result<Object>> getUserInfo(@RequestHeader Map<String, String> headers, UserLoginParam param) throws Exception {
         String token = headers.get("authorization");
         UserInfoVO rs = userService.getUserInfo(token);
         return Result.ok(rs);
@@ -48,10 +48,11 @@ public class UserController {
     }
 
     @PostMapping("/system/accountExist")
-    public ResponseEntity<Result<Boolean>> isAccountExist(@RequestBody String account) {
+    public ResponseEntity<Result<Boolean>> isAccountExist(@RequestBody UserCreateOrUpdParam user) {
 
         try {
-            Boolean rl = userService.isAccountExist(account);
+            Boolean rl = userService.isAccountExist(user.getAccount());
+            if (rl) return Result.errBool(false);
             return Result.ok(rl);
         } catch (Exception e) {
             e.printStackTrace();
@@ -61,10 +62,10 @@ public class UserController {
     }
 
     @PostMapping("/system/user")
-    public ResponseEntity<Result<Integer>> createUser(@RequestBody UserParam userParam) {
+    public ResponseEntity<Result<Integer>> createOrUpdUser(@RequestBody UserCreateOrUpdParam userCreateOrUpdParam) {
         int role1 = 0;
         try {
-            role1 = userService.createOrUpdUser(userParam);
+            role1 = userService.createOrUpdUser(userCreateOrUpdParam);
         } catch (Exception e) {
             e.printStackTrace();
         }

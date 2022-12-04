@@ -12,4 +12,6 @@ public class UserLoginParam {
     private String captcha;
     private Integer loginType;
 
+    private String pubKey;
+    private String secret;
 }

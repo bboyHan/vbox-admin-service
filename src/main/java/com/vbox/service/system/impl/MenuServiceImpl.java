@@ -1,9 +1,11 @@
 package com.vbox.service.system.impl;
 
-import com.vbox.common.ResultOfList;
+import com.vbox.config.local.TokenInfoThreadHolder;
 import com.vbox.persistent.entity.Menu;
 import com.vbox.persistent.pojo.param.MenuParam;
 import com.vbox.persistent.pojo.vo.MenuVO;
+import com.vbox.persistent.pojo.vo.RouteMetaVO;
+import com.vbox.persistent.pojo.vo.RouteVO;
 import com.vbox.persistent.repo.MenuMapper;
 import com.vbox.persistent.repo.RelationRMMapper;
 import com.vbox.service.system.MenuService;
@@ -47,14 +49,53 @@ public class MenuServiceImpl implements MenuService {
 
         List<MenuVO> parentList = tmpML.stream().filter(t -> t.getPid().equals(0L)).collect(Collectors.toList());
 
-        ResultOfList<List<MenuVO>> rs = new ResultOfList<>(parentList, parentList.size());
+        return parentList;
+    }
+
+
+    @Override
+    public List<RouteVO> listRoute(String token) {
+
+        List<String> ids = TokenInfoThreadHolder.getToken().getMIds();
+        List<Menu> menus = menuMapper.listMenuInIds(ids);
+
+        // copy to new vo list
+        List<RouteVO> tmpML = menus.stream().map(m -> {
+            RouteVO route = new RouteVO();
+            route.setId(m.getId());
+            route.setPid(m.getPid());
+            route.setComponent(m.getComponent());
+            route.setName(m.getMenuName());
+            route.setPath(m.getRoutePath());
+            route.setRedirect(m.getRedirect());
+
+            RouteMetaVO meta = new RouteMetaVO();
+            meta.setIcon(m.getIcon());
+            meta.setHideMenu(m.getIsHide() == null ? null : m.getIsHide() != 0);
+            meta.setCurrentActiveMenu(m.getCurrentActiveMenu());
+            meta.setFrameSrc(m.getFrameSrc());
+            meta.setShowMenu(m.getIsShow() == null ? null : m.getIsShow() != 0);
+            meta.setIgnoreKeepAlive(m.getKeepAlive() == null ? null : m.getIsShow() != 0);
+            meta.setTitle(m.getTitle());
+
+            route.setMeta(meta);
+            return route;
+        }).collect(Collectors.toList());
+
+        tmpML.forEach(t -> {
+            List<RouteVO> childrenList = getChildrenRList(t.getId(), tmpML);
+
+            t.setChildren(childrenList);
+        });
+
+        List<RouteVO> parentList = tmpML.stream().filter(t -> t.getPid().equals(0L)).collect(Collectors.toList());
 
         return parentList;
+
     }
 
     @Override
     public int createOrUpdMenu(MenuParam menuParam) {
-
 
         Menu m = new Menu();
         BeanUtils.copyProperties(menuParam, m);
@@ -90,6 +131,10 @@ public class MenuServiceImpl implements MenuService {
     }
 
     public List<MenuVO> getChildrenList(Long id, List<MenuVO> list) {
+        return list.stream().filter(t -> (t.getPid().equals(id))).collect(Collectors.toList());
+    }
+
+    public List<RouteVO> getChildrenRList(Long id, List<RouteVO> list) {
         return list.stream().filter(t -> (t.getPid().equals(id))).collect(Collectors.toList());
     }
 }

@@ -13,10 +13,17 @@ public class MenuParam {
     private Long orderNo;
     private Long type;
     private String menuName;
+    private String title;
+    private String frameSrc;
     private String routePath;
     private Integer isShow;
+    private Integer isHide;
     private Integer isExt;
+    private Integer isBreadcrumb;
     private Integer keepAlive;
+    private Integer hideChildrenInMenu;
+    private String redirect;
+    private String currentActiveMenu;
     private String component;
     private String icon;
     private String status;

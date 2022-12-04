@@ -12,6 +12,6 @@ public interface RelationURMapper extends BaseMapper<RelationUserRole> {
     @Delete("delete from relation_role_menu where rid = #{rid}")
     int deleteByRid(Long rid);
 
-    @Delete("delete from relation_role_menu where mid = #{mid}")
-    int deleteByMid(Long mid);
+    @Delete("delete from relation_user_role where uid = #{uid}")
+    int deleteByUid(Long uid);
 }

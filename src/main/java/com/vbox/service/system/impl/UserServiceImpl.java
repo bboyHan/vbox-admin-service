@@ -1,17 +1,23 @@
 package com.vbox.service.system.impl;
 
-import cn.hutool.system.UserInfo;
+import cn.hutool.core.codec.Base64;
+import cn.hutool.core.util.RandomUtil;
+import cn.hutool.crypto.SecureUtil;
+import cn.hutool.crypto.asymmetric.RSA;
+import cn.hutool.jwt.JWT;
+import cn.hutool.jwt.JWTUtil;
+import cn.hutool.jwt.JWTValidator;
+import cn.hutool.jwt.signers.JWTSignerUtil;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.vbox.common.ResultOfList;
 import com.vbox.common.enums.GenderEnum;
 import com.vbox.common.enums.LoginEnum;
 import com.vbox.common.util.DistinctKeyUtil;
-import com.vbox.persistent.entity.Role;
-import com.vbox.persistent.entity.User;
-import com.vbox.persistent.entity.JoinUserRole;
-import com.vbox.persistent.entity.UserLogin;
+import com.vbox.common.util.RandomNameUtil;
+import com.vbox.persistent.entity.*;
 import com.vbox.persistent.pojo.param.UserLoginParam;
-import com.vbox.persistent.pojo.param.UserParam;
+import com.vbox.persistent.pojo.param.UserCreateOrUpdParam;
+import com.vbox.persistent.pojo.vo.RoleVO;
 import com.vbox.persistent.pojo.vo.UserInfoVO;
 import com.vbox.persistent.pojo.vo.UserVO;
 import com.vbox.persistent.repo.*;
@@ -20,7 +26,12 @@ import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.security.KeyPair;
+import java.security.PrivateKey;
+import java.security.PublicKey;
 import java.time.LocalDateTime;
+import java.util.Calendar;
+import java.util.HashMap;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -32,7 +43,11 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     @Autowired
     private UserLoginMapper userLoginMapper;
     @Autowired
+    private UserAuthMapper userAuthMapper;
+    @Autowired
     private UserMapper userMapper;
+    @Autowired
+    private RoleMapper roleMapper;
     @Autowired
     private RelationUDMapper udMapper;
     @Autowired
@@ -86,30 +101,83 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     }
 
     @Override
-    public int createOrUpdUser(UserParam userParam) {
+    public int createOrUpdUser(UserCreateOrUpdParam userCreateOrUpdParam) throws Exception {
 
         User u = new User();
-        BeanUtils.copyProperties(userParam, u);
+        BeanUtils.copyProperties(userCreateOrUpdParam, u);
 
-        //TODO 关联部门、角色
-        System.out.println(userParam.getDeptId());
-        System.out.println(userParam.getRoleId());
-
-
-        if (userParam.getId() != null) {
+        if (userCreateOrUpdParam.getId() != null) {
             int i = userMapper.updateById(u);
             return i;
         }
-        u.setCreateTime(LocalDateTime.now());
+        //check account
+        String account = u.getAccount();
+        if (null == account) throw new Exception("account is null!");
+        Integer exist = userMapper.isExistAccount(account);
+        if (null != exist) throw new Exception("user is exist!");
 
+        //setting time
+        u.setCreateTime(LocalDateTime.now());
+        //pass
+        u.setPass(RandomUtil.randomString(6));
+        //avatar
+        u.setAvatar("https://joeschmoe.io/api/v1/random");
+        //nickname
+        u.setNickname(RandomNameUtil.randomChineseName());
         userMapper.insert(u);
+
+        //user - login
+        UserLogin userLogin = new UserLogin();
+        userLogin.setUid(u.getId());
+        userLogin.setUsername(u.getAccount());
+        userLogin.setCaptcha(u.getPass());
+        userLogin.setLoginType(LoginEnum.ACCOUNT.getType());
+        userLogin.setCreateTime(LocalDateTime.now());
+        userLogin.setRemark("账户登陆");
+        userLoginMapper.insert(userLogin);
+
+        //user - dept
+        RelationUserDept ud = new RelationUserDept();
+        ud.setUid(u.getId());
+        ud.setDid(userCreateOrUpdParam.getDeptId());
+        udMapper.insert(ud);
+
+        //user - role
+        RelationUserRole ur = new RelationUserRole();
+        ur.setUid(u.getId());
+        ur.setRid(userCreateOrUpdParam.getRoleId());
+        urMapper.insert(ur);
+
+        //auth
+        UserAuth auth = new UserAuth();
+        KeyPair rsa = SecureUtil.generateKeyPair("RSA");
+        auth.setSecret(Base64.encode(rsa.getPrivate().getEncoded()));
+        auth.setPub(Base64.encode(rsa.getPublic().getEncoded()));
+        auth.setUid(u.getId());
+        auth.setCreateTime(LocalDateTime.now());
+        userAuthMapper.insert(auth);
 
         return 0;
     }
 
     @Override
-    public int deleteUser(Long id) {
-        int i = userMapper.deleteById(id);
+    public int deleteUser(Long id) throws Exception {
+
+        //check user
+        User user = userMapper.selectById(id);
+        if (user == null) {
+            throw new Exception("user not exist!");
+        }
+
+        //del user
+        int i = userMapper.deleteById(user.getId());
+
+        //del user - role
+        urMapper.deleteByUid(user.getId());
+
+        //del user - dept
+        udMapper.deleteByUid(user.getId());
+
         return i;
     }
 
@@ -166,7 +234,40 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
             BeanUtils.copyProperties(userLogin, rs);
 
             // create new token
-            String token = "fakeToken1";
+            UserAuth userAuth = userAuthMapper.getAuthByUid(userLogin.getUid());
+            String secret = userAuth.getSecret();
+            PrivateKey privateKey = SecureUtil.rsa(secret, null).getPrivateKey();
+
+            //2. get roles
+            String account = userLogin.getUsername();
+
+            List<JoinUserRole> juList = userMapper.getUserByUserName(account);
+            List<String> roleIds = juList.stream().map(m -> {
+                Long rid = m.getRid();
+                if (rid == null) return null;
+                return rid.toString();
+            }).collect(Collectors.toList());
+
+            //3. get menus
+            List<JoinRoleMenu> rmList = roleMapper.listRoleInIds(roleIds);
+            List<String> menuIds = rmList.stream().map(r -> {
+                Long mid = r.getMid();
+                if (mid == null) return null;
+                return mid.toString();
+            }).collect(Collectors.toList());
+
+            // setting expire time
+            Calendar calendar = Calendar.getInstance();
+            calendar.add(Calendar.HOUR, 1);
+
+            String token = JWT.create()
+                    .addHeaders(new HashMap<>())
+                    .setPayload("username", account)
+                    .setPayload("mIds", menuIds)
+                    .setPayload("pub", userAuth.getPub())
+                    .setExpiresAt(calendar.getTime())
+                    .sign(JWTSignerUtil.rs256(privateKey));
+
             rs.setToken(token);
 
             return rs;
@@ -175,33 +276,43 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         throw new Exception("user not exist! ");
     }
 
+    /**
+     * {
+     * 	"code": 0,
+     * 	"result": {
+     * 		"userId": "1",
+     * 		"username": "vben",
+     * 		"realName": "Vben Admin",
+     * 		"avatar": "https://q1.qlogo.cn/g?b=qq&nk=190848757&s=640",
+     * 		"desc": "manager",
+     * 		"password": "123456",
+     * 		"token": "fakeToken1",
+     * 		"homePath": "/dashboard/analysis",
+     * 		"roles": [{
+     * 			"roleName": "Super Admin",
+     * 			"value": "super"
+     *                }]* 	},
+     * 	"message": "ok",
+     * 	"type": "success"
+     * }
+     */
     @Override
     public UserInfoVO getUserInfo(String token) throws Exception {
-        /**
-         * {
-         * 	"code": 0,
-         * 	"result": {
-         * 		"userId": "1",
-         * 		"username": "vben",
-         * 		"realName": "Vben Admin",
-         * 		"avatar": "https://q1.qlogo.cn/g?b=qq&nk=190848757&s=640",
-         * 		"desc": "manager",
-         * 		"password": "123456",
-         * 		"token": "fakeToken1",
-         * 		"homePath": "/dashboard/analysis",
-         * 		"roles": [{
-         * 			"roleName": "Super Admin",
-         * 			"value": "super"
-         *                }]* 	},
-         * 	"message": "ok",
-         * 	"type": "success"
-         * }
-         */
 
-        //1. check user token
-        String account = "";
         if (token != null) {
-            account = "zhangsan";
+            JWT jwt = JWTUtil.parseToken(token);
+            String account = jwt.getPayload("username").toString();
+            UserAuth auth = userAuthMapper.getAuthByAccount(account);
+            String pub = auth.getPub();
+
+            //1. check user token
+            PublicKey pubKey = SecureUtil.rsa(null, pub).getPublicKey();
+
+            boolean verify = JWTUtil.verify(token, JWTSignerUtil.rs256(pubKey));
+            System.out.println("verify: " + verify);
+            // check expire time
+            JWTValidator.of(token).validateDate();
+
             //2. get roles
             List<JoinUserRole> juList = userMapper.getUserByUserName(account);
             List<Role> roles = juList.stream().map(m -> {
@@ -222,5 +333,51 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
             throw new Exception("token is not validate");
         }
 
+    }
+
+    public static void main(String[] args) throws InterruptedException {
+
+        RSA rsa = SecureUtil.rsa();
+        PrivateKey privateKey = rsa.getPrivateKey();
+        PublicKey publicKey = rsa.getPublicKey();
+        String privateKeyBase64 = rsa.getPrivateKeyBase64();
+        String publicKeyBase64 = rsa.getPublicKeyBase64();
+        System.out.println(privateKeyBase64);
+        System.out.println("-------------");
+        System.out.println(publicKeyBase64);
+        System.out.println("-------------");
+
+        Calendar calendar = Calendar.getInstance();
+        calendar.add(Calendar.MILLISECOND, 1);
+
+        String token = JWT.create()
+                .addHeaders(new HashMap<>())
+                .setPayload("username", "zhangSan")
+                .setExpiresAt(calendar.getTime())
+                .sign(JWTSignerUtil.rs256(privateKey));
+
+        PublicKey pubKey = SecureUtil.rsa(null, publicKeyBase64).getPublicKey();
+
+        boolean verify = JWTUtil.verify(token, JWTSignerUtil.rs256(pubKey));
+        JWTValidator.of(token).validateDate();
+        System.out.println("verify 1: " + verify);
+        Thread.sleep(10000);
+        boolean verify2 = JWTUtil.verify(token, JWTSignerUtil.rs256(pubKey));
+        System.out.println("verify 2: " + verify2);
+        JWTValidator.of(token).validateDate();
+        JWT jwt = JWTUtil.parseToken(token);
+    }
+
+    private List<Menu> getMenuListByRole(Long id, List<JoinRoleMenu> rmList) {
+
+        List<Menu> menus = rmList.stream().filter(u ->
+                (id.equals(u.getId()))
+        ).map(rm -> {
+            Menu menu = new Menu();
+            BeanUtils.copyProperties(rm, menu);
+            return menu;
+        }).collect(Collectors.toList());
+
+        return menus;
     }
 }
