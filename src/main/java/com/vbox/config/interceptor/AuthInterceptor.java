@@ -22,25 +22,26 @@ public class AuthInterceptor implements HandlerInterceptor {
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
 
         // check expire time
-        String token = request.getHeader("authorization");
-        JWTValidator.of(token).validateDate();
-
-        JWT jwt = JWT.of(token);
-        String account = jwt.getPayload("username").toString();
-        String pub = jwt.getPayload("pub").toString();
-
-        // check user token
-        PublicKey pubKey = SecureUtil.rsa(null, pub).getPublicKey();
-
-        boolean verify = JWTUtil.verify(token, JWTSignerUtil.rs256(pubKey));
-        if (!verify) throw new ValidateException();
-
-        List<String> mIds = (List<String>) jwt.getPayload("mIds");
-        TokenInfo tokenInfo = new TokenInfo();
-        tokenInfo.setUsername(account);
-        tokenInfo.setMIds(mIds);
-
-        TokenInfoThreadHolder.addToken(tokenInfo);
+//        String token = request.getHeader("authorization");
+//        JWTValidator.of(token).validateDate();
+//
+//        JWT jwt = JWT.of(token);
+//        String account = jwt.getPayload("username").toString();
+//        String pub = jwt.getPayload("pub").toString();
+//
+//        // check user token
+//        PublicKey pubKey = SecureUtil.rsa(null, pub).getPublicKey();
+//
+//        boolean verify = JWTUtil.verify(token, JWTSignerUtil.rs256(pubKey));
+//        if (!verify) throw new ValidateException();
+//
+//        List<String> mIds = (List<String>) jwt.getPayload("mIds");
+//        TokenInfo tokenInfo = new TokenInfo();
+//        tokenInfo.setUsername(account);
+//        tokenInfo.setMIds(mIds);
+//
+//        System.out.println("mIds: " + mIds);
+//        TokenInfoThreadHolder.addToken(tokenInfo);
         return true;
     }
 

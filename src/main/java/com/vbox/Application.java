@@ -11,4 +11,11 @@ public class Application {
         SpringApplication.run(Application.class, args);
     }
 
+//    public static void main(String[] args) {
+//
+//        String fileName = "111.mp4";
+//        String s = new String(Base64.encodeBase64URLSafe(fileName.getBytes()));
+//        System.out.println(s);
+//    }
+
 }
