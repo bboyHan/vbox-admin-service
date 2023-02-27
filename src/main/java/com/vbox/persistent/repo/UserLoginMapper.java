@@ -2,6 +2,7 @@ package com.vbox.persistent.repo;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.vbox.persistent.entity.UserLogin;
+import org.apache.ibatis.annotations.Delete;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Select;
 
@@ -17,4 +18,6 @@ public interface UserLoginMapper extends BaseMapper<UserLogin> {
     @Select("SELECT remark FROM sys_user_login WHERE username=#{username} LIMIT 1")
     String pubKey(String username);
 
+    @Delete("delete from sys_user_login where uid = #{uid}")
+    int deleteByUid(Integer uid);
 }

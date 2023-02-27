@@ -8,7 +8,7 @@ import java.util.List;
 public class TokenInfo {
 
     private String token;
-    private Long id;
+    private Integer id;
     private String username;
     private List<String> mIds;
 

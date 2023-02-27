@@ -1,9 +1,10 @@
 package com.vbox.service.system.impl;
 
+import cn.hutool.core.codec.Base32;
 import cn.hutool.core.codec.Base64;
-import cn.hutool.core.util.RandomUtil;
 import cn.hutool.crypto.SecureUtil;
 import cn.hutool.crypto.asymmetric.RSA;
+import cn.hutool.crypto.digest.MD5;
 import cn.hutool.jwt.JWT;
 import cn.hutool.jwt.JWTUtil;
 import cn.hutool.jwt.JWTValidator;
@@ -14,10 +15,11 @@ import com.vbox.common.enums.GenderEnum;
 import com.vbox.common.enums.LoginEnum;
 import com.vbox.common.util.DistinctKeyUtil;
 import com.vbox.common.util.RandomNameUtil;
+import com.vbox.config.local.TokenInfoThreadHolder;
 import com.vbox.persistent.entity.*;
 import com.vbox.persistent.pojo.param.UserLoginParam;
 import com.vbox.persistent.pojo.param.UserCreateOrUpdParam;
-import com.vbox.persistent.pojo.vo.RoleVO;
+import com.vbox.persistent.pojo.param.UserSubCreateOrUpdParam;
 import com.vbox.persistent.pojo.vo.UserInfoVO;
 import com.vbox.persistent.pojo.vo.UserVO;
 import com.vbox.persistent.repo.*;
@@ -52,10 +54,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     private RelationUDMapper udMapper;
     @Autowired
     private RelationURMapper urMapper;
-
-    public UserServiceImpl(UserMapper userMapper) {
-        this.userMapper = userMapper;
-    }
+    @Autowired
+    private RelationUSMapper usMapper;
 
     public ResultOfList<List<UserVO>> listUser() {
         List<JoinUserRole> users = userMapper.listUser();
@@ -79,7 +79,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         return rs;
     }
 
-    private String getRolesStringByUser(Long id, List<JoinUserRole> users) {
+    private String getRolesStringByUser(Integer id, List<JoinUserRole> users) {
         List<String> rl = users.stream().filter(u ->
                 (id.equals(u.getId()))
         ).map(JoinUserRole::getRoleName).collect(Collectors.toList());
@@ -88,7 +88,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         return roles;
     }
 
-    private List<Role> getRolesByUser(Long id, List<JoinUserRole> users) {
+    private List<Role> getRolesByUser(Integer id, List<JoinUserRole> users) {
         return users.stream().filter(u ->
                 (id.equals(u.getId()))
         ).map(m -> {
@@ -117,20 +117,25 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         if (null != exist) throw new Exception("user is exist!");
 
         //setting time
-        u.setCreateTime(LocalDateTime.now());
-        //pass
-        u.setPass(RandomUtil.randomString(6));
-        //avatar
-        u.setAvatar("https://joeschmoe.io/api/v1/random");
+        u.setCreate_time(LocalDateTime.now());
         //nickname
         u.setNickname(RandomNameUtil.randomChineseName());
-        userMapper.insert(u);
+        save(u);
+
+        // user - ext
+        UserExt userExt = new UserExt();
+        userExt.setUid(u.getId());
+        userExt.setAvatar("");
+        userExt.setGender(GenderEnum.valid(userCreateOrUpdParam.getGender()));
+        userExtMapper.insert(userExt);
 
         //user - login
         UserLogin userLogin = new UserLogin();
         userLogin.setUid(u.getId());
         userLogin.setUsername(u.getAccount());
-        userLogin.setCaptcha(u.getPass());
+        userLogin.setCaptcha(userCreateOrUpdParam.getPass() != null
+                ? MD5.create().digestHex((userCreateOrUpdParam.getPass()))
+                : MD5.create().digestHex("123456"));
         userLogin.setLoginType(LoginEnum.ACCOUNT.getType());
         userLogin.setCreateTime(LocalDateTime.now());
         userLogin.setRemark("账户登陆");
@@ -160,8 +165,70 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         return 0;
     }
 
+//    @Override
+//    public int createSubAccount(UserSubCreateOrUpdParam param) throws Exception{
+//        User user = new User();
+//
+//        //check account
+//        String account = param.getAccount();
+//        if (null == account) throw new Exception("account is null!");
+//        Integer exist = userMapper.isExistAccount(account);
+//        if (null != exist) throw new Exception("user is exist!");
+//
+//        // user
+//        user.setAccount(account);
+//        user.setNickname(RandomNameUtil.randomChineseName());
+//        user.setCreate_time(LocalDateTime.now());
+//        save(user);
+//
+//        // user ext
+//        UserExt userExt = new UserExt();
+//        userExt.setUid(user.getId());
+//        userExt.setGender(-1);
+//        userExtMapper.insert(userExt);
+//
+//        // user - sub relation
+//        RelationUserSub us = new RelationUserSub();
+//        us.setUid(TokenInfoThreadHolder.getToken().getId());
+//        us.setSid(user.getId());
+//        usMapper.insert(us);
+//
+//        // user - login
+//        UserLogin userLogin = new UserLogin();
+//        userLogin.setUid(user.getId());
+//        userLogin.setUsername(user.getAccount());
+//        userLogin.setCaptcha(param.getPass() != null
+//                ? Base32.encode(param.getPass()) : Base32.encode("123456"));
+//        userLogin.setLoginType(LoginEnum.ACCOUNT.getType());
+//        userLogin.setCreateTime(LocalDateTime.now());
+//        userLogin.setRemark("账户登陆");
+//        userLoginMapper.insert(userLogin);
+//
+//        //user - dept
+//        RelationUserDept ud = new RelationUserDept();
+//        ud.setUid(user.getId());
+//        ud.setDid(param.getDeptId());
+//        udMapper.insert(ud);
+//
+//        //user - role
+//        RelationUserRole ur = new RelationUserRole();
+//        ur.setUid(user.getId());
+//        ur.setRid(param.getRoleId());
+//        urMapper.insert(ur);
+//
+//        //auth
+//        UserAuth auth = new UserAuth();
+//        KeyPair rsa = SecureUtil.generateKeyPair("RSA");
+//        auth.setSecret(Base64.encode(rsa.getPrivate().getEncoded()));
+//        auth.setPub(Base64.encode(rsa.getPublic().getEncoded()));
+//        auth.setUid(user.getId());
+//        auth.setCreateTime(LocalDateTime.now());
+//        userAuthMapper.insert(auth);
+//        return 0;
+//    }
+
     @Override
-    public int deleteUser(Long id) throws Exception {
+    public int deleteUser(Integer id) throws Exception {
 
         //check user
         User user = userMapper.selectById(id);
@@ -177,6 +244,12 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
 
         //del user - dept
         udMapper.deleteByUid(user.getId());
+
+        //del user - auth
+        userAuthMapper.deleteByUid(user.getId());
+
+        //del user - login
+        userLoginMapper.deleteByUid(user.getId());
 
         return i;
     }
@@ -209,8 +282,6 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     public UserInfoVO login(UserLoginParam userLoginParam) throws Exception {
 
         //1. login check
-        System.out.println(userLoginParam);
-
         UserLogin ul = new UserLogin();
         ul.setUsername(userLoginParam.getUsername());
         //2. login type
@@ -222,7 +293,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
             case WECHAT:
             case QQ:
             case GITHUB:
-                ul.setCaptcha(userLoginParam.getPassword());
+                ul.setCaptcha(MD5.create().digestHex(userLoginParam.getPassword()));
                 break;
         }
 
@@ -243,7 +314,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
 
             List<JoinUserRole> juList = userMapper.getUserByUserName(account);
             List<String> roleIds = juList.stream().map(m -> {
-                Long rid = m.getRid();
+                Integer rid = m.getRid();
                 if (rid == null) return null;
                 return rid.toString();
             }).collect(Collectors.toList());
@@ -251,7 +322,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
             //3. get menus
             List<JoinRoleMenu> rmList = roleMapper.listRoleInIds(roleIds);
             List<String> menuIds = rmList.stream().map(r -> {
-                Long mid = r.getMid();
+                Integer mid = r.getMid();
                 if (mid == null) return null;
                 return mid.toString();
             }).collect(Collectors.toList());
@@ -263,6 +334,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
             String token = JWT.create()
                     .addHeaders(new HashMap<>())
                     .setPayload("username", account)
+                    .setPayload("uid", userLogin.getUid())
                     .setPayload("mIds", menuIds)
                     .setPayload("pub", userAuth.getPub())
                     .setExpiresAt(calendar.getTime())
@@ -323,12 +395,14 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
             }).collect(Collectors.toList());
 
             //3. get user/ ext
-            UserInfoVO userInfo = userExtMapper.getUserInfoByAccount(account);
-            String gender = GenderEnum.of(Integer.parseInt(userInfo.getGender()));
-            userInfo.setGender(gender);
-            userInfo.setRole(roles);
+            User user = userExtMapper.getUserByAccount(account);
+            UserExt userExt = userExtMapper.getUserInfoByUid(user.getId());
 
-            return userInfo;
+            UserInfoVO userInfoVO = new UserInfoVO();
+            userInfoVO.prop(user, userExt);
+            userInfoVO.setRole(roles);
+
+            return userInfoVO;
         } else {
             throw new Exception("token is not validate");
         }
@@ -368,7 +442,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         JWT jwt = JWTUtil.parseToken(token);
     }
 
-    private List<Menu> getMenuListByRole(Long id, List<JoinRoleMenu> rmList) {
+    private List<Menu> getMenuListByRole(Integer id, List<JoinRoleMenu> rmList) {
 
         List<Menu> menus = rmList.stream().filter(u ->
                 (id.equals(u.getId()))

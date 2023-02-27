@@ -7,11 +7,11 @@ import java.time.LocalDateTime;
 @Data
 public class MenuParam {
 
-    private Long id;
-    private Long pid;
-    private Long parentMenu;
-    private Long orderNo;
-    private Long type;
+    private Integer id;
+    private Integer pid;
+    private Integer parentMenu;
+    private Integer orderNo;
+    private Integer type;
     private String menuName;
     private String title;
     private String frameSrc;

@@ -12,5 +12,5 @@ public interface DeptService {
 
     int createDept(DeptParam menuParam);
 
-    int deleteDept(Long id);
+    int deleteDept(Integer id) throws Exception;
 }

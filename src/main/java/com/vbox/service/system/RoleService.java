@@ -16,7 +16,7 @@ public interface RoleService extends IService<Role> {
 
     int createOrUpdRole(RoleParam role);
 
-    int deleteRole(Long id);
+    int deleteRole(Integer id);
 
     int setRoleStatus(RoleStatusParam roleStatusParam);
 

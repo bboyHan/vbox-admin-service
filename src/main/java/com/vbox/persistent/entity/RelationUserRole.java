@@ -10,8 +10,8 @@ import lombok.Data;
 public class RelationUserRole {
 
     @TableId(type = IdType.AUTO)
-    private Long id;
-    private Long uid;
-    private Long rid;
+    private Integer id;
+    private Integer uid;
+    private Integer rid;
 
 }

@@ -12,8 +12,10 @@ import java.time.LocalDateTime;
 public class UserExt {
 
     @TableId(type = IdType.AUTO)
-    private Long id;
-    private Long uid;
+    private Integer id;
+    private Integer uid;
+    private Integer gender;
+    private String avatar;
     private String realName;
     private String country;
     private String desc;

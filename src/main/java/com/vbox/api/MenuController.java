@@ -13,6 +13,7 @@ import java.util.List;
 import java.util.Map;
 
 @RestController
+@RequestMapping("/api")
 public class MenuController {
 
     @Autowired
@@ -38,7 +39,7 @@ public class MenuController {
     }
 
     @DeleteMapping("/system/menu")
-    public ResponseEntity<Result<Integer>> deleteMenu(@RequestBody Long id) throws Exception {
+    public ResponseEntity<Result<Integer>> deleteMenu(@RequestBody Integer id) throws Exception {
         int role1 = menuService.deleteMenu(id);
         return Result.ok(role1);
     }

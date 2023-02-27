@@ -12,4 +12,7 @@ public interface DeptMapper  extends BaseMapper<Dept> {
 
     @Select("select * from sys_dept")
     List<Dept> listDept();
+
+    @Select("select count(1) from sys_dept where pid = #{id}")
+    int countByPid(Integer id);
 }

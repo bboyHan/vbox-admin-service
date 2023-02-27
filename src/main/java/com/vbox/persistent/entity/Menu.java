@@ -12,10 +12,10 @@ import java.time.LocalDateTime;
 public class Menu {
 
     @TableId(type = IdType.AUTO)
-    private Long id;
-    private Long pid;
-    private Long orderNo;
-    private Long type;
+    private Integer id;
+    private Integer pid;
+    private Integer orderNo;
+    private Integer type;
     private String menuName;
     private String routePath;
     private String title;

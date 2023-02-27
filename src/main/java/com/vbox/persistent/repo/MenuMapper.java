@@ -26,9 +26,9 @@ public interface MenuMapper extends BaseMapper<Menu> {
     List<Menu> listMenuInIds(List<String> ids);
 
     @Delete("delete from sys_menu where pid = #{pid}")
-    int deleteChildMenus(Long pid);
+    int deleteChildMenus(Integer pid);
 
     @Select("SELECT 1 FROM sys_menu WHERE pid=#{id} LIMIT 1")
-    Integer isExistCMenu(Long pid);
+    Integer isExistCMenu(Integer pid);
 
 }

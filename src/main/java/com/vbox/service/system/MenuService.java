@@ -12,7 +12,7 @@ public interface MenuService {
 
     int createOrUpdMenu(MenuParam menuParam);
 
-    int deleteMenu(Long id) throws Exception;
+    int deleteMenu(Integer id) throws Exception;
 
     List<RouteVO> listRoute(String token);
 }

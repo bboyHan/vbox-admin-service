@@ -21,7 +21,7 @@ public interface UserMapper extends BaseMapper<User> {
 
     @Select("SELECT u.*,r.id rid, r.role_name, r.role_value FROM sys_user u" +
             " LEFT JOIN relation_user_role ur ON u.id = ur.uid" +
-            " LEFT JOIN sys_role r ON ur.rid = r.id and u.account = #{account}")
+            " LEFT JOIN sys_role r ON ur.rid = r.id WHERE u.account = #{account}")
     List<JoinUserRole> getUserByUserName(String account);
 
 }

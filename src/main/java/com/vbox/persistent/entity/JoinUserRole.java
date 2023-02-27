@@ -7,7 +7,7 @@ import java.time.LocalDateTime;
 @Data
 public class JoinUserRole {
 
-    private Long id;
+    private Integer id;
     private String nickname;
     private String account;
     private String pass;
@@ -15,7 +15,7 @@ public class JoinUserRole {
     private Integer gender;
     private LocalDateTime createTime;
     private String remark;
-    private Long rid;
+    private Integer rid;
     private String roleName;
     private String roleValue;
 

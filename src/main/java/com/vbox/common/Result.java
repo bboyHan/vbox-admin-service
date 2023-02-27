@@ -1,6 +1,6 @@
 package com.vbox.common;
 
-import lombok.Builder;
+import com.vbox.common.enums.ResultEnum;
 import lombok.Data;
 import org.springframework.http.ResponseEntity;
 
@@ -21,11 +21,6 @@ public class Result<R> {
     private String message;
 
     /**
-     * type - success | error
-     */
-    private String type;
-
-    /**
      * 0 - success | 1 - error
      */
     private int code;
@@ -40,25 +35,30 @@ public class Result<R> {
     public static <R> Result<R> wrap(R data, boolean failed) {
         Result<R> result = new Result<>();
         result.setCode(0);
-        result.setType(failed ? "success" : "error");
         result.setMessage(failed ? "ok" : "failed");
+        result.setResult(data);
+        return result;
+    }
+
+    public static <R> Result<R> wrap(R data, ResultEnum resultEnum) {
+        Result<R> result = new Result<>();
+        result.setCode(resultEnum.getCode());
+        result.setMessage(resultEnum.getMsg());
         result.setResult(data);
         return result;
     }
 
     public static <R> ResponseEntity<Result<R>> ok(R data) {
         Result<R> result = new Result<>();
-        result.setCode(0);
-        result.setType("success");
-        result.setMessage("ok");
+        result.setCode(1);
+        result.setMessage("success");
         result.setResult(data);
         return new ResponseEntity<Result<R>>(result, OK);
     }
 
     public static <R> ResponseEntity<Result<R>> errBool(R data) {
         Result<R> result = new Result<>();
-        result.setCode(-1);
-        result.setType("error");
+        result.setCode(0);
         result.setMessage("failed");
         result.setResult(data);
         return new ResponseEntity<Result<R>>(result, INTERNAL_SERVER_ERROR);
@@ -80,8 +80,12 @@ public class Result<R> {
         return new ResponseEntity<>(data, INTERNAL_SERVER_ERROR);
     }
 
-    public static <R> ResponseEntity<R> notFound() {
-        return new ResponseEntity<>(NOT_FOUND);
+    public static <R> ResponseEntity<R> notFound(R data) {
+        return new ResponseEntity<>(data, NOT_FOUND);
+    }
+
+    public static <R> ResponseEntity<R> conflict(R data) {
+        return new ResponseEntity<>(data, CONFLICT);
     }
 
     public static <R> ResponseEntity<R> forbidden(R data) {

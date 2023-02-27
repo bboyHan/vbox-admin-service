@@ -10,8 +10,8 @@ import lombok.Data;
 public class RelationRoleMenu {
 
     @TableId(type = IdType.AUTO)
-    private Long id;
-    private Long rid;
-    private Long mid;
+    private Integer id;
+    private Integer rid;
+    private Integer mid;
 
 }

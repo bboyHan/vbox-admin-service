@@ -12,9 +12,9 @@ import java.time.LocalDateTime;
 public class Dept {
 
     @TableId(type = IdType.AUTO)
-    private Long id;
-    private Long pid;
-    private Long orderNo;
+    private Integer id;
+    private Integer pid;
+    private Integer orderNo;
     private String deptName;
     private LocalDateTime createTime;
     private String remark;

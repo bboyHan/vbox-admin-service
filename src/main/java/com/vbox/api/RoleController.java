@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
+@RequestMapping("/api")
 public class RoleController {
 
     @Autowired
@@ -43,7 +44,7 @@ public class RoleController {
     }
 
     @DeleteMapping("/system/role")
-    public ResponseEntity<Result<Integer>> deleteRole(@RequestBody Long id) {
+    public ResponseEntity<Result<Integer>> deleteRole(@RequestBody Integer id) {
         int role1 = 0;
         try {
             role1 = roleService.deleteRole(id);

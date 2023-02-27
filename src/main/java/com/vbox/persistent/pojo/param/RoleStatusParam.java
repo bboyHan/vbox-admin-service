@@ -5,6 +5,6 @@ import lombok.Data;
 @Data
 public class RoleStatusParam {
 
-    private Long id;
+    private Integer id;
     private String status;
 }

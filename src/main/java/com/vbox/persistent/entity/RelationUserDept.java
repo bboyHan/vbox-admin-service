@@ -10,8 +10,8 @@ import lombok.Data;
 public class RelationUserDept {
 
     @TableId(type = IdType.AUTO)
-    private Long id;
-    private Long uid;
-    private Long did;
+    private Integer id;
+    private Integer uid;
+    private Integer did;
 
 }

@@ -41,12 +41,12 @@ public class DeptServiceImpl implements DeptService {
             }
         });
 
-        List<DeptVO> parentList = tmpML.stream().filter(t -> t.getPid().equals(0L)).collect(Collectors.toList());
+        List<DeptVO> parentList = tmpML.stream().filter(t -> t.getPid() == 0).collect(Collectors.toList());
 
         return parentList;
     }
 
-    public List<DeptVO> getChildrenList(Long id, List<DeptVO> list) {
+    public List<DeptVO> getChildrenList(Integer id, List<DeptVO> list) {
         return list.stream().filter(t ->
                 (t.getPid().equals(id))
         ).collect(Collectors.toList());
@@ -57,7 +57,7 @@ public class DeptServiceImpl implements DeptService {
         Dept m = new Dept();
         BeanUtils.copyProperties(deptParam, m);
 
-        Long pid = deptParam.getParentDept();
+        Integer pid = deptParam.getParentDept();
         m.setPid(pid == null ? 0 : pid);
 
         if (m.getId() != null) {
@@ -73,8 +73,14 @@ public class DeptServiceImpl implements DeptService {
     }
 
     @Override
-    public int deleteDept(Long id) {
-        int i = deptMapper.deleteById(id);
-        return i;
+    public int deleteDept(Integer id) throws Exception {
+
+        // 判断子部门是否存在
+        int c = deptMapper.countByPid(id);
+        if (c > 0) {
+            throw new Exception("not allow to del because of sub dept exist!");
+        }
+
+        return deptMapper.deleteById(id);
     }
 }

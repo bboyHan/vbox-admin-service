@@ -12,8 +12,8 @@ import java.time.LocalDateTime;
 public class UserLogin {
 
     @TableId(type = IdType.AUTO)
-    private Long id;
-    private Long uid;
+    private Integer id;
+    private Integer uid;
     private String username;
     private Integer loginType;
     private String captcha;

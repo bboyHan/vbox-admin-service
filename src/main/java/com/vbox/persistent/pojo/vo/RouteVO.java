@@ -8,8 +8,9 @@ import java.util.List;
 @Data
 public class RouteVO {
 
-    private Long id;
-    private Long pid;
+    private Integer id;
+    private Integer pid;
+    private Integer orderNo;
     private String path;
     private String component;
     private String name;

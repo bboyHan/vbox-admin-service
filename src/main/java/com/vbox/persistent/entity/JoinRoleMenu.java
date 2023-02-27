@@ -10,14 +10,14 @@ import java.time.LocalDateTime;
 public class JoinRoleMenu {
 
     @TableId(type = IdType.AUTO)
-    private Long id;
-    private Long orderNo;
+    private Integer id;
+    private Integer orderNo;
     private String roleName;
     private String roleValue;
     private LocalDateTime createTime;
     private String status;
     private String remark;
-    private Long mid;
+    private Integer mid;
     private String menuName;
     private String menuStatus;
     private String menuIcon;

@@ -5,6 +5,7 @@ import com.vbox.common.ResultOfList;
 import com.vbox.persistent.entity.User;
 import com.vbox.persistent.pojo.param.UserLoginParam;
 import com.vbox.persistent.pojo.param.UserCreateOrUpdParam;
+import com.vbox.persistent.pojo.param.UserSubCreateOrUpdParam;
 import com.vbox.persistent.pojo.vo.UserInfoVO;
 import com.vbox.persistent.pojo.vo.UserVO;
 
@@ -16,7 +17,9 @@ public interface UserService extends IService<User> {
 
     int createOrUpdUser(UserCreateOrUpdParam userCreateOrUpdParam) throws Exception;
 
-    int deleteUser(Long id) throws Exception;
+//    int createSubAccount(UserSubCreateOrUpdParam createSubParam) throws Exception;
+
+    int deleteUser(Integer id) throws Exception;
 
     Boolean isAccountExist(String account);
 

@@ -12,8 +12,8 @@ import java.time.LocalDateTime;
 public class Role {
 
     @TableId(type = IdType.AUTO)
-    private Long id;
-    private Long orderNo;
+    private Integer id;
+    private Integer orderNo;
     private String roleName;
     private String roleValue;
     private LocalDateTime createTime;

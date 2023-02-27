@@ -13,7 +13,7 @@ import com.vbox.persistent.pojo.vo.RoleMenuVO;
 import com.vbox.persistent.pojo.vo.RoleVO;
 import com.vbox.persistent.repo.RelationRMMapper;
 import com.vbox.persistent.repo.RoleMapper;
-import com.vbox.service.system.RalationRMService;
+import com.vbox.service.system.RelationRMService;
 import com.vbox.service.system.RoleService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
@@ -32,7 +32,7 @@ public class RoleServiceImpl extends ServiceImpl<RoleMapper, Role> implements Ro
     private RoleMapper roleMapper;
 
     @Autowired
-    private RalationRMService rmService;
+    private RelationRMService rmService;
 
     @Autowired
     private RelationRMMapper rmMapper;
@@ -56,7 +56,7 @@ public class RoleServiceImpl extends ServiceImpl<RoleMapper, Role> implements Ro
         return rl;
     }
 
-    private List<Menu> getMenuListByRole(Long id, List<JoinRoleMenu> rmList) {
+    private List<Menu> getMenuListByRole(Integer id, List<JoinRoleMenu> rmList) {
 
         List<Menu> menus = rmList.stream().filter(u ->
                 (id.equals(u.getId()))
@@ -78,7 +78,7 @@ public class RoleServiceImpl extends ServiceImpl<RoleMapper, Role> implements Ro
             RoleMenuVO rv = new RoleMenuVO();
             BeanUtils.copyProperties(r, rv);
 
-            List<Long> menus = getMenuIdsByRole(r.getId(), rmList);
+            List<Integer> menus = getMenuIdsByRole(r.getId(), rmList);
 
             rv.setMenu(menus);
             return rv;
@@ -89,8 +89,8 @@ public class RoleServiceImpl extends ServiceImpl<RoleMapper, Role> implements Ro
         return rsList;
     }
 
-    private List<Long> getMenuIdsByRole(Long id, List<JoinRoleMenu> rmList) {
-        List<Long> menuIds = rmList.stream().filter(u ->
+    private List<Integer> getMenuIdsByRole(Integer id, List<JoinRoleMenu> rmList) {
+        List<Integer> menuIds = rmList.stream().filter(u ->
                 (id.equals(u.getId()))
         ).map(JoinRoleMenu::getMid).collect(Collectors.toList());
         return menuIds;
@@ -103,7 +103,7 @@ public class RoleServiceImpl extends ServiceImpl<RoleMapper, Role> implements Ro
 
         Role rolePO = new Role();
         BeanUtils.copyProperties(role, rolePO);
-        rolePO.setOrderNo(1L);
+        rolePO.setOrderNo(1);
         rolePO.setCreateTime(LocalDateTime.now());
 
         saveOrUpdate(rolePO);
@@ -114,10 +114,10 @@ public class RoleServiceImpl extends ServiceImpl<RoleMapper, Role> implements Ro
         }
 
         //get id
-        Long rid = rolePO.getId();
+        Integer rid = rolePO.getId();
         List<RelationRoleMenu> rmList = role.getMenu().stream().map(m -> {
             RelationRoleMenu rm = new RelationRoleMenu();
-            rm.setMid(Long.parseLong(m));
+            rm.setMid(Integer.parseInt(m));
             rm.setRid(rid);
             return rm;
         }).collect(Collectors.toList());
@@ -128,7 +128,7 @@ public class RoleServiceImpl extends ServiceImpl<RoleMapper, Role> implements Ro
     }
 
     @Override
-    public int deleteRole(Long id) {
+    public int deleteRole(Integer id) {
 
         //1. del relation
         rmMapper.deleteByRid(id);

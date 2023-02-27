@@ -1,12 +1,15 @@
 package com.vbox.common.enums;
 
+import java.util.Objects;
+
 public enum GenderEnum {
 
     MAN(0, "男"),
     FEMALE(1, "女"),
+    UNKNOWN(-1, "未知"),
     ;
 
-    private final int type;
+    private final Integer type;
     private final String desc;
 
     GenderEnum(int type, String desc) {
@@ -14,7 +17,7 @@ public enum GenderEnum {
         this.desc = desc;
     }
 
-    public int getType() {
+    public Integer getType() {
         return type;
     }
 
@@ -22,12 +25,21 @@ public enum GenderEnum {
         return desc;
     }
 
-    public static String of(int type) {
+    public static String of(Integer type) {
         for (GenderEnum genderEnum : GenderEnum.values()) {
-            if (genderEnum.type == type) {
+            if (Objects.equals(genderEnum.type, type)) {
                 return genderEnum.desc;
             }
         }
-        return null;
+        return UNKNOWN.getDesc();
+    }
+
+    public static Integer valid(Integer type) {
+        for (GenderEnum genderEnum : GenderEnum.values()) {
+            if (Objects.equals(genderEnum.type, type)) {
+                return genderEnum.type;
+            }
+        }
+        return UNKNOWN.getType();
     }
 }

@@ -14,6 +14,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -47,7 +48,9 @@ public class MenuServiceImpl implements MenuService {
             }
         });
 
-        List<MenuVO> parentList = tmpML.stream().filter(t -> t.getPid().equals(0L)).collect(Collectors.toList());
+        List<MenuVO> parentList = tmpML.stream().filter(t -> t.getPid() == 0)
+                .sorted(Comparator.comparing(MenuVO::getOrderNo))
+                .collect(Collectors.toList());
 
         return parentList;
     }
@@ -64,6 +67,7 @@ public class MenuServiceImpl implements MenuService {
             RouteVO route = new RouteVO();
             route.setId(m.getId());
             route.setPid(m.getPid());
+            route.setOrderNo(m.getOrderNo());
             route.setComponent(m.getComponent());
             route.setName(m.getMenuName());
             route.setPath(m.getRoutePath());
@@ -88,7 +92,9 @@ public class MenuServiceImpl implements MenuService {
             t.setChildren(childrenList);
         });
 
-        List<RouteVO> parentList = tmpML.stream().filter(t -> t.getPid().equals(0L)).collect(Collectors.toList());
+        List<RouteVO> parentList = tmpML.stream().filter(t -> t.getPid() == 0)
+                .sorted(Comparator.comparing(RouteVO::getOrderNo))
+                .collect(Collectors.toList());
 
         return parentList;
 
@@ -100,7 +106,7 @@ public class MenuServiceImpl implements MenuService {
         Menu m = new Menu();
         BeanUtils.copyProperties(menuParam, m);
 
-        Long pid = menuParam.getParentMenu();
+        Integer pid = menuParam.getParentMenu();
         m.setPid(pid == null ? 0 : pid);
 
         if (m.getId() != null) {
@@ -115,7 +121,7 @@ public class MenuServiceImpl implements MenuService {
     }
 
     @Override
-    public int deleteMenu(Long id) throws Exception {
+    public int deleteMenu(Integer id) throws Exception {
 
         //1. if child menu exist, not allowed
         boolean isExist = menuMapper.isExistCMenu(id) != null;
@@ -130,11 +136,11 @@ public class MenuServiceImpl implements MenuService {
         return i;
     }
 
-    public List<MenuVO> getChildrenList(Long id, List<MenuVO> list) {
+    public List<MenuVO> getChildrenList(Integer id, List<MenuVO> list) {
         return list.stream().filter(t -> (t.getPid().equals(id))).collect(Collectors.toList());
     }
 
-    public List<RouteVO> getChildrenRList(Long id, List<RouteVO> list) {
+    public List<RouteVO> getChildrenRList(Integer id, List<RouteVO> list) {
         return list.stream().filter(t -> (t.getPid().equals(id))).collect(Collectors.toList());
     }
 }

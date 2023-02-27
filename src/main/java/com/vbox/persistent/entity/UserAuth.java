@@ -12,8 +12,8 @@ import java.time.LocalDateTime;
 public class UserAuth {
 
     @TableId(type = IdType.AUTO)
-    private Long id;
-    private Long uid;
+    private Integer id;
+    private Integer uid;
     private Integer status;
     private String secret;
     private String pub;

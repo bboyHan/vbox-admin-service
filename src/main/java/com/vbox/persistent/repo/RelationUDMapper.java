@@ -8,10 +8,7 @@ import org.apache.ibatis.annotations.Mapper;
 @Mapper
 public interface RelationUDMapper extends BaseMapper<RelationUserDept> {
 
-
-    @Delete("delete from relation_user_dept where did = #{did}")
-    int deleteByDid(Long rid);
-
     @Delete("delete from relation_user_dept where uid = #{uid}")
-    int deleteByUid(Long uid);
+    int deleteByUid(Integer uid);
+
 }

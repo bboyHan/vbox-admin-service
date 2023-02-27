@@ -8,8 +8,8 @@ import java.util.List;
 @Data
 public class RoleParam {
 
-    private Long id;
-    private Long orderNo;
+    private Integer id;
+    private Integer orderNo;
     private String roleName;
     private String roleValue;
     private LocalDateTime createTime;

@@ -10,8 +10,8 @@ public interface RelationRMMapper extends BaseMapper<RelationRoleMenu> {
 
 
     @Delete("delete from relation_role_menu where rid = #{rid}")
-    int deleteByRid(Long rid);
+    int deleteByRid(Integer rid);
 
     @Delete("delete from relation_role_menu where mid = #{mid}")
-    int deleteByMid(Long mid);
+    int deleteByMid(Integer mid);
 }

@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
+@RequestMapping("/api")
 public class DeptController {
 
     @Autowired
@@ -34,13 +35,9 @@ public class DeptController {
     }
 
     @DeleteMapping("/system/dept")
-    public ResponseEntity<Result<Integer>> deleteDept(@RequestBody Long id) {
+    public ResponseEntity<Result<Integer>> deleteDept(@RequestBody Integer id) throws Exception {
         int role1 = 0;
-        try {
-            role1 = deptService.deleteDept(id);
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
+        role1 = deptService.deleteDept(id);
         return Result.ok(role1);
     }
 }

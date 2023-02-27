@@ -9,7 +9,7 @@ import java.util.List;
 @Data
 public class UserVO {
 
-    private Long id;
+    private Integer id;
     private String nickname;
     private String account;
     private String avatar;
