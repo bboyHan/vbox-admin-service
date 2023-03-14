@@ -4,16 +4,17 @@ spring:
   datasource:
     type: com.alibaba.druid.pool.DruidDataSource
     driver-class-name: com.mysql.cj.jdbc.Driver
-#    druid:
-#      url: jdbc:mysql://127.0.0.1:3306/vbox_admin?allowMultiQueries=true&useUnicode=true&characterEncoding=UTF-8&serverTimezone=GMT%2B8
-#      username: root
-#      password: root
+    #    druid:
+    #      url: jdbc:mysql://127.0.0.1:3306/vbox_admin?allowMultiQueries=true&useUnicode=true&characterEncoding=UTF-8&serverTimezone=GMT%2B8
+    #      username: root
+    #      password: root
     druid:
-      url: jdbc:mysql://127.0.0.1:3306/vbox_admin?allowMultiQueries=true&useUnicode=true&characterEncoding=UTF-8&serverTimezone=GMT%2B8
+      url: jdbc:mysql://54.64.162.81:3306/vbox_admin?allowMultiQueries=true&useUnicode=true&characterEncoding=UTF-8&serverTimezone=GMT%2B8
       username: vbox_admin
       password: Vbox123qwe
   redis:
-    host: localhost
+    host: 54.64.162.81
+    #    host: 127.0.0.1
     port: 6379
 #    redisson: classpath:redisson.yml
 

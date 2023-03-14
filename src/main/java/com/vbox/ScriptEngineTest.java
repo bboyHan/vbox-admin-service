@@ -37,7 +37,13 @@ import java.util.regex.Pattern;
  */
 public class ScriptEngineTest {
     public static void main(String[] args) throws Exception {
-//        TreeMap<String, String> map = new TreeMap<>();
+        String property = System.getProperty("user.dir");
+        System.out.println(property + File.separator + "d2.js");
+
+    }
+
+    private static void signTest() throws IllegalAccessException {
+        //        TreeMap<String, String> map = new TreeMap<>();
 //        map.put("a", "b");
 //        map.put("c", "b");
 //        map.put("d", "b");
@@ -71,7 +77,6 @@ public class ScriptEngineTest {
 //                "}";
 //        JSONObject rs = JSONObject.parseObject(ss);
 //        System.out.println(Result.ok(rs));
-
     }
 
     /**

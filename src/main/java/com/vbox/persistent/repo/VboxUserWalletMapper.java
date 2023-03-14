@@ -11,7 +11,14 @@ import java.util.List;
 
 @Mapper
 public interface VboxUserWalletMapper extends BaseMapper<VboxUserWallet> {
-
+    @Select({"<script>SELECT SUM(recharge) FROM vbox_user_wallet WHERE 1=1<if test='sidList != null and sidList.size()!=0 '> AND uid IN <foreach item='item' index='index' collection='sidList' open='(' separator=',' close=')'> #{item}</foreach></if></script>"})
+    Integer getTotalRechargeBySidList(List<Integer> sidList);
+    @Select({"<script>SELECT SUM(cost) FROM vbox_channel_acwallet WHERE caid IN (SELECT id FROM vbox_channel_account WHERE 1=1<if test='sidList != null and sidList.size()!=0 '> AND uid IN <foreach item='item' index='index' collection='sidList' open='(' separator=',' close=')'> #{item}</foreach></if> )</script>"})
+    Integer getTotalCostBySidList(List<Integer> sidList);
+    @Select({"<script>SELECT count(1) FROM vbox_channel_acwallet WHERE caid IN (SELECT id FROM vbox_channel_account WHERE 1=1<if test='sidList != null and sidList.size()!=0 '> AND uid IN <foreach item='item' index='index' collection='sidList' open='(' separator=',' close=')'> #{item}</foreach></if> )</script>"})
+    Integer getTotalCostNumBySidList(List<Integer> sidList);
+    @Select({"<script>SELECT count(1) FROM vbox_pay_order WHERE ac_id IN (SELECT acid FROM vbox_channel_account WHERE 1=1<if test='sidList != null and sidList.size()!=0 '> AND uid IN <foreach item='item' index='index' collection='sidList' open='(' separator=',' close=')'> #{item}</foreach></if> )</script>"})
+    Integer getTotalNumBySidList(List<Integer> sidList);
     @Select("SELECT SUM(recharge) FROM vbox_user_wallet WHERE uid = #{uid}")
     Integer getTotalRechargeByUid(Integer uid);
 

@@ -11,10 +11,7 @@ import com.alibaba.fastjson2.TypeReference;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.vbox.common.Result;
 import com.vbox.common.constant.CommonConstant;
-import com.vbox.common.enums.CodeStatusEnum;
-import com.vbox.common.enums.OrderCallbackEnum;
-import com.vbox.common.enums.OrderStatusEnum;
-import com.vbox.common.enums.ResultEnum;
+import com.vbox.common.enums.*;
 import com.vbox.common.util.CommonUtil;
 import com.vbox.common.util.RedisUtil;
 import com.vbox.config.exception.NotFoundException;
@@ -102,7 +99,7 @@ public class OrderTask {
         }
     }
 
-    @Scheduled(cron = "0/20 * *  * * ? ")   //每 10秒执行一次, 处理成功订单的回调通知
+    @Scheduled(cron = "0/5 * *  * * ? ")   //每 10秒执行一次, 处理成功订单的回调通知
     @Async("scheduleExecutor")
     public void handleCallbackOrder() throws IllegalAccessException {
 
@@ -175,9 +172,14 @@ public class OrderTask {
             vo.setSign(sign);
             HttpResponse resp = null;
             try {
+                String reqBody = JSONObject.toJSONString(vo);
+                log.info("回调请求消息：notify：{}，req body：{}", notify, reqBody);
+                this.redisUtil.pub(String.format("回调请求消息：notify：%s，req body：%s", notify, reqBody));
                 resp = HttpRequest.post(notify)
-                        .body(JSONObject.toJSONString(vo))
+                        .body(reqBody)
                         .execute();
+                log.info("回调返回信息： http status： {}， resp： {}", resp.getStatus(), resp.body());
+                this.redisUtil.pub(String.format("回调返回信息： http status： %s， resp： %s", resp.getStatus(), resp.body()));
                 if (resp.getStatus() == 200) {
                     pOrderMapper.updateCallbackStatusByOId(orderId);
                     redisUtil.setRemove(CommonConstant.ORDER_CALLBACK_QUEUE, orderId);
@@ -223,7 +225,7 @@ public class OrderTask {
                 }
 
                 if (code == 0) { // 未支付则设为超时  3
-                    int row = pOrderMapper.updateOStatusByOId(orderId, OrderStatusEnum.PAY_FAILED.getCode(), CodeStatusEnum.FINISHED.getCode());
+                    int row = pOrderMapper.updateOStatusByOId(orderId, OrderStatusEnum.PAY_TIMEOUT.getCode(), CodeUseStatusEnum.PLATFORM_NOT_PAY.getCode());
                     if (row == 1) {
                         boolean pop = redisUtil.zRemove(CommonConstant.ORDER_DELAY_QUEUE, delayTask);
                         if (pop) {
@@ -232,7 +234,7 @@ public class OrderTask {
                     }
                 }
                 if (code == 2) { // 查询订单已支付  1
-                    int row = pOrderMapper.updateOStatusByOId(orderId, OrderStatusEnum.PAY_FINISHED.getCode(), CodeStatusEnum.FINISHED.getCode());
+                    int row = pOrderMapper.updateOStatusByOId(orderId, OrderStatusEnum.PAY_FINISHED.getCode(), CodeUseStatusEnum.FINISHED.getCode());
                     if (row == 1) {
                         boolean pop = redisUtil.zRemove(CommonConstant.ORDER_DELAY_QUEUE, delayTask);
                         if (pop) {
@@ -253,7 +255,7 @@ public class OrderTask {
         log.info("handleDelayOrder.end");
     }
 
-    @Scheduled(cron = "0 */1 * * * ?")   //每 1min 执行一次, 未支付单子复核
+    @Scheduled(cron = "0/5 * *  * * ? ")   //每 5s 执行一次, 未支付单子复核
     public void handleUnPayOrder() {
 
         List<PayOrder> poList = pOrderMapper.listUnPay();
@@ -263,6 +265,7 @@ public class OrderTask {
         for (PayOrder po : poList) {
             try {
                 String orderId = po.getOrderId();
+                Thread.sleep(120L);
                 // 生产
                 JSONObject resp = payService.queryOrder(orderId);
                 JSONObject data = resp.getJSONObject("data");
@@ -270,7 +273,7 @@ public class OrderTask {
                 //测试
 //                Integer code = 2;
                 if (code == 2) { //未支付的订单，查询平台支付成功了
-                    int row = pOrderMapper.updateOStatusByOId(orderId, OrderStatusEnum.PAY_FINISHED.getCode(), CodeStatusEnum.FINISHED.getCode());
+                    int row = pOrderMapper.updateOStatusByOId(orderId, OrderStatusEnum.PAY_FINISHED.getCode(), CodeUseStatusEnum.FINISHED.getCode());
                     if (row == 1) {
                         // 支付成功后 入库 wallet
                         CAccount ca = cAccountMapper.getCAccountByAcid(po.getAcId());
@@ -280,9 +283,12 @@ public class OrderTask {
                         w.setCost(po.getCost());
                         w.setOid(po.getOrderId());
                         w.setCreateTime(LocalDateTime.now());
-                        int insert = cAccountWalletMapper.insert(w);
-                        log.info("[task check] not pay order, check platform pay finished, into db: {},order info: {}", insert, "data");
-//                        log.info("[task check] not pay order, check platform pay finished, into db: {},order info: {}", insert, data);
+                        try {
+                            cAccountWalletMapper.insert(w);
+                        } catch (Exception var14) {
+                            log.warn("CAccountWallet 已经入库, err: {}", var14.getMessage());
+                        }
+                        log.info("[task check] 自动查单, 查询到该单在平台已支付成功，自动入库并入回调池: orderId - {}， 平台数据：{}", po.getOrderId(), data);
 
                         long rowRedis = redisUtil.sSetAndTime(CommonConstant.ORDER_CALLBACK_QUEUE, 300, orderId);
                         if (rowRedis == 1) {
@@ -297,7 +303,7 @@ public class OrderTask {
                     LocalDateTime orderTime = LocalDateTime.parse(rechargeTime, format);
                     LocalDateTime nowTime = LocalDateTime.now().plusMinutes(-5);
                     if (nowTime.isAfter(orderTime)) { //超5分钟了查到未支付，直接设置为失败单
-                        int row = pOrderMapper.updateOStatusByOId(orderId, OrderStatusEnum.PAY_FAILED.getCode(), CodeStatusEnum.PLATFORM_NOT_PAY.getCode());
+                        int row = pOrderMapper.updateOStatusByOId(orderId, OrderStatusEnum.PAY_TIMEOUT.getCode(), CodeUseStatusEnum.PLATFORM_NOT_PAY.getCode());
                         if (row == 1) {
                             log.info("[task check] not pay order, check platform pay timeout, pay order: {}, platform order info: {}", po, data);
                         }

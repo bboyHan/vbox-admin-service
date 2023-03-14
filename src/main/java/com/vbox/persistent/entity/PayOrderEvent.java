@@ -16,6 +16,7 @@ public class PayOrderEvent {
     private String orderId;
     private String platformOid;
     private String eventLog;
+    private String ext;
 
     private LocalDateTime createTime;
 

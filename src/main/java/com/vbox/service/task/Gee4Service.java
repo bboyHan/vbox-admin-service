@@ -126,10 +126,10 @@ public class Gee4Service {
                 pow_detail = cap.getJSONObject("pow_detail");
                 datetime = pow_detail.getString("datetime");
                 lot_number = cap.getString("lot_number");
-                String captcha_type = cap.getString("captcha_type");
-                if (!captcha_type.equalsIgnoreCase("word")) {
-                    continue;
-                }
+//                String captcha_type = cap.getString("captcha_type");
+//                if (!captcha_type.equalsIgnoreCase("word")) {
+//                    continue;
+//                }
                 analysis = analysis(cap);
                 cptList = analysis.getJSONArray("cptList");
                 log.info("尝试次数 - capRetry : {}", capRetry);
@@ -170,8 +170,12 @@ public class Gee4Service {
         ScriptEngineManager manager = new ScriptEngineManager();
         ScriptEngine engine = manager.getEngineByName("javascript");
 //        File file = ResourceUtils.getFile("classpath:d2.js");
-        ClassPathResource classPathResource = new ClassPathResource("d2.js");
-        InputStream is = classPathResource.getInputStream();
+//        ClassPathResource classPathResource = new ClassPathResource("d2.js");
+//        InputStream is = classPathResource.getInputStream();
+        String property = System.getProperty("user.dir");
+        String filePath = (property + File.separator + "d2.js");
+        File inputFile = new File(filePath);
+        InputStream is = new FileInputStream(inputFile);
         File file = new File("tmp");
         CommonUtil.inputStreamToFile(is, file);
         FileReader reader = new FileReader(file);   // 执行指定脚本
@@ -214,8 +218,12 @@ public class Gee4Service {
         ScriptEngineManager manager = new ScriptEngineManager();
         ScriptEngine engine = manager.getEngineByName("javascript");
 //        File file = ResourceUtils.getFile("classpath:d3.js");
-        ClassPathResource classPathResource = new ClassPathResource("d3.js");
-        InputStream is = classPathResource.getInputStream();
+//        ClassPathResource classPathResource = new ClassPathResource("d3.js");
+//        InputStream is = classPathResource.getInputStream();
+        String property = System.getProperty("user.dir");
+        String filePath = (property + File.separator + "d3.js");
+        File inputFile = new File(filePath);
+        InputStream is = new FileInputStream(inputFile);
         File file = new File("tmp");
         CommonUtil.inputStreamToFile(is, file);
         FileReader reader = new FileReader(file);
@@ -276,7 +284,7 @@ public class Gee4Service {
     public String pre_auth(String jsonp) {
         //https://pf-api.xoyo.com/passport/user_api/get_info?callback=jsonp_e99e7f8206ba80
 
-        String resp = HttpRequest.get("https://pf-api.xoyo.com/passport/common_api/pre_auth?version=v4&api=pay%2Frecharge_api%2Fcreate_order&data%5Brecharge_source%5D=3&data%5Bchannel%5D=alipay_mobile&callback=jsonp_" + jsonp)
+        String resp = HttpRequest.get("https://pf-api.xoyo.com/passport/common_api/pre_auth?version=v4&api=pay%2Frecharge_api%2Fcreate_order&data%5Brecharge_source%5D=9&data%5Bchannel%5D=weixin_mobile&callback=jsonp_" + jsonp)
                 .execute().body();
 //        log.info(resp);
         String json = parseGeeJson(resp);
@@ -294,7 +302,7 @@ public class Gee4Service {
                 .cookie(ck)
                 .execute().body();
 
-        log.info("get_info :{}", resp);
+//        log.info("get_info :{}", resp);
 
         JSONObject obj = JSONObject.parseObject(resp);
         Integer code = obj.getInteger("code");
@@ -308,7 +316,7 @@ public class Gee4Service {
         String last3 = uid.substring(uid.length() - 3);
 
         if (account.contains(pre3) || account.contains(last3)) {
-            log.info("ck is ok, account: {}, uid: {}, resp: {}", account, uid, resp);
+//            log.info("ck is ok, account: {}, uid: {}, resp: {}", account, uid, resp);
             return true;
         }
 
@@ -326,11 +334,11 @@ public class Gee4Service {
         String resp = HttpRequest.get("https://gcaptcha4.geetest.com/load")
                 .form("captcha_id", captchaId)
                 .form("challenge", challenge)
-                .form("client_type", "web")
-                .form("lang", "zh-cn")
+                .form("client_type", "web_mobile")
+                .form("lang", "zho")
                 .form("callback", "geetest_" + time)
                 .execute().body();
-        log.info(resp);
+//        log.info(resp);
         log.debug("callback :{}", "geetest_" + time);
         String s = parseGeeJson(resp);
 
@@ -373,22 +381,39 @@ public class Gee4Service {
         }
 
         if (captcha_type.equalsIgnoreCase("nine")) {
-            throw new UnSupportException("nine type is not support");
-            /*List<byte[]> target = new ArrayList<>();
+//            throw new UnSupportException("nine type is not support");
+            List<String> target = new ArrayList<>();
             for (Object que : ques) {
                 String targetImg = que.toString();
-                File targetFile = downloadFile(targetImg, "D:/image/" + captcha_type + "/target/");
-                target.add(toByteArray(targetFile));
+//                File targetFile = downloadFile(targetImg, "D:/image/" + captcha_type + "/target/");
+                target.add(targetImg.substring(targetImg.lastIndexOf("/") + 1));
             }
-            log.info(" -- captcha_type:{}\n lot_number:{}\n sourceImg:{}\n" +
+            log.debug(" -- captcha_type:{}\n lot_number:{}\n sourceImg:{}\n" +
                             " ques: {}\n payload: {}\n process_token: {}\n "
                     , captcha_type, lot_number, sourceImg, ques, payload, process_token);
 
-            JSONObject nineResp = analysisImgNine(toByteArray(sourceFile), target.get(0));
-            return nineResp;*/
+            JSONObject nineResp = analysisImgNinePy(Base64.encode(sourceFile), target);
+            return nineResp;
         }
 
         return null;
+    }
+
+    private JSONObject analysisImgNinePy(String sourceImg, List<String> targetImgs) {
+        JSONObject data = new JSONObject();
+        data.put("imgs", sourceImg);
+        data.put("ques", targetImgs);
+        String body = data.toString();
+        String resp = HttpRequest.post("http://localhost:9899/captcha/b64").body(body).execute().body();
+        JSONObject obj = JSONObject.parseObject(resp);
+        List<Object> cptList = obj.getJSONArray("comp");
+        long time = System.currentTimeMillis();
+        log.info("time: {}, location: {}", time, cptList);
+        JSONObject res = new JSONObject();
+        res.put("ll", cptList.size());
+        res.put("time", time);
+        res.put("cptList", cptList);
+        return res;
     }
 
     //3. download img
@@ -642,7 +667,8 @@ public class Gee4Service {
     public JSONObject verify(GeeVerifyParam geeVerifyParam) {
         String resp = HttpRequest.get("https://gcaptcha4.geetest.com/verify")
                 .form("captcha_id", geeVerifyParam.getCaptcha_id())
-                .form("client_type", "web")
+//                .form("client_type", "web")
+                .form("client_type", "web_mobile")
                 .form("lot_number", geeVerifyParam.getLot_number())
                 .form("payload", geeVerifyParam.getPayload())
                 .form("process_token", geeVerifyParam.getProcess_token())
@@ -651,7 +677,7 @@ public class Gee4Service {
                 .form("w", geeVerifyParam.getW())
                 .form("callback", "geetest_1674967322656")
                 .execute().body();
-        log.info(resp);
+//        log.info(resp);
         String json = parseGeeJson(resp);
 
         JSONObject obj = JSONObject.parseObject(json);
@@ -694,6 +720,8 @@ public class Gee4Service {
         param.setEncrypt_fields("payload");
         param.setEncrypt_version("v1");
         param.setEncrypt_method("xoyo_combine");
+        param.set__ts__("1678538618837");
+        param.setCallback("__xfe5");
         String jp = JSON.toJSONString(param);
 
         String resp = HttpRequest.get("https://pay-pf-api.xoyo.com/pay/recharge_api/create_order")

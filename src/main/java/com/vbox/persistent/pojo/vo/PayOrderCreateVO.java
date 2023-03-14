@@ -10,4 +10,5 @@ public class PayOrderCreateVO {
     private Integer cost;
     private String payUrl;
     private String attach;
+    private String channelId;
 }

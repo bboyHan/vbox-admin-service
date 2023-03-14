@@ -14,10 +14,11 @@ public class InterceptorConfig implements WebMvcConfigurer {
         String[] excludePath = {
                 "/api/login",
                 "/error",
+                "/api/code/test",
                 "/api/test/test",
                 "/api/test/callback",
                 "/api/code/order/create",
-                "/api/channel/order/**"
+                "/api/channel/order/**",
         }; // 不需要拦截的接口路径
         registry.addInterceptor(authInterceptor)
                 .addPathPatterns(path)

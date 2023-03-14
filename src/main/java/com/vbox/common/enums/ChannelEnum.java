@@ -5,6 +5,8 @@ import java.util.Objects;
 public enum ChannelEnum {
 
     JX3_WEIXIN("jx3_weixin", "剑网3(微信端)"),
+    JX3_JD("jx3_jd", "剑网3(京东端)"),
+    JX3_ALIPAY("jx3_alipay", "剑网3(支付宝端)"),
     UNKNOWN("unknown", "未知"),
     ;
 

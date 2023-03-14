@@ -6193,6 +6193,7 @@ function get_payload(sec_code) {
   var e = {
     // repeat_passport: 'chenzhj1',
     repeat_passport: sec_code.repeat_passport,
+    mobile: sec_code.repeat_passport,
     gateway: sec_code.gateway,
     recharge_type: sec_code.recharge_type,
     recharge_unit: sec_code.recharge_unit,
@@ -6205,7 +6206,8 @@ function get_payload(sec_code) {
     pass_token: sec_code.pass_token,
     gen_time: sec_code.gen_time,
     captcha_output: sec_code.captcha_output,
-    recharge_source: 0,
+    recharge_source: 3,
+    geetest_ctype: 'h5',
   };
 
   var _t = new _cc('1').default.prototype;

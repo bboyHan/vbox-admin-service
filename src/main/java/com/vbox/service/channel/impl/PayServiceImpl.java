@@ -5,9 +5,11 @@ import cn.hutool.core.date.DateUtil;
 import cn.hutool.core.exceptions.ValidateException;
 import cn.hutool.core.util.IdUtil;
 import cn.hutool.core.util.RandomUtil;
+import cn.hutool.core.util.URLUtil;
 import cn.hutool.crypto.SecureUtil;
 import cn.hutool.http.HttpRequest;
 import cn.hutool.http.HttpResponse;
+import cn.hutool.http.HttpUtil;
 import cn.hutool.jwt.JWT;
 import cn.hutool.jwt.signers.JWTSignerUtil;
 import com.alibaba.fastjson2.JSONObject;
@@ -43,12 +45,15 @@ import javax.script.ScriptEngine;
 import javax.script.ScriptEngineManager;
 import javax.script.ScriptException;
 import java.io.*;
+import java.net.URL;
+import java.net.URLDecoder;
 import java.net.URLEncoder;
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.security.KeyPair;
 import java.security.PrivateKey;
 import java.time.LocalDateTime;
 import java.util.*;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 @Service
@@ -90,6 +95,7 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
         //1. p account info
         PAccount pAccount = new PAccount();
         pAccount.setPAccount(IdUtil.fastSimpleUUID());
+        pAccount.setPKey(IdUtil.fastSimpleUUID());
         pAccount.setPRemark(param.getP_remark());
         pAccount.setStatus(param.getStatus());
         pAccount.setCreateTime(LocalDateTime.now());
@@ -110,141 +116,266 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
 
     @Override
     public Object createOrder(OrderCreateParam orderCreateParam) throws Exception {
-
-        // 1. 校验sign
-//        PayerInfo payerLocal = PayerInfoThreadHolder.getPayerInfo();
         String pa = orderCreateParam.getP_account();
-        String sign = orderCreateParam.getSign();
-        PAccount paDB = pAccountMapper.selectOne(new QueryWrapper<PAccount>().eq("p_account", pa));
-        String pKey = paDB.getPKey();
-        orderCreateParam.setSign(null);
-        SortedMap<String, String> map = CommonUtil.objToTreeMap(orderCreateParam);
-
-        String signDB = CommonUtil.encodeSign(map, pKey);
-        if (!signDB.equals(sign)) throw new ValidateException("入参仅限文档包含字段，请核对");
-//        boolean valid = PayerInfo.valid(payerLocal, new PayerInfo(pub, pa));
-//        if (!valid) throw new ValidateException("Token valid");
-
-        // 2. param check
-        String channelId = orderCreateParam.getChannel_id();
-        Channel channel = channelMapper.getChannelByChannelId(channelId);
-        if (channel == null) throw new ValidateException("通道id错误，请重新查询确认");
-        String notify = orderCreateParam.getNotify_url();
-        boolean isUrl = CommonUtil.isUrl(notify);
-        if (!isUrl) throw new ValidateException("notify_url不合法，请检验入参");
-
-        String attach = orderCreateParam.getAttach();
-        if (attach != null && attach.length() > 128) throw new ValidateException("attach不合法，请检验入参");
         String orderId = orderCreateParam.getP_order_id();
-        if (orderId == null || orderId.length() > 32 || orderId.length() < 16)
-            throw new ValidateException("orderId不合法，请检验入参");
-        PayOrder poDB = pOrderMapper.getPOrderByOid(orderId);
-        if (poDB != null) throw new DuplicateKeyException("该订单已创建，请勿重复操作，order id: " + orderId);
-
-        List<CAccountInfo> cAccountList = cAccountMapper.listCanPayForCAccount();
-        if (cAccountList == null || cAccountList.size() == 0) {
-            throw new NotFoundException("系统不可用充值渠道，请联系管理员");
-        }
-
-        String orderKey = "redisLock_order:" + orderId;
-        if (redisUtil.hasKey(orderKey)) {
-            throw new DuplicateKeyException("该订单已创建，请勿重复操作，order id: " + orderId);
-        }
-        redisUtil.set(orderKey, 1, 300);
-        log.info("create order 创建订单: {}, p account: {}", orderId, pa);
-
-        // 3. 根据付方所需金额，列出可充值资源池
+        Channel channel = paramCheckCreateOrder(orderCreateParam);
         Integer reqMoney = orderCreateParam.getMoney();
-
         LocalDateTime nowTime = LocalDateTime.now();
-        String now = DateUtil.format(nowTime, "yyyy-MM-dd");
-        // 拿到所有 channel account
-        List<CAccountInfo> cAccountListToday = cAccountMapper.listCanPayForCAccountToday(now);
-        for (CAccountInfo c : cAccountListToday) {
-            c.setCreateTime(nowTime);
+        CAccountInfo randomACInfo = new CAccountInfo();
+        String account;
+        String now;
+        if (null == orderCreateParam.getAcid()) {
+            List<CAccountInfo> cAccountList = this.cAccountMapper.listCanPayForCAccount();
+            if (cAccountList == null || cAccountList.size() == 0) {
+                throw new NotFoundException("系统不可用充值渠道，请联系管理员");
+            }
+
+            String orderKey = "redisLock_order:" + orderId;
+            if (redisUtil.hasKey(orderKey)) {
+                throw new DuplicateKeyException("该订单已创建，请勿重复操作，order id: " + orderId);
+            }
+
+            this.redisUtil.set(orderKey, 1, 300L);
+            log.info("create order 创建订单: {}, p account: {}", orderId, pa);
+            redisUtil.pub("【商户：" + pa + "】【订单ID：" + orderId + "】正在创建订单....  ");
+            reqMoney = orderCreateParam.getMoney();
+            nowTime = LocalDateTime.now();
+            now = DateUtil.format(nowTime, "yyyy-MM-dd");
+            List<CAccountInfo> cAccountListToday = cAccountMapper.listCanPayForCAccountToday(now);
+            for (CAccountInfo c : cAccountListToday) {
+                c.setCreateTime(nowTime);
+            }
+
+            List<CAccountInfo> randomTemp = this.compute(channel.getId(), now, cAccountList, cAccountListToday);
+            if (randomTemp.size() == 0) {
+                throw new NotFoundException("系统无可用充值账户，请联系管理员");
+            }
+
+            int randomIndex = RandomUtil.randomInt(randomTemp.size());
+            randomACInfo = randomTemp.get(randomIndex);
+        } else {
+            CAccount acDB = cAccountMapper.selectOne((new QueryWrapper<CAccount>()).eq("acid", orderCreateParam.getAcid()));
+            if (acDB.getStatus() != 1 || acDB.getSysStatus() != 1) {
+                throw new ServiceException("该账户未开启后台设置开关，不允许建单");
+            }
+
+            BeanUtils.copyProperties(acDB, randomACInfo);
         }
-
-        // 计算可用
-        List<CAccountInfo> randomTemp = compute(channel.getId(), now, cAccountList, cAccountListToday);
-
-        if (randomTemp.size() == 0) {
-            throw new NotFoundException("系统无可用充值账户，请联系管理员");
-        }
-
-        int randomIndex = RandomUtil.randomInt(randomTemp.size());
-        CAccountInfo randomACInfo = randomTemp.get(randomIndex);
-
 
         PayInfo payInfo = new PayInfo();
-        CGatewayInfo cgi = cGatewayMapper.getGateWayInfoByCIdAndGId(randomACInfo.getCid(), randomACInfo.getGid());
-        payInfo.setChannel(cgi.getCChannel());
-        payInfo.setRepeat_passport(randomACInfo.getAcAccount());
+        CGatewayInfo cgi = this.cGatewayMapper.getGateWayInfoByCIdAndGId(randomACInfo.getCid(), randomACInfo.getGid());
+//        payInfo.setChannel(cgi.getCChannel());
+        payInfo.setChannel("weixin_mobile");
+        account = randomACInfo.getAcAccount();
+        payInfo.setRepeat_passport(account);
         payInfo.setGame(cgi.getCGame());
         payInfo.setGateway(cgi.getCGateway());
         payInfo.setRecharge_unit(reqMoney);
         payInfo.setRecharge_type(6);
-        payInfo.setCk(randomACInfo.getCk());
+        String acPwd = randomACInfo.getAcPwd();
+        String cookie = this.getCK(account, Base64.decodeStr(acPwd));
+        boolean expire = this.gee4Service.tokenCheck(cookie, account);
+        if (!expire) {
+            //TODO
+            redisUtil.del("account:ck:" + account);
+            cookie = this.getCK(account, Base64.decodeStr(acPwd));
+            expire = this.gee4Service.tokenCheck(cookie, account);
+            if (!expire) {
+                throw new NotFoundException("ck问题，请联系管理员");
+            }
+        }
 
+        payInfo.setCk(cookie);
+        redisUtil.pub("【商户：" + pa + "】【订单ID：" + orderId + "】正在创建订单.... ck 校验成功  ");
+        log.info("【商户：" + pa + "】【订单ID：" + orderId + "】正在创建订单.... ck 校验成功  ");
         JSONObject orderResp = gee4Service.createOrder(payInfo);
-        if (orderResp == null || orderResp.get("data") == null) {
+        if (orderResp != null && orderResp.get("data") != null) {
+            if (orderResp.getInteger("code") != 1) {
+                throw new ServiceException(orderResp.toString());
+            } else {
+                JSONObject data = orderResp.getJSONObject("data");
+                String platform_oid = data.getString("vouch_code");
+                String resource_url = data.getString("resource_url");
+
+                String payUrl = handelPayUrl(data, resource_url);
+                String acId = randomACInfo.getAcid();
+                String cChannelId = cgi.getCChannelId();
+                PayOrder payOrder = new PayOrder();
+                payOrder.setOrderId(orderId);
+                payOrder.setPAccount(pa);
+                payOrder.setCost(reqMoney);
+                payOrder.setAcId(acId);
+                payOrder.setPlatformOid(platform_oid);
+                payOrder.setCChannelId(cChannelId);
+                String h5Url = "http://mng.vboxjjjxxx.info/#/code/pay?orderId=" + orderId;
+                payOrder.setResourceUrl(payUrl);
+                payOrder.setNotifyUrl(orderCreateParam.getNotify_url());
+                payOrder.setOrderStatus(OrderStatusEnum.NO_PAY.getCode());
+                payOrder.setCallbackStatus(OrderCallbackEnum.NOT_CALLBACK.getCode());
+                payOrder.setCodeUseStatus(CodeUseStatusEnum.FINISHED.getCode());
+                payOrder.setCreateTime(nowTime);
+                pOrderMapper.insert(payOrder);
+
+                PayOrderEvent event = new PayOrderEvent();
+                event.setOrderId(orderId);
+                event.setEventLog(data.toJSONString());
+                event.setPlatformOid(platform_oid);
+                event.setCreateTime(nowTime);
+                if ("weixin_mobile".equalsIgnoreCase(data.getString("channel"))) {
+                    URL url = URLUtil.url(resource_url);
+                    Map<String, String> stringMap = HttpUtil.decodeParamMap(url.getQuery(), null);
+                    String redirect_url = URLDecoder.decode(stringMap.get("redirect_url"), "utf-8");
+                    stringMap.put("redirect_url", redirect_url);
+                    Map<String, Object> objectObjectSortedMap = new HashMap<>(stringMap);
+                    HttpResponse execute = HttpRequest.post("https://wx.tenpay.com/cgi-bin/mmpayweb-bin/checkmweb")
+                            .form(objectObjectSortedMap)
+                            .contentType("application/x-www-form-urlencoded")
+                            .header("X-Requested-With", "com.seasun.gamemgr")
+                            .header("Origin", "https://m.xoyo.com")
+                            .header("Referer", "https://m.xoyo.com")
+                            .header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7")
+                            .execute();
+                    String body = execute.body();
+                    event.setExt(body);
+                }
+                pOrderEventMapper.insert(event);
+
+                DelayTask<PayOrder> delayTask = new DelayTask();
+                delayTask.setId(IdUtil.randomUUID());
+                delayTask.setTaskName("order_delay_" + platform_oid);
+                delayTask.setTask(payOrder);
+                boolean delaySetting = redisUtil.zAdd("order_delay_queue", delayTask, 300000L);
+                if (delaySetting) {
+                    log.info("delay info: {}, expire time: {}", delayTask, 20000);
+                }
+
+                PayOrderCreateVO p = new PayOrderCreateVO();
+                p.setPayUrl(h5Url);
+                p.setOrderId(orderId);
+                p.setCost(reqMoney);
+                p.setAttach(orderCreateParam.getAttach());
+                p.setStatus(2);
+                p.setChannelId(orderCreateParam.getChannel_id());
+                redisUtil.pub("【商户：" + pa + "】【订单ID：" + orderId + "】创建订单完成.... 付款链接: " + h5Url);
+                log.info("【商户：" + pa + "】【订单ID：" + orderId + "】创建订单完成.... 付款链接: " + h5Url);
+                return p;
+            }
+        } else {
             log.error("create order error, resp -> {}", orderResp);
             throw new ServiceException("订单创建失败，请联系管理员");
         }
-        if (orderResp.getInteger("code") != 1) {
-            throw new ServiceException(orderResp.toString());
-        }
-        // --- 入库
+    }
 
-        JSONObject data = orderResp.getJSONObject("data");
-        String platform_oid = data.getString("vouch_code");
-        String resource_url = data.getString("resource_url");
+    private String handelPayUrl(JSONObject data, String resource_url) throws UnsupportedEncodingException {
+        String payUrl = "";
+        if ("wyzxpoto".equalsIgnoreCase(data.getString("channel"))) {
+            URL url = URLUtil.url(resource_url);
+            Map<String, String> stringMap = HttpUtil.decodeParamMap(url.getQuery(), StandardCharsets.UTF_8);
+            Map<String, Object> objectObjectSortedMap = new HashMap(stringMap);
+            HttpResponse execute = HttpRequest.post("https://wepay.jd.com/jdpay/saveOrder").setFollowRedirects(false).form(objectObjectSortedMap).execute();
+            String location = execute.header("Location");
+            log.info("location: {}", location);
+            URL redirect = URLUtil.url("http://127.0.0.1" + location);
+            Map<String, String> rMap = HttpUtil.decodeParamMap(redirect.getQuery(), Charset.defaultCharset());
+            String tradeNum = rMap.get("tradeNum");
+            String key = rMap.get("key");
+            String ourTradeNum = rMap.get("ourTradeNum");
+            String jdPay = "https://wepay.jd.com/jdpay/payIndex?tradeNum=" + tradeNum + "&orderId=" + ourTradeNum + "&key=" + key;
+            log.info("jd pay url: {}", jdPay);
+            if (tradeNum == null) {
+                jdPay = "https://wepay.jd.com/jdpay/login?key=" + key;
+            }
 
-        String acId = randomACInfo.getAcid();
-        String cChannelId = cgi.getCChannelId();
-
-        PayOrder payOrder = new PayOrder();
-        payOrder.setOrderId(orderId);
-        payOrder.setPAccount(pa);
-        payOrder.setCost(reqMoney);
-        payOrder.setAcId(acId);
-        payOrder.setPlatformOid(platform_oid);
-        payOrder.setCChannelId(cChannelId);
-        String h5Url = "http://mng.vboxjjjxxx.info/#/code/pay?payUrl=" + Base64.encode(resource_url);
-
-        payOrder.setResourceUrl(h5Url);
-        payOrder.setNotifyUrl(notify);
-        payOrder.setOrderStatus(OrderStatusEnum.NO_PAY.getCode());
-        payOrder.setCallbackStatus(OrderCallbackEnum.NOT_CALLBACK.getCode());
-        payOrder.setCreateTime(nowTime);
-        pOrderMapper.insert(payOrder);
-
-        PayOrderEvent event = new PayOrderEvent();
-        event.setOrderId(orderId);
-        event.setEventLog(data.toJSONString());
-        event.setPlatformOid(platform_oid);
-        event.setCreateTime(nowTime);
-        pOrderEventMapper.insert(event);
-
-        DelayTask<PayOrder> delayTask = new DelayTask<>();
-        delayTask.setId(IdUtil.randomUUID());
-        delayTask.setTaskName("order_delay_" + platform_oid);
-        delayTask.setTask(payOrder);
-
-        // 5min 后未支付，设置超时
-        boolean delaySetting = redisUtil.zAdd(CommonConstant.ORDER_DELAY_QUEUE, delayTask, 300000); //1000ms
-        if (delaySetting) {
-            log.info("delay info: {}, expire time: {}", delayTask, 20000);
+            log.info(" 修正 后 pay url: {}", jdPay);
+            payUrl = jdPay;
         }
 
-        PayOrderCreateVO p = new PayOrderCreateVO();
-        p.setPayUrl(h5Url);
-        p.setOrderId(orderId);
-        p.setCost(reqMoney);
-        p.setAttach(attach);
-        p.setStatus(2);
+        if ("alipay_qr".equalsIgnoreCase(data.getString("channel"))) {
+            payUrl = resource_url;
+        }
 
-        return p;
+        if ("weixin".equalsIgnoreCase(data.getString("channel"))) {
+            payUrl = resource_url;
+        }
+        if ("weixin_mobile".equalsIgnoreCase(data.getString("channel"))) {
+//            URL url = URLUtil.url(resource_url);
+//            Map<String, String> stringMap = HttpUtil.decodeParamMap(url.getQuery(), null);
+//            String redirect_url = URLDecoder.decode(stringMap.get("redirect_url"), "utf-8");
+//            stringMap.put("redirect_url", redirect_url);
+//            Map<String, Object> objectObjectSortedMap = new HashMap(stringMap);
+//            HttpResponse execute = HttpRequest.post("https://wx.tenpay.com/cgi-bin/mmpayweb-bin/checkmweb")
+//                    .form(objectObjectSortedMap)
+//                    .contentType("application/x-www-form-urlencoded")
+//                    .header("X-Requested-With", "com.seasun.gamemgr")
+//                    .header("Origin", "https://m.xoyo.com")
+//                    .header("Referer", "https://m.xoyo.com")
+//                    .header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7")
+//                    .execute();
+//            String body = execute.body();
+            payUrl = resource_url;
+        }else {
+            payUrl = resource_url;
+        }
 
+        return payUrl;
+    }
+
+    public Channel paramCheckCreateOrder(OrderCreateParam orderCreateParam) throws IllegalAccessException {
+        String pa = orderCreateParam.getP_account();
+        String sign = orderCreateParam.getSign();
+        PAccount paDB = pAccountMapper.selectOne((new QueryWrapper<PAccount>()).eq("p_account", pa));
+        String pKey = paDB.getPKey();
+        orderCreateParam.setSign((String)null);
+        SortedMap<String, String> map = CommonUtil.objToTreeMap(orderCreateParam);
+        String signDB = CommonUtil.encodeSign(map, pKey);
+        if (!signDB.equals(sign)) {
+            throw new ValidateException("入参仅限文档包含字段，请核对");
+        } else {
+            String channelId = orderCreateParam.getChannel_id();
+            Channel channel = channelMapper.getChannelByChannelId(channelId);
+            if (channel == null) {
+                throw new ValidateException("通道id错误，请重新查询确认");
+            } else {
+                String notify = orderCreateParam.getNotify_url();
+                boolean isUrl = CommonUtil.isUrl(notify);
+                if (!isUrl) {
+                    throw new ValidateException("notify_url不合法，请检验入参");
+                } else {
+                    String attach = orderCreateParam.getAttach();
+                    if (attach != null && attach.length() > 128) {
+                        throw new ValidateException("attach不合法，请检验入参");
+                    } else {
+                        String orderId = orderCreateParam.getP_order_id();
+                        if (orderId != null && orderId.length() <= 32 && orderId.length() >= 16) {
+                            PayOrder poDB = pOrderMapper.getPOrderByOid(orderId);
+                            if (poDB != null) {
+                                throw new DuplicateKeyException("该订单已创建，请勿重复操作，order id: " + orderId);
+                            } else {
+                                return channel;
+                            }
+                        } else {
+                            throw new ValidateException("orderId不合法，请检验入参");
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    @Override
+    public Object createTestOrder(Integer num, String acid, String channel) throws Exception {
+        OrderCreateParam orderCreateParam = new OrderCreateParam();
+        String orderId = IdUtil.simpleUUID();
+        orderCreateParam.setP_order_id(orderId);
+        orderCreateParam.setMoney(num);
+        orderCreateParam.setNotify_url("http://mng.vboxjjjxxx.info/basic-api/test/callback");
+        orderCreateParam.setChannel_id(channel);
+        orderCreateParam.setAcid(acid);
+        orderCreateParam.setP_account("e191aa33c9a74416b6ae6aa66d7195f1");
+        SortedMap<String, String> map = CommonUtil.objToTreeMap(orderCreateParam);
+        String sign = CommonUtil.encodeSign(map, "00b79aa26d6f412984c8926300427e39");
+        orderCreateParam.setSign(sign);
+        return createOrder(orderCreateParam);
     }
 
 //    @Override
@@ -639,8 +770,8 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
 
         Integer payStatus = callbackParam.getPay_status();
         if (payStatus == 0 || payStatus == 3) { //告知 支付失败 或者 超时
-            log.warn("[notify] call back to me pay failed, order info: {}", po);
-            pOrderMapper.updateStatusByOIdWhenCall(orderId, payStatus, CodeStatusEnum.FAILED.getCode());
+            log.warn("[notify] call back to me pay failed,支付失败的订单不允许回调通知商户, order info: {}", po);
+            pOrderMapper.updateStatusByOIdWhenCall(orderId, payStatus, CodeUseStatusEnum.FAILED.getCode());
         }
         if (payStatus == 1) {
             Object order = redisUtil.sGetOne(orderId);
@@ -705,12 +836,86 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
         PayOrder po = pOrderMapper.getPOrderByOid(orderId);
         if (po == null) throw new NotFoundException("订单不存在");
 
+        JSONObject data = null;
+        CAccountWallet wallet = cAccountWalletMapper.selectOne(new QueryWrapper<CAccountWallet>().eq("oid", orderId));
+        Integer code;
+        JSONObject resp;
+        if (wallet != null) {
+            code = 2;
+            log.info("商户查单时发现该订单已支付入库, info: {}", wallet);
+        } else {
+            resp = this.queryOrder(orderId);
+            data = resp.getJSONObject("data");
+            code = data.getInteger("order_status");
+        }
+
+        if (po.getOrderStatus() == 3) {
+            resp = this.queryOrder(orderId);
+            data = resp.getJSONObject("data");
+            code = data.getInteger("order_status");
+            if (code == 2) {
+                this.pOrderMapper.updateOStatusByOId(orderId, OrderStatusEnum.PAY_FINISHED.getCode(), CodeUseStatusEnum.FINISHED.getCode());
+            }
+        }
+
+        if (code == 2 && wallet != null && po.getCallbackStatus() == 2) {
+            String notify = po.getNotifyUrl();
+            PayNotifyVO vo = new PayNotifyVO();
+            vo.setOrder_id(orderId);
+            vo.setStatus(1);
+            vo.setCost(po.getCost());
+            String account = po.getPAccount();
+            vo.setP_account(account);
+            String signNew = CommonUtil.encodeSign(CommonUtil.objToTreeMap(vo), paDB.getPKey());
+            vo.setSign(signNew);
+            HttpResponse execute = null;
+
+            try {
+                String reqBody = JSONObject.toJSONString(vo);
+                log.info("商户查单回调请求消息：notify：{}，req body：{}", notify, reqBody);
+                execute = HttpRequest.post(notify).body(reqBody).execute();
+                log.info("商户查单回调返回信息： http status： {}， resp： {}", execute.getStatus(), execute.body());
+                if (execute.getStatus() == 200) {
+                    this.pOrderMapper.updateCallbackStatusByOId(orderId);
+                    this.redisUtil.setRemove("order_callback_queue", orderId);
+                    log.info("该订单已回调成功，通知url：{}，orderID：{}", notify, orderId);
+                }
+            } catch (Exception var19) {
+                log.error("商户查单回调失败，notify: {}, resp: {}, err: {}", notify, execute, var19);
+            }
+        }
+
+        if (code == 2 && wallet == null) {
+            int row = this.pOrderMapper.updateOStatusByOId(orderId, OrderStatusEnum.PAY_FINISHED.getCode(), CodeUseStatusEnum.FINISHED.getCode());
+            if (row == 1) {
+                CAccount ca = this.cAccountMapper.getCAccountByAcid(po.getAcId());
+                CAccountWallet w = new CAccountWallet();
+                w.setCaid(ca.getId());
+                w.setCost(po.getCost());
+                w.setOid(po.getOrderId());
+                w.setCreateTime(LocalDateTime.now());
+
+                try {
+                    this.cAccountWalletMapper.insert(w);
+                } catch (Exception var18) {
+                    log.warn("CAccountWallet已经入库， err: {}", var18.getMessage());
+                }
+
+                log.info("商戶主动查单, 查询到该单在平台已支付成功，自动入库并入回调池: orderId - {}， 平台数据：{}", po.getOrderId(), data);
+                long rowRedis = this.redisUtil.sSet("order_callback_queue", orderId);
+                if (rowRedis == 1L) {
+                    log.info("商戶主动查单, 查询未支付订单已完成支付，入回调通知池， 订单ID: {}", orderId);
+                }
+            }
+        }
+
+        PayOrder pov = this.pOrderMapper.getPOrderByOid(orderId);
         OrderQueryVO vo = new OrderQueryVO();
-        vo.setStatus(po.getOrderStatus());
-        vo.setPayUrl(po.getResourceUrl());
-        vo.setCost(po.getCost());
-        vo.setOrderId(po.getOrderId());
-        vo.setNotifyUrl(po.getNotifyUrl());
+        vo.setStatus(pov.getOrderStatus());
+        vo.setPayUrl(pov.getResourceUrl());
+        vo.setCost(pov.getCost());
+        vo.setOrderId(pov.getOrderId());
+        vo.setNotifyUrl(pov.getNotifyUrl());
         return vo;
     }
 
@@ -763,8 +968,12 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
         ScriptEngineManager manager = new ScriptEngineManager();
         ScriptEngine engine = manager.getEngineByName("javascript");
 //        File file = ResourceUtils.getFile("classpath:d4.js");
-        ClassPathResource classPathResource = new ClassPathResource("d4.js");
-        InputStream is = classPathResource.getInputStream();
+//        ClassPathResource classPathResource = new ClassPathResource("d4.js");
+//        InputStream is = classPathResource.getInputStream();
+        String property = System.getProperty("user.dir");
+        String filePath = (property + File.separator + "d4.js");
+        File inputFile = new File(filePath);
+        InputStream is = new FileInputStream(inputFile);
         File file = new File("tmp");
         CommonUtil.inputStreamToFile(is, file);
         FileReader reader = new FileReader(file);   // 执行指定脚本
@@ -798,7 +1007,6 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
                 cookie = resp.headerList("Set-Cookie").get(0);
 
                 JSONObject obj = JSONObject.parseObject(jsonResp);
-                JSONObject data = obj.getJSONObject("data");
 //                System.out.println(obj);
 //                System.out.println(data);
             }
@@ -823,32 +1031,130 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
         PayNotifyVO payNotifyVO = new PayNotifyVO();
         payNotifyVO.setOrder_id(payOrder.getOrderId());
         payNotifyVO.setCost(payOrder.getCost());
-        payNotifyVO.setStatus(payOrder.getOrderStatus());
+        payNotifyVO.setStatus(1);
         payNotifyVO.setP_account(pa);
         String sign = CommonUtil.encodeSign(CommonUtil.objToTreeMap(payNotifyVO), pKey);
         payNotifyVO.setSign(sign);
 
-        String body = HttpRequest.post(payOrder.getNotifyUrl())
-                .body(JSONObject.toJSONString(payNotifyVO))
-                .execute().body();
+        String reqBody = JSONObject.toJSONString(payNotifyVO);
+        log.info("测试回调商户, 回调请求消息：notify：{}，req body：{}", payOrder.getNotifyUrl(), reqBody);
+        HttpResponse resp = HttpRequest.post(payOrder.getNotifyUrl())
+                .body(reqBody)
+                .execute();
 
         pOrderMapper.updateCallbackStatusByOId(orderId);
 
-        log.info("测试回调商户，商户返回信息： {} ", body);
-        return body;
+        log.info("测试回调商户，商户返回信息： http status： {}， resp： {}", resp.getStatus(), resp.body());
+        return resp.body();
     }
 
     @Override
-    public PayOrderCreateVO orderQuery(String payStr) {
-        PayOrder payOrder = pOrderMapper.selectOne(new QueryWrapper<PayOrder>().eq("resource_url",
-                "http://mng.vboxjjjxxx.info/#/code/pay?payUrl=" +payStr));
+    public PayOrderCreateVO orderQuery(String orderId) {
+        PayOrder payOrder = this.pOrderMapper.getPOrderByOid(orderId);
         if (payOrder == null) throw new NotFoundException("订单不存在，请联系商家核对");
         PayOrderCreateVO payOrderCreateVO = new PayOrderCreateVO();
         payOrderCreateVO.setPayUrl(payOrder.getResourceUrl());
         payOrderCreateVO.setCost(payOrder.getCost());
         payOrderCreateVO.setStatus(payOrder.getOrderStatus());
         payOrderCreateVO.setOrderId(payOrder.getOrderId());
+        payOrderCreateVO.setChannelId(payOrder.getCChannelId());
         return payOrderCreateVO;
+    }
+
+    public OrderQueryVO queryAndCallback(String orderId) throws Exception {
+        PayOrder po = pOrderMapper.getPOrderByOid(orderId);
+        if (po == null) {
+            throw new NotFoundException("订单不存在，请核对");
+        } else {
+            PAccount paDB = pAccountMapper.selectOne(new QueryWrapper<PAccount>().eq("p_account", po.getPAccount()));
+            JSONObject data = null;
+            CAccountWallet wallet = cAccountWalletMapper.selectOne((new QueryWrapper<CAccountWallet>()).eq("oid", orderId));
+            Integer code;
+            JSONObject resp;
+            if (wallet != null) {
+                code = 2;
+                log.info("手动查单时发现该订单已支付入库, info: {}", wallet);
+            } else {
+                resp = this.queryOrder(orderId);
+                data = resp.getJSONObject("data");
+                code = data.getInteger("order_status");
+            }
+
+            if (po.getOrderStatus() == 3) {
+                resp = this.queryOrder(orderId);
+                data = resp.getJSONObject("data");
+                code = data.getInteger("order_status");
+                if (code == 2) {
+                    this.pOrderMapper.updateOStatusByOId(orderId, OrderStatusEnum.PAY_FINISHED.getCode(), CodeUseStatusEnum.FINISHED.getCode());
+                }
+            }
+
+            if (code == 2 && wallet != null) {
+                String notify = po.getNotifyUrl();
+                PayNotifyVO vo = new PayNotifyVO();
+                vo.setOrder_id(orderId);
+                vo.setStatus(po.getOrderStatus());
+                vo.setCost(po.getCost());
+                String account = po.getPAccount();
+                vo.setP_account(account);
+                String signNew = CommonUtil.encodeSign(CommonUtil.objToTreeMap(vo), paDB.getPKey());
+                vo.setSign(signNew);
+                HttpResponse execute = null;
+
+                try {
+                    String reqBody = JSONObject.toJSONString(vo);
+                    log.info("手动回调请求消息：notify：{}，req body：{}", notify, reqBody);
+                    execute = HttpRequest.post(notify).body(reqBody).execute();
+                    log.info("手动回调返回信息： http status： {}， resp： {}", execute.getStatus(), execute.body());
+                    if (execute.getStatus() == 200) {
+                        this.pOrderMapper.updateCallbackStatusByOId(orderId);
+                        this.redisUtil.setRemove("order_callback_queue", orderId);
+                        log.info("该订单已回调成功，通知url：{}，orderID：{}", notify, orderId);
+                    }
+                } catch (Exception var14) {
+                    log.error("手动回调失败，notify: {}, resp: {}, err: {}", notify, execute, var14);
+                }
+            }
+
+            if (code == 2 && wallet == null) {
+                int row = this.pOrderMapper.updateOStatusByOId(orderId, OrderStatusEnum.PAY_FINISHED.getCode(), CodeUseStatusEnum.FINISHED.getCode());
+                if (row == 1) {
+                    CAccount ca = this.cAccountMapper.getCAccountByAcid(po.getAcId());
+                    CAccountWallet w = new CAccountWallet();
+                    w.setCaid(ca.getId());
+                    w.setCost(po.getCost());
+                    w.setOid(po.getOrderId());
+                    w.setCreateTime(LocalDateTime.now());
+
+                    try {
+                        this.cAccountWalletMapper.insert(w);
+                    } catch (Exception var13) {
+                        log.warn("已经入库了，{}", var13.getMessage());
+                    }
+
+                    log.info("系统手动查单, 查询到该单在平台已支付成功，自动入库并入回调池: orderId - {}， 平台数据：{}", po.getOrderId(), data);
+                    long rowRedis = this.redisUtil.sSet("order_callback_queue", orderId);
+                    if (rowRedis == 1L) {
+                        log.info("商戶主动查单, 查询未支付订单已完成支付，入回调通知池， 订单ID: {}", orderId);
+                    }
+                }
+            }
+
+            PayOrder pov = this.pOrderMapper.getPOrderByOid(orderId);
+            OrderQueryVO vo = new OrderQueryVO();
+            vo.setStatus(pov.getOrderStatus());
+            vo.setPayUrl(pov.getResourceUrl());
+            vo.setCost(pov.getCost());
+            vo.setOrderId(pov.getOrderId());
+            vo.setNotifyUrl(pov.getNotifyUrl());
+            return vo;
+        }
+    }
+
+    @Override
+    public String orderWxHtml(String orderId) {
+        PayOrderEvent event = pOrderEventMapper.getPOrderEventByOid(orderId);
+        return event.getExt();
     }
 
     @NotNull

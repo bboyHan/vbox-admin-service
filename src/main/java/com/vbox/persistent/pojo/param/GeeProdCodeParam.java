@@ -10,4 +10,6 @@ public class GeeProdCodeParam {
     private String encrypt_method;
     private String encrypt_fields;
     private String encrypt_version;
+    private String __ts__;
+    private String callback;
 }

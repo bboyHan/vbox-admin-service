@@ -28,6 +28,13 @@ public class PayController {
 
     @Autowired
     private PayService payService;
+    @Autowired
+    private PAccountMapper pAccountMapper;
+    @Autowired
+    private POrderMapper pOrderMapper;
+    @Autowired
+    private RedisTemplate redisTemplate;
+    public boolean customerThread = false;
 
     @PostMapping("/channel/pac")
     public ResponseEntity<Result<Integer>> createPAccount(@RequestBody PAccountParam pAccountParam) {
@@ -128,25 +135,9 @@ public class PayController {
         return Result.ok(rl);
     }
 
-    @Autowired
-    private PAccountMapper pAccountMapper;
-    @Autowired
-    private POrderMapper pOrderMapper;
-
     @GetMapping("/channel/order/create/test/{num}")
-    public ResponseEntity<Result<Object>> orderTest(@PathVariable Integer num) throws Exception {
-        OrderCreateParam orderCreateParam = new OrderCreateParam();
-        orderCreateParam.setP_order_id(IdUtil.simpleUUID());
-        orderCreateParam.setMoney(num);
-        orderCreateParam.setNotify_url("http://127.0.0.1:8080/api/test/callback");
-        orderCreateParam.setChannel_id("jx3_weixin");
-        orderCreateParam.setP_account("e191aa33c9a74416b6ae6aa66d7195f1");
-
-        SortedMap<String, String> map = CommonUtil.objToTreeMap(orderCreateParam);
-        String sign = CommonUtil.encodeSign(map, "00b79aa26d6f412984c8926300427e39");
-        orderCreateParam.setSign(sign);
-
-        Object rl = payService.createOrder(orderCreateParam);
+    public ResponseEntity<Result<Object>> orderTest(@PathVariable Integer num, String acid, String channel) throws Exception {
+        Object rl = payService.createTestOrder(num, acid, channel);
         return Result.ok(rl);
     }
 
@@ -157,15 +148,23 @@ public class PayController {
         return Result.ok(body);
     }
 
-    @GetMapping("/channel/order/code/{payStr}")
-    public ResponseEntity<Result<Object>> orderQuery(@PathVariable String payStr) throws Exception {
-        PayOrderCreateVO body = payService.orderQuery(payStr);
+    @GetMapping({"/channel/order/queryAndCallback/{orderId}"})
+    public ResponseEntity<Result<Object>> queryAndCallback(@PathVariable String orderId) throws Exception {
+        OrderQueryVO rs = payService.queryAndCallback(orderId);
+        return Result.ok(rs);
+    }
+
+    @GetMapping("/channel/order/code/{orderId}")
+    public ResponseEntity<Result<Object>> orderQuery(@PathVariable String orderId) throws Exception {
+        PayOrderCreateVO body = payService.orderQuery(orderId);
         return Result.ok(body);
     }
 
-    @Autowired
-    private RedisTemplate redisTemplate;
-    public boolean customerThread = false;
+    @GetMapping("/channel/order/code/wx/{orderId}")
+    public ResponseEntity<Result<Object>> orderWxHtml(@PathVariable String orderId) throws Exception {
+        String body = payService.orderWxHtml(orderId);
+        return Result.ok(body);
+    }
 
     @GetMapping("/channel/order/task")
     public Object createDelayTasks() {

@@ -19,6 +19,17 @@ public class RedisUtil {
         this.redisTemplate = redisTemplate;
     }
     //=============================common============================
+    public void pub(Object msg) {
+        try {
+            this.redisTemplate.convertAndSend("vbox_order:message", msg.toString());
+        } catch (Exception var3) {
+            System.out.println("redis 发布消息 err" + var3.getMessage());
+        }
+
+    }
+
+    public void sub() {
+    }
 
     /**
      * 指定缓存失效时间

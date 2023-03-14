@@ -9,6 +9,8 @@ import java.util.List;
 
 @Mapper
 public interface CAccountMapper extends BaseMapper<CAccount> {
+    @Select({"<script>SELECT * FROM vbox_channel_account WHERE 1=1<if test='sidList != null and sidList.size()!=0 '> AND uid IN <foreach item='item' index='index' collection='sidList' open='(' separator=',' close=')'> #{item}</foreach></if></script>"})
+    List<CAccount> listSaleInUids(@Param("sidList") List<Integer> sidList);
 
     @Select("<script>" +
             "SELECT * FROM vbox_channel_account WHERE 1=1" +
@@ -20,6 +22,11 @@ public interface CAccountMapper extends BaseMapper<CAccount> {
             "</if>" +
             "</script>")
     List<CAccount> listACInUids(@Param("sidList") List<Integer> sidList);
+
+    @Select({"select count(1) from vbox_channel_account where uid = #{uid}"})
+    Integer countByUid(Integer uid);
+    @Select({"select count(1) from vbox_channel_account where uid = #{uid} and status = 1"})
+    Integer countACEnableByUid(Integer uid);
 
     @Select("<script>" +
             "SELECT acid FROM vbox_channel_account WHERE 1=1" +

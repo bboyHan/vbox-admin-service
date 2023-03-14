@@ -1,15 +1,26 @@
 package com.vbox.config;
 
 import com.vbox.common.util.RedisUtil;
+import com.vbox.service.websocket.RedisListener;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.listener.ChannelTopic;
+import org.springframework.data.redis.listener.RedisMessageListenerContainer;
 import org.springframework.data.redis.serializer.GenericJackson2JsonRedisSerializer;
 import org.springframework.data.redis.serializer.StringRedisSerializer;
 
 @Configuration
 public class RedisConfig {
+
+    @Bean
+    RedisMessageListenerContainer redisMessageListenerContainer(RedisConnectionFactory redisConnectionFactory, RedisListener redisListener) {
+        RedisMessageListenerContainer redisMessageListenerContainer = new RedisMessageListenerContainer();
+        redisMessageListenerContainer.setConnectionFactory(redisConnectionFactory);
+        redisMessageListenerContainer.addMessageListener(redisListener, new ChannelTopic("vbox_order:message"));
+        return redisMessageListenerContainer;
+    }
     /**
      * 实例化 RedisTemplate 对象
      * 提供给 RedisUtil 使用

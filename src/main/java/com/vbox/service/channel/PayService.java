@@ -19,7 +19,8 @@ public interface PayService extends IService<PAccount> {
     int createPAccount(PAccountParam param);
 
     Object createOrder(OrderCreateParam orderCreateParam) throws Exception;
-//    Object createAsyncOrder(OrderCreateParam orderCreateParam) throws Exception;
+
+    Object createTestOrder(Integer num, String acid, String channel) throws Exception;
 
     OrderQueryVO queryOrderToP(OrderCreateParam orderCreateParam) throws Exception;
 
@@ -42,4 +43,8 @@ public interface PayService extends IService<PAccount> {
     String testOrderCallback(String orderId) throws IllegalAccessException;
 
     PayOrderCreateVO orderQuery(String orderId);
+
+    OrderQueryVO queryAndCallback(String orderId) throws Exception;
+
+    String orderWxHtml(String orderId);
 }

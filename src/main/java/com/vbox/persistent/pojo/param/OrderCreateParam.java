@@ -13,7 +13,7 @@ public class OrderCreateParam {
     private Integer money; //充值金额
     private String notify_url; //回调付方地址
     private String channel_id; //通道id
-
+    private String acid;
     private String attach;
     private String pay_ip;
     private Integer pay_type; //支付类型
