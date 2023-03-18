@@ -6,10 +6,12 @@ import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.JSONObject;
 import com.vbox.common.Result;
 import com.vbox.common.util.CommonUtil;
+import com.vbox.common.util.ProxyUtil;
 import com.vbox.persistent.pojo.param.GeeProdCodeParam;
 import com.vbox.persistent.pojo.param.OrderCreateParam;
 import jdk.nashorn.api.scripting.ScriptObjectMirror;
 import jodd.util.StringUtil;
+import org.lionsoul.ip2region.xdb.Searcher;
 import org.redisson.Redisson;
 import org.redisson.api.RLock;
 import org.redisson.api.RedissonClient;
@@ -37,9 +39,60 @@ import java.util.regex.Pattern;
  */
 public class ScriptEngineTest {
     public static void main(String[] args) throws Exception {
-        String property = System.getProperty("user.dir");
-        System.out.println(property + File.separator + "d2.js");
+//        String body = HttpRequest.get("https://mobile.huashengdaili.com/servers.php?session=U216f946c0315205246--3b78a97ba1bd30781f9e769942c562b8&time=1&count=1&type=text&only=1&pw=no&protocol=http&ip_type=direct&province=" + 610000)
+//        String body = HttpRequest.get("http://opendata.baidu.com/api.php?query=117.136.12.79&co=&resource_id=6006&oe=utf8")
+//                .setHttpProxy("119.96.108.78", 10249)
+//                .basicProxyAuth("wj0217", "123123")
+//                .header("Content-type", "application/json")
+//                .execute().body();
+//        System.out.println(body);
+//        String[] split = body.split(":");
+//        int port = Integer.parseInt(split[1].trim());
+//        String ipAddr = split[0];
+//        System.out.println(body);
+//        System.out.println(ipAddr + port );
+        String location = ProxyUtil.ip2region("183.247.221.119");
+        System.out.println(location);
+        String[] split = location.split("\\|");
+        System.out.println(split[2]);
+//        String body = HttpRequest.get("http://api.wandoudl.com/api/ip?app_key=335df332a886cbaf27698df5f42ff936&pack=228272&num=1&xy=1&type=1&lb=\\r\\n&nr=99&area_id=210400").execute().body();
+//        System.out.println(body);
+    }
 
+    private static void ip() {
+        String property = System.getProperty("user.dir");
+        String dbPath = (property + File.separator + "ip2region.xdb");
+        System.out.println(dbPath);
+//        String dbPath = "ip2region.xdb";
+
+        // 1、从 dbPath 加载整个 xdb 到内存。
+        byte[] cBuff;
+        try {
+            cBuff = Searcher.loadContentFromFile(dbPath);
+        } catch (Exception e) {
+            System.out.printf("failed to load content from `%s`: %s\n", dbPath, e);
+            return;
+        }
+
+        // 2、使用上述的 cBuff 创建一个完全基于内存的查询对象。
+        Searcher searcher;
+        try {
+            searcher = Searcher.newWithBuffer(cBuff);
+        } catch (Exception e) {
+            System.out.printf("failed to create content cached searcher: %s\n", e);
+            return;
+        }
+
+        // 3、查询
+        try {
+            String ip = "122.18.92.145";
+            long sTime = System.nanoTime();
+            String region = searcher.search(ip);
+            long cost = TimeUnit.NANOSECONDS.toMicros((long) (System.nanoTime() - sTime));
+            System.out.printf("{region: %s, ioCount: %d, took: %d μs}\n", region, searcher.getIOCount(), cost);
+        } catch (Exception e) {
+//            System.out.printf("failed to search(%s): %s\n", ip, e);
+        }
     }
 
     private static void signTest() throws IllegalAccessException {

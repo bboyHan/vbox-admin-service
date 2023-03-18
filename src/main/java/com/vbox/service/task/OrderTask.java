@@ -40,7 +40,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
 
-@Component
+//@Component
 @Slf4j
 public class OrderTask {
 
@@ -219,7 +219,7 @@ public class OrderTask {
                     code = 2;
                     log.info("handleDelayOrder c account waller is already to DB, info: {}", wallet);
                 } else {
-                    JSONObject resp = payService.queryOrder(orderId);
+                    JSONObject resp = payService.queryOrderForQuery(orderId);
                     JSONObject data = resp.getJSONObject("data");
                     code = data.getInteger("order_status");
                 }
@@ -267,7 +267,7 @@ public class OrderTask {
                 String orderId = po.getOrderId();
                 Thread.sleep(120L);
                 // 生产
-                JSONObject resp = payService.queryOrder(orderId);
+                JSONObject resp = payService.queryOrderForQuery(orderId);
                 JSONObject data = resp.getJSONObject("data");
                 Integer code = data.getInteger("order_status");
                 //测试

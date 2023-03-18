@@ -2,6 +2,8 @@ package com.vbox.common.util;
 
 import com.alibaba.fastjson2.JSON;
 import jodd.util.StringUtil;
+import org.lionsoul.ip2region.xdb.Searcher;
+import org.springframework.util.StringUtils;
 
 import java.io.*;
 import java.lang.reflect.Field;
@@ -9,10 +11,54 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.security.MessageDigest;
 import java.util.*;
+import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class CommonUtil {
+
+    /**
+     * ip查询
+     */
+    public static String ip2region(String ip) {
+        if (!StringUtils.hasLength(ip)) {
+            System.out.println("未传入ip，跳过");
+            return null;
+        }
+        String property = System.getProperty("user.dir");
+        String dbPath = (property + File.separator + "ip2region.xdb");
+//        System.out.println(dbPath);
+//        String dbPath = "ip2region.xdb";
+
+        // 1、从 dbPath 加载整个 xdb 到内存。
+        byte[] cBuff = new byte[8096];
+        try {
+            cBuff = Searcher.loadContentFromFile(dbPath);
+        } catch (Exception e) {
+            System.out.printf("failed to load content from `%s`: %s\n", dbPath, e);
+        }
+
+        // 2、使用上述的 cBuff 创建一个完全基于内存的查询对象。
+        Searcher searcher = null;
+        try {
+            searcher = Searcher.newWithBuffer(cBuff);
+        } catch (Exception e) {
+            System.out.printf("failed to create content cached searcher: %s\n", e);
+        }
+
+        // 3、查询
+        try {
+            long sTime = System.nanoTime();
+            String region = searcher.search(ip);
+            long cost = TimeUnit.NANOSECONDS.toMicros((long) (System.nanoTime() - sTime));
+            System.out.printf("{region: %s, ioCount: %d, took: %d μs}\n", region, searcher.getIOCount(), cost);
+            return region;
+        } catch (Exception e) {
+            System.out.printf("failed to search(%s): %s\n", ip, e);
+        }
+        return null;
+    }
+
     public static boolean isUrl(String url) {
         if (url == null) {
             return false;

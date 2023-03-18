@@ -6190,25 +6190,43 @@ function get_payload(sec_code) {
     'Lp6yiXsy04GbnqVozugbmr6BpIGQa/Fy+t0crT3KV4clQ9pnwQjexcFV3WMiaVEu\n' +
     'VjoJCZI6SaKbAhktywIDAQAB\n' +
     '-----END PUBLIC KEY-----\n';
-  var e = {
-    // repeat_passport: 'chenzhj1',
-    repeat_passport: sec_code.repeat_passport,
-    // mobile: sec_code.repeat_passport,
-    gateway: sec_code.gateway,
-    recharge_type: sec_code.recharge_type,
-    recharge_unit: sec_code.recharge_unit,
-    custom_recharge_unit: 1,
-    game: sec_code.game,
-    channel: sec_code.channel,
-    recharge_num: 1,
-    captcha_id: sec_code.captcha_id,
-    lot_number: sec_code.lot_number,
-    pass_token: sec_code.pass_token,
-    gen_time: sec_code.gen_time,
-    captcha_output: sec_code.captcha_output,
-    recharge_source: 3,
-    geetest_ctype: 'h5',
-  };
+  var e = {};
+  if(sec_code.channel == 'weixin_mobile') {
+    e = {
+        repeat_passport: sec_code.repeat_passport,
+        gateway: sec_code.gateway,
+        recharge_type: sec_code.recharge_type,
+        recharge_unit: sec_code.recharge_unit,
+        custom_recharge_unit: 1,
+        game: sec_code.game,
+        channel: sec_code.channel,
+        recharge_num: 1,
+        captcha_id: sec_code.captcha_id,
+        lot_number: sec_code.lot_number,
+        pass_token: sec_code.pass_token,
+        gen_time: sec_code.gen_time,
+        captcha_output: sec_code.captcha_output,
+        recharge_source: 3,
+        geetest_ctype: 'h5',
+      };
+  }else {
+    e = {
+        repeat_passport: sec_code.repeat_passport,
+        gateway: sec_code.gateway,
+        recharge_type: sec_code.recharge_type,
+        recharge_unit: sec_code.recharge_unit,
+        custom_recharge_unit: 1,
+        game: sec_code.game,
+        channel: sec_code.channel,
+        recharge_num: 1,
+        captcha_id: sec_code.captcha_id,
+        lot_number: sec_code.lot_number,
+        pass_token: sec_code.pass_token,
+        gen_time: sec_code.gen_time,
+        captcha_output: sec_code.captcha_output,
+        recharge_source: 0,
+    };
+  }
 
   var _t = new _cc('1').default.prototype;
   var payload = _t.getCombineText(e);

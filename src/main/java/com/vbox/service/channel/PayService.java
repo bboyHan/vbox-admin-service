@@ -18,13 +18,15 @@ public interface PayService extends IService<PAccount> {
 
     int createPAccount(PAccountParam param);
 
-    Object createOrder(OrderCreateParam orderCreateParam) throws Exception;
+    Object createOrder(OrderCreateParam orderCreateParam, String area, String pr) throws Exception;
 
-    Object createTestOrder(Integer num, String acid, String channel) throws Exception;
+    Object createTestOrder(Integer num, String acid, String channel, String area, String pr, String payIp) throws Exception;
 
     OrderQueryVO queryOrderToP(OrderCreateParam orderCreateParam) throws Exception;
 
     JSONObject queryOrder(String orderId) throws Exception;
+
+    JSONObject queryOrderForQuery(String orderId) throws Exception;
 
     ResultOfList<List<PAccountVO>> listPAccount() throws Exception;
 

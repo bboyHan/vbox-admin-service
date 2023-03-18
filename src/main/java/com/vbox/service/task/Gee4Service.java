@@ -8,8 +8,10 @@ import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
 import com.vbox.common.constant.CommonConstant;
 import com.vbox.common.util.CommonUtil;
+import com.vbox.common.util.RedisUtil;
 import com.vbox.config.exception.ServiceException;
 import com.vbox.config.exception.UnSupportException;
+import com.vbox.config.local.ProxyInfoThreadHolder;
 import com.vbox.persistent.pojo.dto.PayInfo;
 import com.vbox.persistent.pojo.dto.SecCode;
 import com.vbox.persistent.pojo.param.GeeProdCodeParam;
@@ -17,10 +19,12 @@ import com.vbox.persistent.pojo.param.GeeVerifyParam;
 import com.vbox.persistent.pojo.param.VOrderQueryParam;
 import jdk.nashorn.api.scripting.ScriptObjectMirror;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Service;
 import org.springframework.util.ResourceUtils;
 
+import javax.net.ssl.HostnameVerifier;
 import javax.script.Invocable;
 import javax.script.ScriptEngine;
 import javax.script.ScriptEngineManager;
@@ -83,6 +87,11 @@ public class Gee4Service {
 
     public SecCode capSecCode() throws Exception {
         SecCode secCode = verifyGeeCap();
+        return secCode;
+    }
+
+    public SecCode capSecCodeForQuery() throws Exception {
+        SecCode secCode = verifyGeeCapForQuery();
         return secCode;
     }
 
@@ -159,6 +168,64 @@ public class Gee4Service {
         verifyParam.setLot_number(lot_number);
         verifyParam.setCaptcha_id(captchaId);
         JSONObject verify = verify(verifyParam);
+
+        JSONObject verifyData = verify.getJSONObject("data");
+        SecCode secCode = verifyData.getObject("seccode", SecCode.class);
+        secCode.setCaptcha_id(captchaId);
+        return secCode;
+    }
+
+    public SecCode verifyGeeCapForQuery() throws Exception {
+        String captchaId = null;
+        JSONObject pow_detail;
+        String datetime = null;
+        String lot_number = null;
+        JSONObject analysis;
+        JSONObject cap = null;
+        JSONArray cptList = null;
+
+        int capRetry = 0;
+        for (int i = 0; i < 10; i++) {
+            try {
+                capRetry++;
+                cap = capForQuery();
+                captchaId = cap.getString("captcha_id");
+                pow_detail = cap.getJSONObject("pow_detail");
+                datetime = pow_detail.getString("datetime");
+                lot_number = cap.getString("lot_number");
+//                String captcha_type = cap.getString("captcha_type");
+//                if (!captcha_type.equalsIgnoreCase("word")) {
+//                    continue;
+//                }
+                analysis = analysis(cap);
+                cptList = analysis.getJSONArray("cptList");
+                log.info("尝试次数 - capRetry : {}", capRetry);
+                if (cptList.size() != 3) {
+                    log.warn("word analysis error: {}", cptList);
+                    continue;
+                }
+                if (capRetry > 10) {
+                    throw new ServiceException("平台验证未通过（请尝试重试请求）");
+                }
+                break;
+            } catch (UnSupportException e) {
+                if (capRetry > 10) {
+                    throw new ServiceException("平台验证未通过（请尝试重试请求）");
+                }
+            }
+        }
+        if (lot_number == null || cptList == null || datetime == null)
+            throw new ServiceException("平台验证未通过（请尝试重试请求）");
+
+        String w = getW(lot_number, cptList, datetime);
+        GeeVerifyParam verifyParam = new GeeVerifyParam();
+        verifyParam.setW(w);
+        verifyParam.setPayload(cap.getString("payload"));
+        verifyParam.setProcess_token(cap.getString("process_token"));
+        verifyParam.setCallback("geetest_" + System.currentTimeMillis());
+        verifyParam.setLot_number(lot_number);
+        verifyParam.setCaptcha_id(captchaId);
+        JSONObject verify = verifyForQuery(verifyParam);
 
         JSONObject verifyData = verify.getJSONObject("data");
         SecCode secCode = verifyData.getObject("seccode", SecCode.class);
@@ -280,13 +347,40 @@ public class Gee4Service {
 //                .execute().body();
     }
 
+    public JSONObject capForQuery() throws IOException {
+
+        String jsonp = "1ed6f2d396f3230";
+        String captchaId = pre_authForQuery(jsonp);
+        log.debug("{}", captchaId);
+
+        JSONObject data = loadCaptchaForQuery(captchaId);
+        data.put("captcha_id", captchaId);
+
+        return data;
+    }
+
     // 1. pre auth
     public String pre_auth(String jsonp) {
         //https://pf-api.xoyo.com/passport/user_api/get_info?callback=jsonp_e99e7f8206ba80
 
         String resp = HttpRequest.get("https://pf-api.xoyo.com/passport/common_api/pre_auth?version=v4&api=pay%2Frecharge_api%2Fcreate_order&data%5Brecharge_source%5D=9&data%5Bchannel%5D=weixin_mobile&callback=jsonp_" + jsonp)
+                .setHttpProxy(ProxyInfoThreadHolder.getIpAddr(), ProxyInfoThreadHolder.getPort())
                 .execute().body();
 //        log.info(resp);
+        String json = parseGeeJson(resp);
+
+        JSONObject obj = JSONObject.parseObject(json);
+        JSONObject data = obj.getJSONObject("data");
+        JSONObject config = data.getJSONObject("config");
+        String captchaId = config.getString("captchaId");
+        return captchaId;
+    }
+
+    // 1. pre auth
+    public String pre_authForQuery(String jsonp) {
+
+        String resp = HttpRequest.get("https://pf-api.xoyo.com/passport/common_api/pre_auth?version=v4&api=pay%2Frecharge_api%2Fcreate_order&data%5Brecharge_source%5D=9&data%5Bchannel%5D=weixin_mobile&callback=jsonp_" + jsonp)
+                .execute().body();
         String json = parseGeeJson(resp);
 
         JSONObject obj = JSONObject.parseObject(json);
@@ -302,7 +396,7 @@ public class Gee4Service {
                 .cookie(ck)
                 .execute().body();
 
-//        log.info("get_info :{}", resp);
+        log.info("get_info :{}", resp);
 
         JSONObject obj = JSONObject.parseObject(resp);
         Integer code = obj.getInteger("code");
@@ -325,6 +419,31 @@ public class Gee4Service {
 
     //2. load captcha
     public JSONObject loadCaptcha(String captchaId) throws IOException {
+        String time = System.currentTimeMillis() + "";
+
+        //https://gcaptcha4.geetest.com/load?captcha_id=a7c9ab026dc4366066e4aaad573dce02&challenge=a9464f15-30ac-44a2-8fe6-07e456ebfbb8&client_type=web&lang=zh-cn&callback=geetest_1674011720194
+
+        String challenge = IdUtil.randomUUID();
+
+        String resp = HttpRequest.get("https://gcaptcha4.geetest.com/load")
+                .setHttpProxy(ProxyInfoThreadHolder.getIpAddr(), ProxyInfoThreadHolder.getPort())
+                .form("captcha_id", captchaId)
+                .form("challenge", challenge)
+                .form("client_type", "web_mobile")
+                .form("lang", "zho")
+                .form("callback", "geetest_" + time)
+                .execute().body();
+//        log.info(resp);
+        log.debug("callback :{}", "geetest_" + time);
+        String s = parseGeeJson(resp);
+
+        JSONObject obj = JSONObject.parseObject(s);
+        JSONObject data = obj.getJSONObject("data");
+
+        return data;
+    }
+
+    public JSONObject loadCaptchaForQuery(String captchaId) throws IOException {
         String time = System.currentTimeMillis() + "";
 
         //https://gcaptcha4.geetest.com/load?captcha_id=a7c9ab026dc4366066e4aaad573dce02&challenge=a9464f15-30ac-44a2-8fe6-07e456ebfbb8&client_type=web&lang=zh-cn&callback=geetest_1674011720194
@@ -666,6 +785,7 @@ public class Gee4Service {
     //5. verify
     public JSONObject verify(GeeVerifyParam geeVerifyParam) {
         String resp = HttpRequest.get("https://gcaptcha4.geetest.com/verify")
+                .setHttpProxy(ProxyInfoThreadHolder.getIpAddr(), ProxyInfoThreadHolder.getPort())
                 .form("captcha_id", geeVerifyParam.getCaptcha_id())
 //                .form("client_type", "web")
                 .form("client_type", "web_mobile")
@@ -682,6 +802,26 @@ public class Gee4Service {
 
         JSONObject obj = JSONObject.parseObject(json);
         JSONObject data = obj.getJSONObject("data");
+        return obj;
+    }
+
+    public JSONObject verifyForQuery(GeeVerifyParam geeVerifyParam) {
+        String resp = HttpRequest.get("https://gcaptcha4.geetest.com/verify")
+                .form("captcha_id", geeVerifyParam.getCaptcha_id())
+//                .form("client_type", "web")
+                .form("client_type", "web_mobile")
+                .form("lot_number", geeVerifyParam.getLot_number())
+                .form("payload", geeVerifyParam.getPayload())
+                .form("process_token", geeVerifyParam.getProcess_token())
+                .form("payload_protocol", "1")
+                .form("pt", "1")
+                .form("w", geeVerifyParam.getW())
+                .form("callback", "geetest_1674967322656")
+                .execute().body();
+//        log.info(resp);
+        String json = parseGeeJson(resp);
+
+        JSONObject obj = JSONObject.parseObject(json);
         return obj;
     }
 
@@ -723,8 +863,20 @@ public class Gee4Service {
         param.set__ts__("1678538618837");
         param.setCallback("__xfe5");
         String jp = JSON.toJSONString(param);
-
+//        String body = HttpRequest.get("http://api.xydaili.net:2022/Tools/IP.ashx?action=GetAPI&OrderNumber=f376afa86d3642bcbbc85a03897e431e&area=610400&split=json&protocol=1&qty=1")
+//                .execute().body();
+//        log.info(body);
+//        JSONObject jsonObject = JSONObject.parseObject(body);
+//        JSONArray data = jsonObject.getJSONArray("data");
+//        JSONObject o = data.getJSONObject(0);
+//        String ipAddr = o.getString("ip");
+//        Integer port = o.getInteger("port");
+//        String body = HttpRequest.get("http://1.14.96.183:8005/server?num=1&Ackey=1h1cf17").execute().body();
+//        String[] split = body.split(":");
+//        int port = Integer.parseInt(split[1]);
         String resp = HttpRequest.get("https://pay-pf-api.xoyo.com/pay/recharge_api/create_order")
+//                .setHttpProxy(ipAddr, port)
+                .setHttpProxy(ProxyInfoThreadHolder.getIpAddr(), ProxyInfoThreadHolder.getPort())
                 .body(jp)
                 .cookie(param.getToken())
                 .execute().body();

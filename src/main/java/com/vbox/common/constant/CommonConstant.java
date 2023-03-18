@@ -6,4 +6,9 @@ public interface CommonConstant {
     String ORDER_CALLBACK_QUEUE = "order_callback_queue";
 
     String ACCOUNT_CK = "account:ck:";
+
+
+//    String ENV_HOST = "http://47.94.207.53:9099";
+    String ENV_HOST = "http://mng.vboxjjjxxx.info";
+//    String ENV_HOST = "http://47.94.207.53";
 }

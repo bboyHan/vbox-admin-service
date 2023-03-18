@@ -3,15 +3,18 @@ package com.vbox.service.channel.impl;
 import cn.hutool.core.codec.Base64;
 import cn.hutool.core.date.DateUtil;
 import cn.hutool.core.exceptions.ValidateException;
+import cn.hutool.core.net.Ipv4Util;
 import cn.hutool.core.util.IdUtil;
 import cn.hutool.core.util.RandomUtil;
 import cn.hutool.core.util.URLUtil;
 import cn.hutool.crypto.SecureUtil;
+import cn.hutool.http.HttpException;
 import cn.hutool.http.HttpRequest;
 import cn.hutool.http.HttpResponse;
 import cn.hutool.http.HttpUtil;
 import cn.hutool.jwt.JWT;
 import cn.hutool.jwt.signers.JWTSignerUtil;
+import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
@@ -23,6 +26,7 @@ import com.vbox.common.util.RedisUtil;
 import com.vbox.config.exception.NotFoundException;
 import com.vbox.config.exception.ServiceException;
 import com.vbox.config.local.PayerInfoThreadHolder;
+import com.vbox.config.local.ProxyInfoThreadHolder;
 import com.vbox.config.local.TokenInfoThreadHolder;
 import com.vbox.persistent.entity.*;
 import com.vbox.persistent.pojo.dto.*;
@@ -39,6 +43,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 
 import javax.script.Invocable;
 import javax.script.ScriptEngine;
@@ -88,6 +93,8 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
     private CAccountWalletMapper cAccountWalletMapper;
     @Autowired
     private VboxUserWalletMapper vboxUserWalletMapper;
+    @Autowired
+    private LocationMapper locationMapper;
 
     @Override
     public int createPAccount(PAccountParam param) {
@@ -113,12 +120,145 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
         return 0;
     }
 
+    public void addProxy(String area, String payIp, String pr) {
+//        String body = HttpRequest.get("http://1.14.96.183:8005/server?num=1&Ackey=1h1cf17").execute().body();
+//        String body = HttpRequest.get("http://1.14.96.183:8005/server?num=1&Ackey=1h3495e").execute().body();
+//        String body = HttpRequest.get("http://api.shenlongip.com/ip?key=tmocdhlc&sign=bdad24bb1b322eebc34be6c35e9c63c7&count=1&area=" + area).execute().body();
+//        String body = HttpRequest.get("http://api.shenlongip.com/ip?key=6sbdqwj2&sign=bdad24bb1b322eebc34be6c35e9c63c7&count=1&area=" + area).execute().body();
+//        String[] split = body.split(":");
+//        int port = Integer.parseInt(split[1].trim());
+//        String ipAddr = split[0];
+        log.info("传入: area - {},pay ip - {}, pr - {}", area, payIp, pr);
+
+        String ipAddr = null;
+        String ripAddr = null;
+        int port = 0;
+        if ((payIp == null || "".equals(payIp)) && pr == null) {
+//            String body = HttpRequest.get("http://api.shenlongip.com/ip?key=f1wwoih7&sign=94f84cf83d512b135be2a82f9028d353&mr=1&protocol=2&count=1&rip=1&pattern=json").execute().body();
+            String body = HttpRequest.get("http://api.shenlongip.com/ip?key=ah3yw232&sign=bdad24bb1b322eebc34be6c35e9c63c7&mr=1&protocol=2&count=1&rip=1&pattern=json&area=" + area).execute().body();
+
+            JSONObject resp = JSONObject.parseObject(body);
+            JSONArray list = resp.getJSONArray("data");
+            JSONObject data = list.getJSONObject(0);
+            ipAddr = data.getString("ip");
+            ripAddr = data.getString("rip");
+            port = data.getInteger("port");
+
+            ProxyInfo proxyInfo = new ProxyInfo();
+            proxyInfo.setPort(port);
+            proxyInfo.setIpAddr(ipAddr);
+
+            ProxyInfoThreadHolder.addProxy(proxyInfo);
+            CommonUtil.ip2region(ipAddr);
+            CommonUtil.ip2region(ripAddr);
+            return;
+        }
+        if (StringUtils.hasLength(payIp)) {
+            String location = CommonUtil.ip2region(payIp);
+            if (location == null) {
+                throw new ServiceException("传入ip有误，请确认是否为正确Ipv4地址");
+            }
+            log.info("当前传入ip，查询location为 : {}", location);
+            String[] split = location.split("\\|");
+
+            String region = split[2];
+            Location loc = locationMapper.regionSearch(region);
+            if (loc != null) {
+                area = loc.getArea();
+                log.info("从库里取出, area : {} ,loc : {}", area, loc);
+            }
+        }
+        if (pr == null || "shenlong".equals(pr)) {
+            try {
+                String body = null;
+                if (StringUtils.hasLength(area)) {
+//                    body = HttpRequest.get("http://api.shenlongip.com/ip?key=f1wwoih7&sign=94f84cf83d512b135be2a82f9028d353&mr=1&protocol=2&count=1&rip=1&pattern=json&area=" + area).execute().body();
+                    body = HttpRequest.get("http://api.shenlongip.com/ip?key=ah3yw232&sign=bdad24bb1b322eebc34be6c35e9c63c7&mr=1&protocol=2&count=1&rip=1&pattern=json&area=" + area).execute().body();
+                } else {
+//                    body = HttpRequest.get("http://api.shenlongip.com/ip?key=f1wwoih7&sign=94f84cf83d512b135be2a82f9028d353&mr=1&protocol=2&count=1&rip=1&pattern=json").execute().body();
+                    body = HttpRequest.get("http://api.shenlongip.com/ip?key=ah3yw232&sign=bdad24bb1b322eebc34be6c35e9c63c7&mr=1&protocol=2&count=1&rip=1&pattern=json&area=" + area).execute().body();
+                }
+
+                log.info("shenlong - {}", body);
+                JSONObject resp = JSONObject.parseObject(body);
+                JSONArray list = resp.getJSONArray("data");
+                JSONObject data = list.getJSONObject(0);
+                ipAddr = data.getString("ip");
+                ripAddr = data.getString("rip");
+                port = data.getInteger("port");
+            } catch (Exception e) {
+                log.error(e.getMessage());
+//                String body = HttpRequest.get("http://api.shenlongip.com/ip?key=f1wwoih7&sign=94f84cf83d512b135be2a82f9028d353&mr=1&protocol=2&count=1&rip=1&pattern=json").execute().body();
+                String body = HttpRequest.get("http://api.shenlongip.com/ip?key=ah3yw232&sign=bdad24bb1b322eebc34be6c35e9c63c7&mr=1&protocol=2&count=1&rip=1&pattern=json&area=" + area).execute().body();
+
+                log.info("shenlong - 正常取没取到，二次取 - {}", body);
+                JSONObject resp = JSONObject.parseObject(body);
+                JSONArray list = resp.getJSONArray("data");
+                JSONObject data = list.getJSONObject(0);
+                ipAddr = data.getString("ip");
+                ripAddr = data.getString("rip");
+                port = data.getInteger("port");
+            }
+        } else if ("huasheng".equals(pr)) {
+            String body = HttpRequest.get("https://mobile.huashengdaili.com/servers.php?session=U216f946c0315205246--3b78a97ba1bd30781f9e769942c562b8&time=1&count=1&type=text&only=1&pw=no&protocol=http&ip_type=direct&province=" + area)
+                    .execute().body().trim();
+            log.info("huasheng - {}", body);
+            String[] split = body.split(":");
+            port = Integer.parseInt(split[1]);
+            ipAddr = split[0];
+        } else if ("zhima".equals(pr)) {
+            String body = HttpRequest.get("http://http.tiqu.letecs.com/getip3?num=1&type=1&city=0&yys=0&port=11&time=1&ts=0&ys=0&cs=0&lb=1&sb=0&pb=45&mr=2&regions=&gm=4&pro=" + area)
+                    .execute().body().trim();
+            log.info("zhima - {}", body);
+            String[] split = body.split(":");
+            port = Integer.parseInt(split[1]);
+            ipAddr = split[0];
+        } else if ("woniu".equals(pr)) {
+            String body = HttpRequest.get("https://www.biuhttp.com/api/get/ips?order_id=d1ac61790bea8f274f5197a6582fcaa9&num=1&proxy_type=http&format=txt&city=&split=2&duplicate=24&province=" + area)
+                    .execute().body().trim();
+            log.info("woniu - {}", body);
+            String[] split = body.split(":");
+            port = Integer.parseInt(split[1]);
+            ipAddr = split[0];
+        } else if ("wandou".equals(pr)) {
+            String body = HttpRequest.get("http://api.wandoudl.com/api/ip?app_key=335df332a886cbaf27698df5f42ff936&pack=228272&num=1&xy=1&type=1&lb=\\r\\n&nr=99&area_id=" + area)
+                    .execute().body().trim();
+            log.info("wandou - {}", body);
+            String[] split = body.split(":");
+            port = Integer.parseInt(split[1]);
+            ipAddr = split[0];
+        } else if ("qingguo".equals(pr)) {
+            String body = HttpRequest.get("https://proxy.qg.net/allocate?Pool=1&Key=1981DB74&Distinct=1&AreaId=" + area)
+                    .execute().body().trim();
+            log.info("qingguo - {}", body);
+            JSONObject resp = JSONObject.parseObject(body);
+            JSONArray list = resp.getJSONArray("Data");
+            JSONObject data = list.getJSONObject(0);
+            ipAddr = data.getString("IP");
+            port = data.getInteger("port");
+        }
+
+        ProxyInfo proxyInfo = new ProxyInfo();
+        proxyInfo.setPort(port);
+        proxyInfo.setIpAddr(ipAddr);
+
+        ProxyInfoThreadHolder.addProxy(proxyInfo);
+
+        CommonUtil.ip2region(ipAddr);
+        CommonUtil.ip2region(ripAddr);
+    }
 
     @Override
-    public Object createOrder(OrderCreateParam orderCreateParam) throws Exception {
+    public Object createOrder(OrderCreateParam orderCreateParam, String area, String pr) throws Exception {
+
         String pa = orderCreateParam.getP_account();
         String orderId = orderCreateParam.getP_order_id();
+        //参数校验
         Channel channel = paramCheckCreateOrder(orderCreateParam);
+
+        // proxy setting
+        addProxy(area, orderCreateParam.getPay_ip(), pr);
+
         Integer reqMoney = orderCreateParam.getMoney();
         LocalDateTime nowTime = LocalDateTime.now();
         CAccountInfo randomACInfo = new CAccountInfo();
@@ -161,11 +301,12 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
 
             BeanUtils.copyProperties(acDB, randomACInfo);
         }
+        log.info("资源池取出...{}", randomACInfo);
 
         PayInfo payInfo = new PayInfo();
         CGatewayInfo cgi = this.cGatewayMapper.getGateWayInfoByCIdAndGId(randomACInfo.getCid(), randomACInfo.getGid());
-//        payInfo.setChannel(cgi.getCChannel());
-        payInfo.setChannel("weixin_mobile");
+        payInfo.setChannel(cgi.getCChannel());
+//        payInfo.setChannel("weixin_mobile");
         account = randomACInfo.getAcAccount();
         payInfo.setRepeat_passport(account);
         payInfo.setGame(cgi.getCGame());
@@ -173,7 +314,12 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
         payInfo.setRecharge_unit(reqMoney);
         payInfo.setRecharge_type(6);
         String acPwd = randomACInfo.getAcPwd();
-        String cookie = this.getCK(account, Base64.decodeStr(acPwd));
+        String cookie = "";
+//        boolean ckCheck = gee4Service.tokenCheck(randomACInfo.getCk(), account);
+//        if (ckCheck) {
+//            cookie = payInfo.getCk();
+//        }else {
+        cookie = this.getCK(account, Base64.decodeStr(acPwd));
         boolean expire = this.gee4Service.tokenCheck(cookie, account);
         if (!expire) {
             //TODO
@@ -184,18 +330,53 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
                 throw new NotFoundException("ck问题，请联系管理员");
             }
         }
+//        }
 
         payInfo.setCk(cookie);
         redisUtil.pub("【商户：" + pa + "】【订单ID：" + orderId + "】正在创建订单.... ck 校验成功  ");
         log.info("【商户：" + pa + "】【订单ID：" + orderId + "】正在创建订单.... ck 校验成功  ");
+
+        // 创建订单
         JSONObject orderResp = gee4Service.createOrder(payInfo);
+
         if (orderResp != null && orderResp.get("data") != null) {
             if (orderResp.getInteger("code") != 1) {
                 throw new ServiceException(orderResp.toString());
             } else {
+
                 JSONObject data = orderResp.getJSONObject("data");
                 String platform_oid = data.getString("vouch_code");
                 String resource_url = data.getString("resource_url");
+                PayOrderEvent event = new PayOrderEvent();
+
+                if ("weixin_mobile".equalsIgnoreCase(data.getString("channel"))) {
+                    URL url = URLUtil.url(resource_url);
+                    Map<String, String> stringMap = HttpUtil.decodeParamMap(url.getQuery(), null);
+                    String redirect_url = URLDecoder.decode(stringMap.get("redirect_url"), "utf-8");
+                    stringMap.put("redirect_url", redirect_url);
+                    Map<String, Object> objectObjectSortedMap = new HashMap<>(stringMap);
+                    String body = null;
+                    try {
+                        HttpResponse execute = HttpRequest.post("https://wx.tenpay.com/cgi-bin/mmpayweb-bin/checkmweb")
+                                .setHttpProxy(ProxyInfoThreadHolder.getIpAddr(), ProxyInfoThreadHolder.getPort())
+                                .form(objectObjectSortedMap)
+                                .contentType("application/x-www-form-urlencoded")
+                                .header("X-Requested-With", "com.seasun.gamemgr")
+                                .header("Origin", "https://m.xoyo.com")
+                                .header("Referer", "https://m.xoyo.com")
+                                .header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7")
+                                .timeout(5000)
+                                .execute();
+                        body = execute.body();
+                    } catch (HttpException e) {
+                        e.printStackTrace();
+                        throw new ServiceException("微信端异常，请重新下单");
+                    }
+                    log.info("wx success");
+                    if (!StringUtils.hasLength(body)) throw new ServiceException("微信端异常，请重新下单");
+                    event.setExt(body);
+                }
+
 
                 String payUrl = handelPayUrl(data, resource_url);
                 String acId = randomACInfo.getAcid();
@@ -207,7 +388,8 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
                 payOrder.setAcId(acId);
                 payOrder.setPlatformOid(platform_oid);
                 payOrder.setCChannelId(cChannelId);
-                String h5Url = "http://mng.vboxjjjxxx.info/#/code/pay?orderId=" + orderId;
+                String h5Url = CommonConstant.ENV_HOST + "/#/code/pay?orderId=" + orderId;
+//                String h5Url = "http://mng.vboxjjjxxx.info/#/code/pay?orderId=" + orderId;
                 payOrder.setResourceUrl(payUrl);
                 payOrder.setNotifyUrl(orderCreateParam.getNotify_url());
                 payOrder.setOrderStatus(OrderStatusEnum.NO_PAY.getCode());
@@ -216,31 +398,14 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
                 payOrder.setCreateTime(nowTime);
                 pOrderMapper.insert(payOrder);
 
-                PayOrderEvent event = new PayOrderEvent();
                 event.setOrderId(orderId);
                 event.setEventLog(data.toJSONString());
                 event.setPlatformOid(platform_oid);
                 event.setCreateTime(nowTime);
-                if ("weixin_mobile".equalsIgnoreCase(data.getString("channel"))) {
-                    URL url = URLUtil.url(resource_url);
-                    Map<String, String> stringMap = HttpUtil.decodeParamMap(url.getQuery(), null);
-                    String redirect_url = URLDecoder.decode(stringMap.get("redirect_url"), "utf-8");
-                    stringMap.put("redirect_url", redirect_url);
-                    Map<String, Object> objectObjectSortedMap = new HashMap<>(stringMap);
-                    HttpResponse execute = HttpRequest.post("https://wx.tenpay.com/cgi-bin/mmpayweb-bin/checkmweb")
-                            .form(objectObjectSortedMap)
-                            .contentType("application/x-www-form-urlencoded")
-                            .header("X-Requested-With", "com.seasun.gamemgr")
-                            .header("Origin", "https://m.xoyo.com")
-                            .header("Referer", "https://m.xoyo.com")
-                            .header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7")
-                            .execute();
-                    String body = execute.body();
-                    event.setExt(body);
-                }
+
                 pOrderEventMapper.insert(event);
 
-                DelayTask<PayOrder> delayTask = new DelayTask();
+                DelayTask<PayOrder> delayTask = new DelayTask<>();
                 delayTask.setId(IdUtil.randomUUID());
                 delayTask.setTaskName("order_delay_" + platform_oid);
                 delayTask.setTask(payOrder);
@@ -313,7 +478,7 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
 //                    .execute();
 //            String body = execute.body();
             payUrl = resource_url;
-        }else {
+        } else {
             payUrl = resource_url;
         }
 
@@ -325,7 +490,7 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
         String sign = orderCreateParam.getSign();
         PAccount paDB = pAccountMapper.selectOne((new QueryWrapper<PAccount>()).eq("p_account", pa));
         String pKey = paDB.getPKey();
-        orderCreateParam.setSign((String)null);
+        orderCreateParam.setSign((String) null);
         SortedMap<String, String> map = CommonUtil.objToTreeMap(orderCreateParam);
         String signDB = CommonUtil.encodeSign(map, pKey);
         if (!signDB.equals(sign)) {
@@ -363,19 +528,21 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
     }
 
     @Override
-    public Object createTestOrder(Integer num, String acid, String channel) throws Exception {
+    public Object createTestOrder(Integer num, String acid, String channel, String area, String pr, String payIp) throws Exception {
         OrderCreateParam orderCreateParam = new OrderCreateParam();
         String orderId = IdUtil.simpleUUID();
         orderCreateParam.setP_order_id(orderId);
         orderCreateParam.setMoney(num);
-        orderCreateParam.setNotify_url("http://mng.vboxjjjxxx.info/basic-api/test/callback");
+        orderCreateParam.setNotify_url(CommonConstant.ENV_HOST + "/basic-api/test/callback");
+//        orderCreateParam.setNotify_url("http://mng.vboxjjjxxx.info/basic-api/test/callback");
         orderCreateParam.setChannel_id(channel);
         orderCreateParam.setAcid(acid);
+        orderCreateParam.setPay_ip(payIp);
         orderCreateParam.setP_account("e191aa33c9a74416b6ae6aa66d7195f1");
         SortedMap<String, String> map = CommonUtil.objToTreeMap(orderCreateParam);
         String sign = CommonUtil.encodeSign(map, "00b79aa26d6f412984c8926300427e39");
         orderCreateParam.setSign(sign);
-        return createOrder(orderCreateParam);
+        return createOrder(orderCreateParam, area, pr);
     }
 
 //    @Override
@@ -957,6 +1124,43 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
         return resp;
     }
 
+    public JSONObject queryOrderForQuery(String orderId) throws Exception {
+
+        PayOrderEvent poe = pOrderEventMapper.getPOrderEventByOid(orderId);
+        if (poe == null) throw new NotFoundException("订单不存在");
+        String pid = poe.getPlatformOid();
+
+        PayOrder po = pOrderMapper.getPOrderByOid(orderId);
+        CAccount ca = cAccountMapper.getCAccountByAcid(po.getAcId());
+
+        String cookie = getCKforQuery(ca.getAcAccount(), Base64.decodeStr(ca.getAcPwd()));
+
+        boolean expire = gee4Service.tokenCheck(cookie, ca.getAcAccount());
+        if (!expire) {
+            CAccount cAccount = new CAccount();
+            cAccount.setId(ca.getId());
+            cAccount.setSysStatus(0);
+            cAccount.setSysLog("ck已过期，请及时更新");
+            cAccountMapper.updateById(cAccount);
+            throw new NotFoundException("ck过期，请联系运营更新后可查看订单");
+        }
+
+        SecCode secCode = gee4Service.verifyGeeCapForQuery();
+
+        VOrderQueryParam param = new VOrderQueryParam();
+        param.setCaptcha_id(secCode.getCaptcha_id());
+        param.setLot_number(secCode.getLot_number());
+        param.setPass_token(secCode.getPass_token());
+        param.setGen_time(secCode.getGen_time());
+        param.setCaptcha_output(secCode.getCaptcha_output());
+        param.setVouch_code(pid);
+        param.setToken(cookie);
+
+        JSONObject resp = gee4Service.queryOrder(param);
+
+        return resp;
+    }
+
     @Override
     public String getCK(String acAccount, String acPwd) throws IOException {
         Object v = redisUtil.get(CommonConstant.ACCOUNT_CK + acAccount);
@@ -972,6 +1176,7 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
 //        InputStream is = classPathResource.getInputStream();
         String property = System.getProperty("user.dir");
         String filePath = (property + File.separator + "d4.js");
+        log.info("filePath ： {}", filePath);
         File inputFile = new File(filePath);
         InputStream is = new FileInputStream(inputFile);
         File file = new File("tmp");
@@ -987,6 +1192,71 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
 //                System.out.println("pwd = " + encode);
 
                 SecCode secCode = gee4Service.capSecCode();
+
+                HttpResponse resp = HttpRequest.get("https://pf-api.xoyo.com/passport/common_api/login")
+                        .setHttpProxy(ProxyInfoThreadHolder.getIpAddr(), ProxyInfoThreadHolder.getPort())
+                        .form("account", acAccount)
+                        .form("encrypt_method", "rsa")
+                        .form("captcha_id", secCode.getCaptcha_id())
+                        .form("lot_number", secCode.getLot_number())
+                        .form("pass_token", secCode.getPass_token())
+                        .form("gen_time", secCode.getGen_time())
+                        .form("captcha_output", secCode.getCaptcha_output())
+                        .form("password", encode)
+//                                .form("callback", "jsonp_ef2891abd4b000")
+                        .form("callback", "jsonp_" + RandomUtil.randomNumbers(14))
+                        .execute();
+
+                String jsonResp = Gee4Service.parseGeeJson(resp.body());
+//                log.info(JSONObject.toJSONString(resp.headers()));
+//                log.info(JSONObject.toJSONString(resp.body()));
+                cookie = resp.headerList("Set-Cookie").get(0);
+
+                JSONObject obj = JSONObject.parseObject(jsonResp);
+                log.info("login ---- obj: {}", obj);
+//                System.out.println(obj);
+//                System.out.println(data);
+            }
+        } catch (ScriptException e) {
+            e.printStackTrace();
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+
+        redisUtil.set(CommonConstant.ACCOUNT_CK + acAccount, cookie, 7200); //2hour
+        return cookie;
+    }
+
+    public String getCKforQuery(String acAccount, String acPwd) throws IOException {
+        Object v = redisUtil.get(CommonConstant.ACCOUNT_CK + acAccount);
+        if (v != null) {
+            return v.toString();
+        }
+        String cookie = null;
+
+        ScriptEngineManager manager = new ScriptEngineManager();
+        ScriptEngine engine = manager.getEngineByName("javascript");
+//        File file = ResourceUtils.getFile("classpath:d4.js");
+//        ClassPathResource classPathResource = new ClassPathResource("d4.js");
+//        InputStream is = classPathResource.getInputStream();
+        String property = System.getProperty("user.dir");
+        String filePath = (property + File.separator + "d4.js");
+        log.info("filePath ： {}", filePath);
+        File inputFile = new File(filePath);
+        InputStream is = new FileInputStream(inputFile);
+        File file = new File("tmp");
+        CommonUtil.inputStreamToFile(is, file);
+        FileReader reader = new FileReader(file);   // 执行指定脚本
+        try {
+            engine.eval(reader);
+            if (engine instanceof Invocable) {
+                Invocable invoke = (Invocable) engine;    // 调用merge方法，并传入两个参数
+
+                String payload = (String) invoke.invokeFunction("test", acPwd);
+                String encode = URLEncoder.encode(payload, "UTF-8");
+//                System.out.println("pwd = " + encode);
+
+                SecCode secCode = gee4Service.capSecCodeForQuery();
 
                 HttpResponse resp = HttpRequest.get("https://pf-api.xoyo.com/passport/common_api/login")
                         .form("account", acAccount)
@@ -1007,6 +1277,7 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
                 cookie = resp.headerList("Set-Cookie").get(0);
 
                 JSONObject obj = JSONObject.parseObject(jsonResp);
+                log.info("login ---- obj: {}", obj);
 //                System.out.println(obj);
 //                System.out.println(data);
             }
@@ -1304,8 +1575,15 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
                 // 获取ck
                 String acAccount = c.getAcAccount();
                 String acPwd = Base64.decodeStr(c.getAcPwd());
-
-                String cookie = getCK(acAccount, acPwd);
+                String cookie = "";
+                boolean ckCheck = gee4Service.tokenCheck(c.getCk(), acAccount);
+                if (ckCheck) {
+                    cookie = c.getCk();
+                    log.info("资源池计算. 库中ck取出...{}", c.getCk());
+                } else {
+                    cookie = getCK(acAccount, acPwd);
+                    log.info("资源池计算. 接口ck取出...{}", c.getCk());
+                }
 
                 c.setCk(cookie);
                 String ck = c.getCk();

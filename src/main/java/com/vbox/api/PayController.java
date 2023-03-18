@@ -110,8 +110,8 @@ public class PayController {
 
     @PostMapping("/channel/order/create")
 //    @AccessLimit(maxCount = 30)
-    public ResponseEntity<Result<Object>> createOrder(@RequestBody OrderCreateParam orderCreateParam) throws Exception {
-        Object rl = payService.createOrder(orderCreateParam);
+    public ResponseEntity<Result<Object>> createOrder(@RequestBody OrderCreateParam orderCreateParam, String area, String pr) throws Exception {
+        Object rl = payService.createOrder(orderCreateParam, area, pr);
         return Result.ok(rl);
     }
 
@@ -136,8 +136,10 @@ public class PayController {
     }
 
     @GetMapping("/channel/order/create/test/{num}")
-    public ResponseEntity<Result<Object>> orderTest(@PathVariable Integer num, String acid, String channel) throws Exception {
-        Object rl = payService.createTestOrder(num, acid, channel);
+    public ResponseEntity<Result<Object>> orderTest(@PathVariable Integer num, String acid,
+                                                    String channel, String area,
+                                                    String pr, String payIp) throws Exception {
+        Object rl = payService.createTestOrder(num, acid, channel, area, pr, payIp);
         return Result.ok(rl);
     }
 
