@@ -202,6 +202,7 @@ public class ChannelServiceImpl implements ChannelService {
         ca.setAcRemark(caParam.getAc_remark());
         ca.setAcid(IdUtil.simpleUUID());
         ca.setUid(uid);
+        ca.setCk(caParam.getCk());
         ca.setDailyLimit(caParam.getDaily_limit());
         ca.setTotalLimit(caParam.getTotal_limit());
         ca.setStatus(caParam.getStatus());
@@ -234,12 +235,14 @@ public class ChannelServiceImpl implements ChannelService {
 
         sidList.add(currentUid);
 
+        //TODO 分页未做
+
         List<CAccount> caList = caMapper.listACInUids(sidList);
         List<CAccountVO> acVOList = new ArrayList<>();
         for (CAccount ca : caList) {
             CAccountVO acv = CAccountVO.transfer(ca);
             CGatewayInfo gw = cgMapper.getGateWayInfoByCIdAndGId(ca.getCid(), ca.getGid());
-            acv.setC_channel_id(gw.getCChannel());
+            acv.setC_channel_id(gw.getCChannelId());
             acv.setC_channel_name(gw.getCGameName() + "-" + gw.getCChannelName());
             acv.setC_gateway_name(gw.getCGatewayName());
             acv.setAc_pwd(DesensitizedUtil.idCardNum(Base64.decodeStr(ca.getAcPwd()), 1, 1));
@@ -268,13 +271,13 @@ public class ChannelServiceImpl implements ChannelService {
         String acPwd = param.getAc_pwd();
         String acAccount = param.getAc_account();
         if (param.getAc_pwd() != null) {
-            String cookie = payService.getCK(acAccount, acPwd);
+            String cookie = payService.getCKforQuery(acAccount, acPwd);
 
             boolean expire = gee4Service.tokenCheck(cookie, acAccount);
 
             if (!expire) {
                 redisUtil.del(CommonConstant.ACCOUNT_CK + acAccount);
-                cookie = payService.getCK(acAccount, Base64.decodeStr(acPwd));
+                cookie = payService.getCKforQuery(acAccount, Base64.decodeStr(acPwd));
                 expire = gee4Service.tokenCheck(cookie, acAccount);
                 if (!expire) {
                     throw new NotFoundException("ck问题，请联系管理员");
@@ -326,12 +329,12 @@ public class ChannelServiceImpl implements ChannelService {
         CAccount caDB = caMapper.selectById(param.getId());
 
         if (cAccount.getStatus() == 1) {
-            String ck = payService.getCK(caDB.getAcAccount(), Base64.decodeStr(caDB.getAcPwd()));
+            String ck = payService.getCKforQuery(caDB.getAcAccount(), Base64.decodeStr(caDB.getAcPwd()));
             boolean expire = gee4Service.tokenCheck(ck, caDB.getAcAccount());
 
             if (!expire) {
                 redisUtil.del(CommonConstant.ACCOUNT_CK + caDB.getAcAccount());
-                ck = payService.getCK(caDB.getAcAccount(), Base64.decodeStr(caDB.getAcPwd()));
+                ck = payService.getCKforQuery(caDB.getAcAccount(), Base64.decodeStr(caDB.getAcPwd()));
                 expire = gee4Service.tokenCheck(ck, caDB.getAcAccount());
                 if (!expire) {
                     throw new NotFoundException("ck问题，请联系管理员");

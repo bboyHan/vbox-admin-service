@@ -1,5 +1,6 @@
 package com.vbox.api;
 
+import cn.hutool.core.io.IORuntimeException;
 import cn.hutool.core.util.IdUtil;
 import com.vbox.common.Result;
 import com.vbox.common.ResultOfList;
@@ -111,7 +112,18 @@ public class PayController {
     @PostMapping("/channel/order/create")
 //    @AccessLimit(maxCount = 30)
     public ResponseEntity<Result<Object>> createOrder(@RequestBody OrderCreateParam orderCreateParam, String area, String pr) throws Exception {
-        Object rl = payService.createOrder(orderCreateParam, area, pr);
+        Object rl = null;
+        try {
+            rl = payService.createOrder(orderCreateParam, area, pr);
+        } catch (IORuntimeException e) {
+            log.error("IO ex 1次 : {}", e.getMessage());
+            try {
+                rl = payService.createOrder(orderCreateParam, area, pr);
+            } catch (IORuntimeException ex) {
+                log.error("IO ex 2次 : {}", ex.getMessage());
+                rl = payService.createOrder(orderCreateParam, area, pr);
+            }
+        }
         return Result.ok(rl);
     }
 
@@ -122,8 +134,8 @@ public class PayController {
     }
 
     @GetMapping("/sys/order")
-    public ResponseEntity<Result<Object>> listOrder() {
-        Object rl = payService.listOrder();
+    public ResponseEntity<Result<Object>> listOrder(OrderQueryParam queryParam) {
+        Object rl = payService.listOrder(queryParam);
         return Result.ok(rl);
     }
 

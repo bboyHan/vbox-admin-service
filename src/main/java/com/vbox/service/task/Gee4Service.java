@@ -457,8 +457,7 @@ public class Gee4Service {
                 .form("lang", "zho")
                 .form("callback", "geetest_" + time)
                 .execute().body();
-//        log.info(resp);
-        log.debug("callback :{}", "geetest_" + time);
+        log.info(resp);
         String s = parseGeeJson(resp);
 
         JSONObject obj = JSONObject.parseObject(s);

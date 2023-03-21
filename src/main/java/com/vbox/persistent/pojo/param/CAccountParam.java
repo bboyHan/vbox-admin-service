@@ -1,11 +1,13 @@
 package com.vbox.persistent.pojo.param;
 
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 
 import java.math.BigDecimal;
 
+@EqualsAndHashCode(callSuper = true)
 @Data
-public class CAccountParam {
+public class CAccountParam extends PageParam{
 
     private Integer id;
     private String acid;

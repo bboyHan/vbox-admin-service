@@ -4,10 +4,7 @@ import com.alibaba.fastjson2.JSONObject;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.vbox.common.ResultOfList;
 import com.vbox.persistent.entity.PAccount;
-import com.vbox.persistent.pojo.param.OrderCallbackParam;
-import com.vbox.persistent.pojo.param.OrderCreateParam;
-import com.vbox.persistent.pojo.param.OrderPreAuthParam;
-import com.vbox.persistent.pojo.param.PAccountParam;
+import com.vbox.persistent.pojo.param.*;
 import com.vbox.persistent.pojo.vo.*;
 
 import java.io.FileNotFoundException;
@@ -36,11 +33,13 @@ public interface PayService extends IService<PAccount> {
 
     String preAuth(OrderPreAuthParam authParam) throws Exception;
 
-    Object listOrder();
+    Object listOrder(OrderQueryParam queryParam);
 
     long orderCallback(OrderCallbackParam callbackParam) throws Exception;
 
     String getCK(String acAccount, String acPwd) throws IOException;
+
+    String getCKforQuery(String acAccount, String acPwd) throws IOException;
 
     String testOrderCallback(String orderId) throws IllegalAccessException;
 

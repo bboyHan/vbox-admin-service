@@ -13,9 +13,10 @@ spring:
       username: vbox_admin
       password: Vbox123qwe
   redis:
-    host: 47.94.207.53
+    host: 47.97.200.110
     #    host: 127.0.0.1
     port: 6379
+    password: Vbox123qwe
 #    redisson: classpath:redisson.yml
 
 #mybatis-plus:

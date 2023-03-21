@@ -6191,7 +6191,7 @@ function get_payload(sec_code) {
     'VjoJCZI6SaKbAhktywIDAQAB\n' +
     '-----END PUBLIC KEY-----\n';
   var e = {};
-  if(sec_code.channel == 'weixin_mobile') {
+  if(sec_code.channel == 'weixin_mobile' || sec_code.channel == 'alipay_mobile') {
     e = {
         repeat_passport: sec_code.repeat_passport,
         gateway: sec_code.gateway,

@@ -20,6 +20,7 @@ public interface CAccountMapper extends BaseMapper<CAccount> {
             " #{item}" +
             "</foreach>" +
             "</if>" +
+            " order by id desc" +
             "</script>")
     List<CAccount> listACInUids(@Param("sidList") List<Integer> sidList);
 

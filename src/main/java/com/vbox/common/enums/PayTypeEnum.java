@@ -4,7 +4,9 @@ import java.util.Objects;
 
 public enum PayTypeEnum {
 
-    WEI_XIN(1, "weixin"),
+    JD(1, "jd"),
+    WECHAT(2, "wechat"),
+    ALIPAY(3, "alipay"),
     UNKNOWN(-1, "未知"),
     ;
 

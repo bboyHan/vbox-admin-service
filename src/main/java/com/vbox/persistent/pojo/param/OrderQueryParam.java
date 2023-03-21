@@ -1,13 +1,16 @@
 package com.vbox.persistent.pojo.param;
 
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 
+@EqualsAndHashCode(callSuper = true)
 @Data
-public class OrderQueryParam {
+public class OrderQueryParam extends PageParam {
 
-    private String p_account;  //付方账户
-    private String p_key;  //付方key
-    private String p_order_id;  //付方订单号
-    private String sign; //签名
+    private String orderStatus;
+    private String callbackStatus;
+    private String orderId;    //付方订单号
+    private String p_account;  //付方ID
+    private String cChannelId;
 
 }

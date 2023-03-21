@@ -17,6 +17,7 @@ import cn.hutool.jwt.signers.JWTSignerUtil;
 import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.vbox.common.ResultOfList;
 import com.vbox.common.constant.CommonConstant;
@@ -135,9 +136,17 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
         int port = 0;
         if ((payIp == null || "".equals(payIp)) && pr == null) {
 //            String body = HttpRequest.get("http://api.shenlongip.com/ip?key=f1wwoih7&sign=94f84cf83d512b135be2a82f9028d353&mr=1&protocol=2&count=1&rip=1&pattern=json").execute().body();
-            String body = HttpRequest.get("http://api.shenlongip.com/ip?key=ah3yw232&sign=bdad24bb1b322eebc34be6c35e9c63c7&mr=1&protocol=2&count=1&rip=1&pattern=json&area=" + area).execute().body();
-
-            JSONObject resp = JSONObject.parseObject(body);
+            JSONObject resp = null;
+            try {
+                String body = HttpRequest.get("http://api.shenlongip.com/ip?key=iah0c7fo&sign=94f84cf83d512b135be2a82f9028d353&mr=1&protocol=2&count=1&rip=1&pattern=json&area=" + area).execute().body();
+                log.info(body);
+                resp = JSONObject.parseObject(body);
+            } catch (HttpException e) {
+                log.error("shenlong err: {}", e.getMessage());
+                String body = HttpRequest.get("http://api.shenlongip.com/ip?key=iah0c7fo&sign=94f84cf83d512b135be2a82f9028d353&mr=1&protocol=2&count=1&rip=1&pattern=json").execute().body();
+                log.info(body);
+                resp = JSONObject.parseObject(body);
+            }
             JSONArray list = resp.getJSONArray("data");
             JSONObject data = list.getJSONObject(0);
             ipAddr = data.getString("ip");
@@ -173,10 +182,11 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
                 String body = null;
                 if (StringUtils.hasLength(area)) {
 //                    body = HttpRequest.get("http://api.shenlongip.com/ip?key=f1wwoih7&sign=94f84cf83d512b135be2a82f9028d353&mr=1&protocol=2&count=1&rip=1&pattern=json&area=" + area).execute().body();
-                    body = HttpRequest.get("http://api.shenlongip.com/ip?key=ah3yw232&sign=bdad24bb1b322eebc34be6c35e9c63c7&mr=1&protocol=2&count=1&rip=1&pattern=json&area=" + area).execute().body();
+//                    body = HttpRequest.get("http://api.shenlongip.com/ip?key=ah3yw232&sign=bdad24bb1b322eebc34be6c35e9c63c7&mr=1&protocol=2&count=1&rip=1&pattern=json&area=" + area).execute().body();
+                    body = HttpRequest.get("http://api.shenlongip.com/ip?key=iah0c7fo&sign=94f84cf83d512b135be2a82f9028d353&mr=1&protocol=2&count=1&rip=1&pattern=json&area=" + area).execute().body();
                 } else {
 //                    body = HttpRequest.get("http://api.shenlongip.com/ip?key=f1wwoih7&sign=94f84cf83d512b135be2a82f9028d353&mr=1&protocol=2&count=1&rip=1&pattern=json").execute().body();
-                    body = HttpRequest.get("http://api.shenlongip.com/ip?key=ah3yw232&sign=bdad24bb1b322eebc34be6c35e9c63c7&mr=1&protocol=2&count=1&rip=1&pattern=json&area=" + area).execute().body();
+                    body = HttpRequest.get("http://api.shenlongip.com/ip?key=iah0c7fo&sign=94f84cf83d512b135be2a82f9028d353&mr=1&protocol=2&count=1&rip=1&pattern=json&area=" + area).execute().body();
                 }
 
                 log.info("shenlong - {}", body);
@@ -189,7 +199,7 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
             } catch (Exception e) {
                 log.error(e.getMessage());
 //                String body = HttpRequest.get("http://api.shenlongip.com/ip?key=f1wwoih7&sign=94f84cf83d512b135be2a82f9028d353&mr=1&protocol=2&count=1&rip=1&pattern=json").execute().body();
-                String body = HttpRequest.get("http://api.shenlongip.com/ip?key=ah3yw232&sign=bdad24bb1b322eebc34be6c35e9c63c7&mr=1&protocol=2&count=1&rip=1&pattern=json&area=" + area).execute().body();
+                String body = HttpRequest.get("http://api.shenlongip.com/ip?key=iah0c7fo&sign=94f84cf83d512b135be2a82f9028d353&mr=1&protocol=2&count=1&rip=1&pattern=json").execute().body();
 
                 log.info("shenlong - 正常取没取到，二次取 - {}", body);
                 JSONObject resp = JSONObject.parseObject(body);
@@ -250,7 +260,7 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
 
     @Override
     public Object createOrder(OrderCreateParam orderCreateParam, String area, String pr) throws Exception {
-
+        log.info("入参: area - {}, pr - {}, {}", area, pr, orderCreateParam);
         String pa = orderCreateParam.getP_account();
         String orderId = orderCreateParam.getP_order_id();
         //参数校验
@@ -377,7 +387,6 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
                     event.setExt(body);
                 }
 
-
                 String payUrl = handelPayUrl(data, resource_url);
                 String acId = randomACInfo.getAcid();
                 String cChannelId = cgi.getCChannelId();
@@ -388,7 +397,7 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
                 payOrder.setAcId(acId);
                 payOrder.setPlatformOid(platform_oid);
                 payOrder.setCChannelId(cChannelId);
-                String h5Url = CommonConstant.ENV_HOST + "/#/code/pay?orderId=" + orderId;
+                String h5Url = CommonConstant.ENV_HOST_PAY_URL + orderId;
 //                String h5Url = "http://mng.vboxjjjxxx.info/#/code/pay?orderId=" + orderId;
                 payOrder.setResourceUrl(payUrl);
                 payOrder.setNotifyUrl(orderCreateParam.getNotify_url());
@@ -436,7 +445,7 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
         if ("wyzxpoto".equalsIgnoreCase(data.getString("channel"))) {
             URL url = URLUtil.url(resource_url);
             Map<String, String> stringMap = HttpUtil.decodeParamMap(url.getQuery(), StandardCharsets.UTF_8);
-            Map<String, Object> objectObjectSortedMap = new HashMap(stringMap);
+            Map<String, Object> objectObjectSortedMap = new HashMap<>(stringMap);
             HttpResponse execute = HttpRequest.post("https://wepay.jd.com/jdpay/saveOrder").setFollowRedirects(false).form(objectObjectSortedMap).execute();
             String location = execute.header("Location");
             log.info("location: {}", location);
@@ -455,8 +464,33 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
             payUrl = jdPay;
         }
 
-        if ("alipay_qr".equalsIgnoreCase(data.getString("channel"))) {
-            payUrl = resource_url;
+        if ("alipay_mobile".equalsIgnoreCase(data.getString("channel"))) {
+            log.info("alipay url 初始: {}", resource_url);
+            HttpResponse execute = HttpRequest.get(resource_url)
+                    .setHttpProxy(ProxyInfoThreadHolder.getIpAddr(), ProxyInfoThreadHolder.getPort())
+//                                .form(objectObjectSortedMap)
+                    .contentType("application/x-www-form-urlencoded")
+                    .header("X-Requested-With", "com.seasun.gamemgr")
+                    .header("Origin", "https://m.xoyo.com")
+                    .header("Referer", "https://m.xoyo.com")
+                    .header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7")
+                    .timeout(5000)
+                    .execute();
+            String aliGateway = execute.header("Location");
+            log.info("alipay url 一次修正: {}", aliGateway);
+            HttpResponse cashierExecute = HttpRequest.get(aliGateway)
+                    .setHttpProxy(ProxyInfoThreadHolder.getIpAddr(), ProxyInfoThreadHolder.getPort())
+//                                .form(objectObjectSortedMap)
+                    .contentType("application/x-www-form-urlencoded")
+                    .header("X-Requested-With", "com.seasun.gamemgr")
+                    .header("Origin", "https://m.xoyo.com")
+                    .header("Referer", "https://m.xoyo.com")
+                    .header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7")
+                    .timeout(5000)
+                    .execute();
+            String cashier = cashierExecute.header("Location");
+            log.info("alipay 修正 后 pay url: {}", cashier);
+            payUrl = cashier;
         }
 
         if ("weixin".equalsIgnoreCase(data.getString("channel"))) {
@@ -888,7 +922,7 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
      * 查询账户自己的所有订单
      */
     @Override
-    public Object listOrder() {
+    public Object listOrder(OrderQueryParam queryParam) {
         Integer currentUid = TokenInfoThreadHolder.getToken().getId();
         List<Integer> sidList = relationUSMapper.listSidByUid(currentUid);
 
@@ -898,10 +932,33 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
         if (acIdList.size() == 0) return new ArrayList<>();
         QueryWrapper<PayOrder> queryWrapper = new QueryWrapper<>();
         queryWrapper.in("ac_id", acIdList);
+        if (StringUtils.hasLength(queryParam.getP_account())) {
+            queryWrapper.eq("p_account", queryParam.getP_account());
+        }
+        if (StringUtils.hasLength(queryParam.getOrderId())) {
+            queryWrapper.eq("order_id", queryParam.getOrderId());
+        }
+        if (StringUtils.hasLength(queryParam.getOrderStatus())) {
+            queryWrapper.eq("order_status", queryParam.getOrderStatus());
+        }
+        if (StringUtils.hasLength(queryParam.getCallbackStatus())) {
+            queryWrapper.eq("callback_status", queryParam.getCallbackStatus());
+        }
+        if (StringUtils.hasLength(queryParam.getCChannelId())) {
+            queryWrapper.eq("c_channel_id", queryParam.getCChannelId());
+        }
         queryWrapper.orderByDesc("id");
 
-        List<PayOrder> payOrders = pOrderMapper.selectList(queryWrapper);
+        Page<PayOrder> page = null;
+        if (null != queryParam.getPage() && null != queryParam.getPageSize()) {
+            page = new Page<>(queryParam.getPage(), queryParam.getPageSize());
+        } else {
+            page = new Page<>(1, 20);
+        }
 
+//        List<PayOrder> payOrders = pOrderMapper.selectList(queryWrapper);
+        Page<PayOrder> payOrderPage = pOrderMapper.selectPage(page, queryWrapper);
+        List<PayOrder> payOrders = payOrderPage.getRecords();
         List<PayOrderVO> voList = new ArrayList<>(payOrders.size());
         for (PayOrder p : payOrders) {
             PayOrderVO target = new PayOrderVO();
@@ -916,7 +973,9 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
             voList.add(target);
         }
 
-        return voList;
+        ResultOfList rs = new ResultOfList(voList, (int) page.getTotal());
+
+        return rs;
     }
 
     @Override
@@ -1007,19 +1066,23 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
         CAccountWallet wallet = cAccountWalletMapper.selectOne(new QueryWrapper<CAccountWallet>().eq("oid", orderId));
         Integer code;
         JSONObject resp;
+        boolean flag = false;
         if (wallet != null) {
             code = 2;
             log.info("商户查单时发现该订单已支付入库, info: {}", wallet);
         } else {
-            resp = this.queryOrder(orderId);
+            resp = this.queryOrderForQuery(orderId);
             data = resp.getJSONObject("data");
             code = data.getInteger("order_status");
+            flag = true;
         }
 
         if (po.getOrderStatus() == 3) {
-            resp = this.queryOrder(orderId);
-            data = resp.getJSONObject("data");
-            code = data.getInteger("order_status");
+            if (!flag) {
+                resp = this.queryOrderForQuery(orderId);
+                data = resp.getJSONObject("data");
+                code = data.getInteger("order_status");
+            }
             if (code == 2) {
                 this.pOrderMapper.updateOStatusByOId(orderId, OrderStatusEnum.PAY_FINISHED.getCode(), CodeUseStatusEnum.FINISHED.getCode());
             }
@@ -1076,10 +1139,11 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
             }
         }
 
-        PayOrder pov = this.pOrderMapper.getPOrderByOid(orderId);
+        PayOrder pov = pOrderMapper.getPOrderByOid(orderId);
         OrderQueryVO vo = new OrderQueryVO();
         vo.setStatus(pov.getOrderStatus());
-        vo.setPayUrl(pov.getResourceUrl());
+//        vo.setPayUrl(pov.getResourceUrl());
+        vo.setPayUrl(CommonConstant.ENV_HOST_PAY_URL + pov.getOrderId());
         vo.setCost(pov.getCost());
         vo.setOrderId(pov.getOrderId());
         vo.setNotifyUrl(pov.getNotifyUrl());
@@ -1342,21 +1406,26 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
             CAccountWallet wallet = cAccountWalletMapper.selectOne((new QueryWrapper<CAccountWallet>()).eq("oid", orderId));
             Integer code;
             JSONObject resp;
+            boolean flag = false;
             if (wallet != null) {
                 code = 2;
                 log.info("手动查单时发现该订单已支付入库, info: {}", wallet);
             } else {
-                resp = this.queryOrder(orderId);
+                resp = queryOrderForQuery(orderId);
                 data = resp.getJSONObject("data");
                 code = data.getInteger("order_status");
+                flag = true;
             }
 
             if (po.getOrderStatus() == 3) {
-                resp = this.queryOrder(orderId);
-                data = resp.getJSONObject("data");
-                code = data.getInteger("order_status");
+                if (!flag) {
+                    resp = queryOrderForQuery(orderId);
+                    data = resp.getJSONObject("data");
+                    code = data.getInteger("order_status");
+                }
+
                 if (code == 2) {
-                    this.pOrderMapper.updateOStatusByOId(orderId, OrderStatusEnum.PAY_FINISHED.getCode(), CodeUseStatusEnum.FINISHED.getCode());
+                    pOrderMapper.updateOStatusByOId(orderId, OrderStatusEnum.PAY_FINISHED.getCode(), CodeUseStatusEnum.FINISHED.getCode());
                 }
             }
 
@@ -1374,21 +1443,21 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
 
                 try {
                     String reqBody = JSONObject.toJSONString(vo);
-                    log.info("手动回调请求消息：notify：{}，req body：{}", notify, reqBody);
+                    log.info("系统手动查单,手动回调请求消息：notify：{}，req body：{}", notify, reqBody);
                     execute = HttpRequest.post(notify).body(reqBody).execute();
-                    log.info("手动回调返回信息： http status： {}， resp： {}", execute.getStatus(), execute.body());
+                    log.info("系统手动查单,手动回调返回信息： http status： {}， resp： {}", execute.getStatus(), execute.body());
                     if (execute.getStatus() == 200) {
-                        this.pOrderMapper.updateCallbackStatusByOId(orderId);
-                        this.redisUtil.setRemove("order_callback_queue", orderId);
-                        log.info("该订单已回调成功，通知url：{}，orderID：{}", notify, orderId);
+                        pOrderMapper.updateCallbackStatusByOId(orderId);
+                        redisUtil.setRemove("order_callback_queue", orderId);
+                        log.info("系统手动查单,该订单已回调成功，通知url：{}，orderID：{}", notify, orderId);
                     }
                 } catch (Exception var14) {
-                    log.error("手动回调失败，notify: {}, resp: {}, err: {}", notify, execute, var14);
+                    log.error("系统手动查单,手动回调失败，notify: {}, resp: {}, err: {}", notify, execute, var14);
                 }
             }
 
             if (code == 2 && wallet == null) {
-                int row = this.pOrderMapper.updateOStatusByOId(orderId, OrderStatusEnum.PAY_FINISHED.getCode(), CodeUseStatusEnum.FINISHED.getCode());
+                int row = pOrderMapper.updateOStatusByOId(orderId, OrderStatusEnum.PAY_FINISHED.getCode(), CodeUseStatusEnum.FINISHED.getCode());
                 if (row == 1) {
                     CAccount ca = this.cAccountMapper.getCAccountByAcid(po.getAcId());
                     CAccountWallet w = new CAccountWallet();
@@ -1398,7 +1467,7 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
                     w.setCreateTime(LocalDateTime.now());
 
                     try {
-                        this.cAccountWalletMapper.insert(w);
+                        cAccountWalletMapper.insert(w);
                     } catch (Exception var13) {
                         log.warn("已经入库了，{}", var13.getMessage());
                     }
@@ -1406,15 +1475,16 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
                     log.info("系统手动查单, 查询到该单在平台已支付成功，自动入库并入回调池: orderId - {}， 平台数据：{}", po.getOrderId(), data);
                     long rowRedis = this.redisUtil.sSet("order_callback_queue", orderId);
                     if (rowRedis == 1L) {
-                        log.info("商戶主动查单, 查询未支付订单已完成支付，入回调通知池， 订单ID: {}", orderId);
+                        log.info("系统手动查单, 查询未支付订单已完成支付，入回调通知池， 订单ID: {}", orderId);
                     }
                 }
             }
 
-            PayOrder pov = this.pOrderMapper.getPOrderByOid(orderId);
+            PayOrder pov = pOrderMapper.getPOrderByOid(orderId);
             OrderQueryVO vo = new OrderQueryVO();
             vo.setStatus(pov.getOrderStatus());
-            vo.setPayUrl(pov.getResourceUrl());
+//            vo.setPayUrl(pov.getResourceUrl());
+            vo.setPayUrl(CommonConstant.ENV_HOST_PAY_URL + pov.getOrderId());
             vo.setCost(pov.getCost());
             vo.setOrderId(pov.getOrderId());
             vo.setNotifyUrl(pov.getNotifyUrl());
