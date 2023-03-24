@@ -396,7 +396,7 @@ public class Gee4Service {
                 .cookie(ck)
                 .execute().body();
 
-        log.info("get_info :{}", resp);
+//        log.info("get_info :{}", resp);
 
         JSONObject obj = JSONObject.parseObject(resp);
         Integer code = obj.getInteger("code");
@@ -457,7 +457,7 @@ public class Gee4Service {
                 .form("lang", "zho")
                 .form("callback", "geetest_" + time)
                 .execute().body();
-        log.info(resp);
+//        log.info(resp);
         String s = parseGeeJson(resp);
 
         JSONObject obj = JSONObject.parseObject(s);
@@ -800,7 +800,6 @@ public class Gee4Service {
         String json = parseGeeJson(resp);
 
         JSONObject obj = JSONObject.parseObject(json);
-        JSONObject data = obj.getJSONObject("data");
         return obj;
     }
 

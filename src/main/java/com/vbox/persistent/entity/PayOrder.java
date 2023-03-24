@@ -17,6 +17,7 @@ public class PayOrder {
     private String pAccount;
     private Integer cost;
     private String acId;
+    private String payIp;
     private String platformOid;
     private String cChannelId;
     private String resourceUrl;
@@ -25,5 +26,7 @@ public class PayOrder {
     private Integer callbackStatus;
     private Integer codeUseStatus;
     private LocalDateTime createTime;
+    private LocalDateTime asyncTime;
+    private LocalDateTime callTime;
 
 }

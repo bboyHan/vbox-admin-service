@@ -18,13 +18,10 @@ import com.vbox.config.exception.NotFoundException;
 import com.vbox.config.exception.ServiceException;
 import com.vbox.persistent.entity.*;
 import com.vbox.persistent.pojo.dto.*;
-import com.vbox.persistent.pojo.vo.OrderCallbackVO;
 import com.vbox.persistent.pojo.vo.PayNotifyVO;
 import com.vbox.persistent.repo.*;
 import com.vbox.service.channel.PayService;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.ibatis.annotations.Param;
-import org.apache.ibatis.annotations.Update;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Async;
@@ -32,7 +29,6 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 import javax.annotation.Resource;
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.net.ConnectException;
 import java.time.LocalDateTime;
@@ -40,7 +36,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
 
-@Component
+//@Component
 @Slf4j
 public class OrderTask {
 
@@ -99,7 +95,7 @@ public class OrderTask {
         }
     }
 
-    @Scheduled(cron = "0/5 * *  * * ? ")   //每 10秒执行一次, 处理成功订单的回调通知
+    @Scheduled(cron = "0/2 * *  * * ? ")   //每 2秒执行一次, 处理成功订单的回调通知
     @Async("scheduleExecutor")
     public void handleCallbackOrder() throws IllegalAccessException {
 
@@ -181,7 +177,8 @@ public class OrderTask {
                 log.info("回调返回信息： http status： {}， resp： {}", resp.getStatus(), resp.body());
                 this.redisUtil.pub(String.format("回调返回信息： http status： %s， resp： %s", resp.getStatus(), resp.body()));
                 if (resp.getStatus() == 200) {
-                    pOrderMapper.updateCallbackStatusByOId(orderId);
+                    LocalDateTime callTime = LocalDateTime.now();
+                    pOrderMapper.updateCallbackStatusByOIdForSys(orderId, callTime);
                     redisUtil.setRemove(CommonConstant.ORDER_CALLBACK_QUEUE, orderId);
                     log.info("该订单已回调成功，通知url：{}，orderID：{}", notify, orderId);
                 }
@@ -193,7 +190,7 @@ public class OrderTask {
 
     }
 
-    @Scheduled(cron = "0/10 * *  * * ? ")   //每 5秒执行一次, 超时处理
+    @Scheduled(cron = "0/10 * * * * ? ")   //每 10秒执行一次, 超时处理
     public void handleDelayOrder() {
         Set<?> set = redisUtil.zGet(CommonConstant.ORDER_DELAY_QUEUE);
         if (set == null || set.isEmpty()) {
@@ -255,7 +252,7 @@ public class OrderTask {
         log.info("handleDelayOrder.end");
     }
 
-    @Scheduled(cron = "0/5 * *  * * ? ")   //每 5s 执行一次, 未支付单子复核
+    @Scheduled(cron = "0 */1 * * * ? ")   //每 1min 执行一次, 未支付单子复核10min前单子
     public void handleUnPayOrder() {
 
         List<PayOrder> poList = pOrderMapper.listUnPay();
@@ -265,7 +262,7 @@ public class OrderTask {
         for (PayOrder po : poList) {
             try {
                 String orderId = po.getOrderId();
-                Thread.sleep(120L);
+                Thread.sleep(1500L);
                 // 生产
                 JSONObject resp = payService.queryOrderForQuery(orderId);
                 JSONObject data = resp.getJSONObject("data");
@@ -317,6 +314,79 @@ public class OrderTask {
         log.info("handleUnPayOrder.end");
 
 
+    }
+
+    @Scheduled(cron = "0/2 * * * * ?")   //每 2s 执行一次, 未支付单子复核 redis 池子
+    public void handleAsyncUnPayOrder() {
+        Object ele = redisUtil.rPop(CommonConstant.ORDER_QUERY_QUEUE);
+        if (ele == null) {
+            return;
+        }
+        log.info("OrderCreateTask.handleUnPayOrder.start");
+        String text = ele.toString();
+        PayOrder po = JSONObject.parseObject(text, PayOrder.class);
+        try {
+            String orderId = po.getOrderId();
+            // 生产
+            JSONObject resp = payService.queryOrderForQuery(orderId);
+            JSONObject data = resp.getJSONObject("data");
+            Integer code = data.getInteger("order_status");
+            //测试
+//                Integer code = 2;
+            if (code == 2) { //未支付的订单，查询平台支付成功了
+                int row = pOrderMapper.updateOStatusByOId(orderId, OrderStatusEnum.PAY_FINISHED.getCode(), CodeUseStatusEnum.FINISHED.getCode());
+                if (row == 1) {
+                    // 支付成功后 入库 wallet
+                    CAccount ca = cAccountMapper.getCAccountByAcid(po.getAcId());
+
+                    CAccountWallet w = new CAccountWallet();
+                    w.setCaid(ca.getId());
+                    w.setCost(po.getCost());
+                    w.setOid(po.getOrderId());
+                    w.setCreateTime(LocalDateTime.now());
+                    try {
+                        cAccountWalletMapper.insert(w);
+                    } catch (Exception var14) {
+                        log.warn("CAccountWallet 已经入库, err: {}", var14.getMessage());
+                    }
+                    log.info("[task check] 自动查单, 查询到该单在平台已支付成功，自动入库并入回调池: orderId - {}， 平台数据：{}", po.getOrderId(), data);
+
+                    long rowRedis = redisUtil.sSetAndTime(CommonConstant.ORDER_CALLBACK_QUEUE, 300, orderId);
+                    if (rowRedis == 1) {
+                        log.info("handleUnPayOrder, 查询未支付订单已完成支付，入回调通知池， 订单ID: {}", orderId);
+                    }
+
+                }
+            } else {
+                JSONObject orderInfo = data.getJSONObject("order_info");
+                String rechargeTime = orderInfo.getString("recharge_time");
+                DateTimeFormatter format = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+                LocalDateTime orderTime = LocalDateTime.parse(rechargeTime, format);
+                LocalDateTime nowTime = LocalDateTime.now().plusMinutes(-3);
+                if (nowTime.isAfter(orderTime)) { //超5分钟了查到未支付，直接设置为失败单
+                    int row = pOrderMapper.updateOStatusByOId(orderId, OrderStatusEnum.PAY_TIMEOUT.getCode(), CodeUseStatusEnum.PLATFORM_NOT_PAY.getCode());
+                    if (row == 1) {
+                        log.info("【任务执行】 not pay order, 订单超时置为超时状态, pay order: {}, platform order info: {}", po, data);
+                    }
+                }else {
+                    boolean b = redisUtil.lPush(CommonConstant.ORDER_QUERY_QUEUE, po);
+                    log.error("【任务执行】handleUnPayOrder重新丢回队列, {}, push: {}", po.getOrderId(), b);
+                }
+            }
+        } catch (Exception e) {
+//            LocalDateTime createTime = po.getCreateTime();
+//            LocalDateTime nowTime = LocalDateTime.now().plusMinutes(-3);
+//            if (nowTime.isAfter(createTime)) {
+//                log.error("【任务执行】handleUnPayOrder超时3分钟直接丢弃, {}", po);
+//                pOrderMapper.updateOStatusByOidForQueue(po.getOrderId(), OrderStatusEnum.PAY_CREATING_ERROR.getCode());
+//                log.error("【任务执行】handleUnPayOrder数据库置为异常单, orderId : {}", po.getOrderId());
+//            } else {
+                boolean b = redisUtil.lPush(CommonConstant.ORDER_QUERY_QUEUE, po);
+                log.error("【任务执行】handleUnPayOrder重新丢回队列, {}, push: {}", po.getOrderId(), b);
+//            }
+            log.error("OrderCreateTask.handleUnPayOrder", e);
+        }
+        log.info("OrderCreateTask.handleAsyncUnPayOrder.end");
     }
 
     //    @Scheduled(cron = "0/5 * * * * ?")   //每 5s 执行一次, 接受订单创建的队列

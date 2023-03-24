@@ -23,6 +23,7 @@ import com.vbox.common.ResultOfList;
 import com.vbox.common.constant.CommonConstant;
 import com.vbox.common.enums.*;
 import com.vbox.common.util.CommonUtil;
+import com.vbox.common.util.ProxyUtil;
 import com.vbox.common.util.RedisUtil;
 import com.vbox.config.exception.NotFoundException;
 import com.vbox.config.exception.ServiceException;
@@ -50,6 +51,7 @@ import javax.script.Invocable;
 import javax.script.ScriptEngine;
 import javax.script.ScriptEngineManager;
 import javax.script.ScriptException;
+import javax.servlet.http.HttpServletRequest;
 import java.io.*;
 import java.net.URL;
 import java.net.URLDecoder;
@@ -129,22 +131,134 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
 //        String[] split = body.split(":");
 //        int port = Integer.parseInt(split[1].trim());
 //        String ipAddr = split[0];
-        log.info("传入: area - {},pay ip - {}, pr - {}", area, payIp, pr);
-
+        log.info("传入: area - {}, pay ip - {}, pr - {}", area, payIp, pr);
+        String areaCity = null;
         String ipAddr = null;
         String ripAddr = null;
         int port = 0;
-        if ((payIp == null || "".equals(payIp)) && pr == null) {
+
+        if (StringUtils.hasLength(payIp)) {
+            String location = CommonUtil.ip2region(payIp);
+            if (location == null) {
+                throw new ServiceException("传入ip有误，请确认是否为正确Ipv4地址");
+            }
+            log.info("当前传入ip，查询location为 : {}", location);
+            String[] split = location.split("\\|");
+            String regionCity = split[3];
+            Location locCity = locationMapper.regionSearch(regionCity);
+            if (locCity != null) {
+                areaCity = locCity.getArea();
+                log.info("从库里取出【市区】, area : {} ,loc : {}", areaCity, locCity);
+            }
+            String region = split[2];
+            Location loc = locationMapper.regionSearch(region);
+            if (loc != null) {
+                area = loc.getArea();
+                log.info("从库里取出【省区】, area : {} ,loc : {}", area, loc);
+            }
+
+            if (StringUtils.hasLength(areaCity)) {
+                String bodyCity = HttpRequest.get("http://api.shenlongip.com/ip?key=iah0c7fo&sign=94f84cf83d512b135be2a82f9028d353&mr=2&protocol=2&count=1&rip=1&pattern=json&area=" + areaCity).execute().body();
+//                String bodyCity = HttpRequest.get("http://ip.quanminip.com/ip?secret=n7VuiYE6&num=1&port=1&type=json&cs=1&mr=1&sign=27ec7a99aa182aa07192281bbcb652d3&region=" + areaCity).execute().body();
+                log.info("1- 市区area传入，获取代理 resp: {}", bodyCity);
+                JSONObject resp = null;
+                try { //市区
+                    resp = JSONObject.parseObject(bodyCity);
+                    JSONArray list = resp.getJSONArray("data");
+                    JSONObject data = list.getJSONObject(0);
+                    ipAddr = data.getString("ip");
+                    ripAddr = data.getString("rip");
+                    port = data.getInteger("port");
+                } catch (Exception e) { //省区
+                    log.info("1- 代理解析失败 msg: {}", e.getMessage());
+                    if (StringUtils.hasLength(area)) {
+                        String body = HttpRequest.get("http://api.shenlongip.com/ip?key=iah0c7fo&sign=94f84cf83d512b135be2a82f9028d353&mr=2&protocol=2&count=1&rip=1&pattern=json&area=" + area).execute().body();
+//                        String body = HttpRequest.get("http://ip.quanminip.com/ip?secret=n7VuiYE6&num=1&port=1&type=json&cs=1&mr=1&sign=27ec7a99aa182aa07192281bbcb652d3&region=" + area).execute().body();
+                        log.info("2- 从省区area，获取代理 resp: {}", body);
+                        try {
+                            resp = JSONObject.parseObject(body);
+                            JSONArray list = resp.getJSONArray("data");
+                            JSONObject data = list.getJSONObject(0);
+                            ipAddr = data.getString("ip");
+                            ripAddr = data.getString("rip");
+                            port = data.getInteger("port");
+                        } catch (Exception ex) {
+                            log.info("2- 代理解析失败 msg: {}", ex.getMessage());
+                            String bodyRandom = HttpRequest.get("http://api.shenlongip.com/ip?key=iah0c7fo&sign=94f84cf83d512b135be2a82f9028d353&mr=2&protocol=2&count=1&rip=1&pattern=json").execute().body();
+                            log.info("3- 全国area，获取代理 resp: {}", bodyRandom);
+                            try {
+                                resp = JSONObject.parseObject(bodyRandom);
+                                JSONArray list = resp.getJSONArray("data");
+                                JSONObject data = list.getJSONObject(0);
+                                ipAddr = data.getString("ip");
+                                ripAddr = data.getString("rip");
+                                port = data.getInteger("port");
+                            } catch (Exception exx) {
+                                log.info("3- 代理解析失败 msg: {}", ex.getMessage());
+                            }
+                        }
+                    }
+
+                }
+            } else if (!StringUtils.hasLength(areaCity) && StringUtils.hasLength(area)) {
+                String body = HttpRequest.get("http://api.shenlongip.com/ip?key=iah0c7fo&sign=94f84cf83d512b135be2a82f9028d353&mr=2&protocol=2&count=1&rip=1&pattern=json&area=" + area).execute().body();
+//                String body = HttpRequest.get("http://ip.quanminip.com/ip?secret=n7VuiYE6&num=1&port=1&type=json&cs=1&mr=1&sign=27ec7a99aa182aa07192281bbcb652d3&region=" + area).execute().body();
+                log.info("11- 从省区area，获取代理 resp: {}", body);
+                JSONObject resp = null;
+                try {
+                    resp = JSONObject.parseObject(body);
+                    JSONArray list = resp.getJSONArray("data");
+                    JSONObject data = list.getJSONObject(0);
+                    ipAddr = data.getString("ip");
+                    ripAddr = data.getString("rip");
+                    port = data.getInteger("port");
+                } catch (Exception ex) {
+                    log.info("11- 代理解析失败 msg: {}", ex.getMessage());
+                    String bodyRandom = HttpRequest.get("http://api.shenlongip.com/ip?key=iah0c7fo&sign=94f84cf83d512b135be2a82f9028d353&mr=2&protocol=2&count=1&rip=1&pattern=json").execute().body();
+//                    String bodyRandom = HttpRequest.get("http://ip.quanminip.com/ip?secret=n7VuiYE6&num=1&port=1&type=json&cs=1&mr=1&sign=27ec7a99aa182aa07192281bbcb652d3").execute().body();
+                    log.info("22- 全国area，获取代理 resp: {}", bodyRandom);
+                    try {
+                        resp = JSONObject.parseObject(bodyRandom);
+                        JSONArray list = resp.getJSONArray("data");
+                        JSONObject data = list.getJSONObject(0);
+                        ipAddr = data.getString("ip");
+                        ripAddr = data.getString("rip");
+                        port = data.getInteger("port");
+                    } catch (Exception exx) {
+                        log.info("22- 代理解析失败 msg: {}", exx.getMessage());
+                    }
+                }
+
+            }else {
+                String bodyRandom = HttpRequest.get("http://api.shenlongip.com/ip?key=iah0c7fo&sign=94f84cf83d512b135be2a82f9028d353&mr=2&protocol=2&count=1&rip=1&pattern=json").execute().body();
+//                String bodyRandom = HttpRequest.get("http://ip.quanminip.com/ip?secret=n7VuiYE6&num=1&port=1&type=json&cs=1&mr=1&sign=27ec7a99aa182aa07192281bbcb652d3").execute().body();
+                log.info("111- 全国area，获取代理 resp: {}", bodyRandom);
+                JSONObject resp = null;
+                try {
+                    resp = JSONObject.parseObject(bodyRandom);
+                    JSONArray list = resp.getJSONArray("data");
+                    JSONObject data = list.getJSONObject(0);
+                    ipAddr = data.getString("ip");
+                    ripAddr = data.getString("rip");
+                    port = data.getInteger("port");
+                } catch (Exception exx) {
+                    log.info("222- 代理解析失败 msg: {}", exx.getMessage());
+                }
+            }
+
+        }
+
+        /*if ((payIp == null || "".equals(payIp)) && pr == null) {
 //            String body = HttpRequest.get("http://api.shenlongip.com/ip?key=f1wwoih7&sign=94f84cf83d512b135be2a82f9028d353&mr=1&protocol=2&count=1&rip=1&pattern=json").execute().body();
             JSONObject resp = null;
             try {
-                String body = HttpRequest.get("http://api.shenlongip.com/ip?key=iah0c7fo&sign=94f84cf83d512b135be2a82f9028d353&mr=1&protocol=2&count=1&rip=1&pattern=json&area=" + area).execute().body();
+                String body = HttpRequest.get("http://api.shenlongip.com/ip?key=iah0c7fo&sign=94f84cf83d512b135be2a82f9028d353&mr=2&protocol=2&count=1&rip=1&pattern=json&area=" + area).execute().body();
                 log.info(body);
                 resp = JSONObject.parseObject(body);
             } catch (HttpException e) {
                 log.error("shenlong err: {}", e.getMessage());
-                String body = HttpRequest.get("http://api.shenlongip.com/ip?key=iah0c7fo&sign=94f84cf83d512b135be2a82f9028d353&mr=1&protocol=2&count=1&rip=1&pattern=json").execute().body();
-                log.info(body);
+                String body = HttpRequest.get("http://api.shenlongip.com/ip?key=iah0c7fo&sign=94f84cf83d512b135be2a82f9028d353&mr=2&protocol=2&count=1&rip=1&pattern=json").execute().body();
+                log.info("shenlong 二次取: {}", body);
                 resp = JSONObject.parseObject(body);
             }
             JSONArray list = resp.getJSONArray("data");
@@ -169,24 +283,52 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
             }
             log.info("当前传入ip，查询location为 : {}", location);
             String[] split = location.split("\\|");
-
+            String regionCity = split[3];
+            Location locCity = locationMapper.regionSearch(regionCity);
+            if (locCity != null) {
+                areaCity = locCity.getArea();
+                log.info("从库里取出【市区】, area : {} ,loc : {}", areaCity, locCity);
+            }
             String region = split[2];
             Location loc = locationMapper.regionSearch(region);
             if (loc != null) {
                 area = loc.getArea();
-                log.info("从库里取出, area : {} ,loc : {}", area, loc);
+                log.info("从库里取出【省区】, area : {} ,loc : {}", area, loc);
             }
         }
         if (pr == null || "shenlong".equals(pr)) {
             try {
                 String body = null;
+                String bodyCity = null;
                 if (StringUtils.hasLength(area)) {
 //                    body = HttpRequest.get("http://api.shenlongip.com/ip?key=f1wwoih7&sign=94f84cf83d512b135be2a82f9028d353&mr=1&protocol=2&count=1&rip=1&pattern=json&area=" + area).execute().body();
 //                    body = HttpRequest.get("http://api.shenlongip.com/ip?key=ah3yw232&sign=bdad24bb1b322eebc34be6c35e9c63c7&mr=1&protocol=2&count=1&rip=1&pattern=json&area=" + area).execute().body();
-                    body = HttpRequest.get("http://api.shenlongip.com/ip?key=iah0c7fo&sign=94f84cf83d512b135be2a82f9028d353&mr=1&protocol=2&count=1&rip=1&pattern=json&area=" + area).execute().body();
+                    if (StringUtils.hasLength(areaCity)) {
+                        bodyCity = HttpRequest.get("http://api.shenlongip.com/ip?key=iah0c7fo&sign=94f84cf83d512b135be2a82f9028d353&mr=2&protocol=2&count=1&rip=1&pattern=json&area=" + areaCity).execute().body();
+                        try {
+                            JSONObject respCity = JSONObject.parseObject(bodyCity);
+                            JSONArray list = respCity.getJSONArray("data");
+                            JSONObject data = list.getJSONObject(0);
+                            ipAddr = data.getString("ip");
+                            ripAddr = data.getString("rip");
+                            port = data.getInteger("port");
+                        } catch (Exception e) {
+                            log.info();
+                        }
+                    } else {
+                        body = HttpRequest.get("http://api.shenlongip.com/ip?key=iah0c7fo&sign=94f84cf83d512b135be2a82f9028d353&mr=2&protocol=2&count=1&rip=1&pattern=json&area=" + area).execute().body();
+                        log.info("shenlong - {}", body);
+                        JSONObject resp = JSONObject.parseObject(body);
+                        JSONArray list = resp.getJSONArray("data");
+                        JSONObject data = list.getJSONObject(0);
+                        ipAddr = data.getString("ip");
+                        ripAddr = data.getString("rip");
+                        port = data.getInteger("port");
+                    }
+
                 } else {
 //                    body = HttpRequest.get("http://api.shenlongip.com/ip?key=f1wwoih7&sign=94f84cf83d512b135be2a82f9028d353&mr=1&protocol=2&count=1&rip=1&pattern=json").execute().body();
-                    body = HttpRequest.get("http://api.shenlongip.com/ip?key=iah0c7fo&sign=94f84cf83d512b135be2a82f9028d353&mr=1&protocol=2&count=1&rip=1&pattern=json&area=" + area).execute().body();
+                    body = HttpRequest.get("http://api.shenlongip.com/ip?key=iah0c7fo&sign=94f84cf83d512b135be2a82f9028d353&mr=2&protocol=2&count=1&rip=1&pattern=json&area=" + area).execute().body();
                 }
 
                 log.info("shenlong - {}", body);
@@ -199,7 +341,7 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
             } catch (Exception e) {
                 log.error(e.getMessage());
 //                String body = HttpRequest.get("http://api.shenlongip.com/ip?key=f1wwoih7&sign=94f84cf83d512b135be2a82f9028d353&mr=1&protocol=2&count=1&rip=1&pattern=json").execute().body();
-                String body = HttpRequest.get("http://api.shenlongip.com/ip?key=iah0c7fo&sign=94f84cf83d512b135be2a82f9028d353&mr=1&protocol=2&count=1&rip=1&pattern=json").execute().body();
+                String body = HttpRequest.get("http://api.shenlongip.com/ip?key=iah0c7fo&sign=94f84cf83d512b135be2a82f9028d353&mr=2&protocol=2&count=1&rip=1&pattern=json").execute().body();
 
                 log.info("shenlong - 正常取没取到，二次取 - {}", body);
                 JSONObject resp = JSONObject.parseObject(body);
@@ -246,7 +388,7 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
             JSONObject data = list.getJSONObject(0);
             ipAddr = data.getString("IP");
             port = data.getInteger("port");
-        }
+        }*/
 
         ProxyInfo proxyInfo = new ProxyInfo();
         proxyInfo.setPort(port);
@@ -420,7 +562,7 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
                 delayTask.setTask(payOrder);
                 boolean delaySetting = redisUtil.zAdd("order_delay_queue", delayTask, 300000L);
                 if (delaySetting) {
-                    log.info("delay info: {}, expire time: {}", delayTask, 20000);
+                    log.info("delay info: {}, expire time: {}", delayTask, "5min");
                 }
 
                 PayOrderCreateVO p = new PayOrderCreateVO();
@@ -576,9 +718,118 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
         SortedMap<String, String> map = CommonUtil.objToTreeMap(orderCreateParam);
         String sign = CommonUtil.encodeSign(map, "00b79aa26d6f412984c8926300427e39");
         orderCreateParam.setSign(sign);
-        return createOrder(orderCreateParam, area, pr);
+        return createAsyncOrder(orderCreateParam, area, pr);
     }
 
+    @Override
+    public Object createAsyncOrder(OrderCreateParam orderCreateParam, String area, String pr) throws Exception {
+        log.info("入参: area - {}, pr - {}, {}", area, pr, orderCreateParam);
+        String pa = orderCreateParam.getP_account();
+        String orderId = orderCreateParam.getP_order_id();
+        //参数校验
+        Channel channel = paramCheckCreateOrder(orderCreateParam);
+
+        Integer reqMoney = orderCreateParam.getMoney();
+        LocalDateTime nowTime = LocalDateTime.now();
+        CAccountInfo randomACInfo = new CAccountInfo();
+        String account;
+        String now;
+        if (null == orderCreateParam.getAcid()) {
+            List<CAccountInfo> cAccountList = cAccountMapper.listCanPayForCAccount();
+            if (cAccountList == null || cAccountList.size() == 0) {
+                throw new NotFoundException("系统不可用充值渠道，请联系管理员");
+            }
+
+            String orderKey = "redisLock_order:" + orderId;
+            if (redisUtil.hasKey(orderKey)) {
+                throw new DuplicateKeyException("该订单已创建，请勿重复操作，order id: " + orderId);
+            }
+
+            redisUtil.set(orderKey, 1, 300L);
+            log.info("create order 创建订单: {}, p account: {}", orderId, pa);
+            redisUtil.pub("【商户：" + pa + "】【订单ID：" + orderId + "】正在创建订单....  ");
+            reqMoney = orderCreateParam.getMoney();
+            nowTime = LocalDateTime.now();
+            now = DateUtil.format(nowTime, "yyyy-MM-dd");
+            List<CAccountInfo> cAccountListToday = cAccountMapper.listCanPayForCAccountToday(now);
+            for (CAccountInfo c : cAccountListToday) {
+                c.setCreateTime(nowTime);
+            }
+
+            List<CAccountInfo> randomTemp = computeAsync(channel.getId(), now, cAccountList, cAccountListToday);
+            if (randomTemp.size() == 0) {
+                throw new NotFoundException("系统无可用充值账户，请联系管理员");
+            }
+
+            int randomIndex = RandomUtil.randomInt(randomTemp.size());
+            randomACInfo = randomTemp.get(randomIndex);
+        } else {
+            CAccount acDB = cAccountMapper.selectOne((new QueryWrapper<CAccount>()).eq("acid", orderCreateParam.getAcid()));
+            if (acDB.getStatus() != 1 || acDB.getSysStatus() != 1) {
+                throw new ServiceException("该账户未开启后台设置开关，不允许建单");
+            }
+            BeanUtils.copyProperties(acDB, randomACInfo);
+        }
+        log.info("资源池取出...randomACInfo - {}", randomACInfo);
+
+        PayInfo payInfo = new PayInfo();
+        CGatewayInfo cgi = cGatewayMapper.getGateWayInfoByCIdAndGId(randomACInfo.getCid(), randomACInfo.getGid());
+        payInfo.setChannel(cgi.getCChannel());
+        account = randomACInfo.getAcAccount();
+        payInfo.setRepeat_passport(account);
+        payInfo.setGame(cgi.getCGame());
+        payInfo.setGateway(cgi.getCGateway());
+        payInfo.setRecharge_unit(reqMoney);
+        payInfo.setRecharge_type(6);
+
+        redisUtil.pub("【商户：" + pa + "】【订单ID：" + orderId + "】创建订单准备.... ck 校验成功  ");
+        log.info("【商户：" + pa + "】【订单ID：" + orderId + "】创建订单准备.... ck 校验成功  ");
+        //
+        String acId = randomACInfo.getAcid();
+        String cChannelId = cgi.getCChannelId();
+        PayOrder payOrder = new PayOrder();
+        payOrder.setOrderId(orderId);
+        payOrder.setPAccount(pa);
+        payOrder.setCost(reqMoney);
+        payOrder.setAcId(acId);
+//        payOrder.setPayIp(orderCreateParam.getPay_ip());
+        payOrder.setCChannelId(cChannelId);
+        String h5Url = CommonConstant.ENV_HOST_PAY_URL + orderId;
+        payOrder.setNotifyUrl(orderCreateParam.getNotify_url());
+        payOrder.setOrderStatus(OrderStatusEnum.PAY_CREATING.getCode()); //4 - 创建中
+        payOrder.setCallbackStatus(OrderCallbackEnum.NOT_CALLBACK.getCode());
+        payOrder.setCodeUseStatus(CodeUseStatusEnum.NO_USE.getCode());
+        payOrder.setCreateTime(nowTime);
+        pOrderMapper.insert(payOrder);
+
+        PayOrderEvent event = new PayOrderEvent();
+        event.setOrderId(orderId);
+        event.setCreateTime(nowTime);
+        pOrderEventMapper.insert(event);
+
+//        POrderQueue pOrderQueue = new POrderQueue();
+//        pOrderQueue.setPa(pa);
+//        pOrderQueue.setChannel(channel.getId());
+//        pOrderQueue.setOrderId(orderId);
+//        pOrderQueue.setPayIp(orderCreateParam.getPay_ip());
+//        pOrderQueue.setReqMoney(reqMoney);
+//        pOrderQueue.setArea(area);
+//        pOrderQueue.setAcid(acId);
+//        pOrderQueue.setPr(pr);
+//        redisUtil.lPush(CommonConstant.ORDER_CREATE_QUEUE, pOrderQueue);
+
+        PayOrderCreateVO p = new PayOrderCreateVO();
+        p.setPayUrl(h5Url);
+        p.setOrderId(orderId);
+        p.setCost(reqMoney);
+        p.setAttach(orderCreateParam.getAttach());
+        p.setStatus(4);
+        p.setChannelId(orderCreateParam.getChannel_id());
+        redisUtil.pub("【商户：" + pa + "】【订单ID：" + orderId + "】创建异步订单准备工作完成.... 付款链接: " + h5Url);
+        log.info("【商户：" + pa + "】【订单ID：" + orderId + "】创建异步订单准备工作完成.... 付款链接: " + h5Url);
+        return p;
+
+    }
 //    @Override
 //    public Object createAsyncOrder(OrderCreateParam orderCreateParam) throws Exception {
 //
@@ -1246,6 +1497,7 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
         File file = new File("tmp");
         CommonUtil.inputStreamToFile(is, file);
         FileReader reader = new FileReader(file);   // 执行指定脚本
+        HttpResponse resp = null;
         try {
             engine.eval(reader);
             if (engine instanceof Invocable) {
@@ -1257,7 +1509,7 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
 
                 SecCode secCode = gee4Service.capSecCode();
 
-                HttpResponse resp = HttpRequest.get("https://pf-api.xoyo.com/passport/common_api/login")
+                resp = HttpRequest.get("https://pf-api.xoyo.com/passport/common_api/login")
                         .setHttpProxy(ProxyInfoThreadHolder.getIpAddr(), ProxyInfoThreadHolder.getPort())
                         .form("account", acAccount)
                         .form("encrypt_method", "rsa")
@@ -1284,6 +1536,7 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
         } catch (ScriptException e) {
             e.printStackTrace();
         } catch (Exception e) {
+            log.error("/common_api/login, err resp : {}", resp == null ? "无响应数据" : resp.body());
             throw new RuntimeException(e);
         }
 
@@ -1294,6 +1547,7 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
     public String getCKforQuery(String acAccount, String acPwd) throws IOException {
         Object v = redisUtil.get(CommonConstant.ACCOUNT_CK + acAccount);
         if (v != null) {
+            log.info("redis中取出ck, v : {}", v);
             return v.toString();
         }
         String cookie = null;
@@ -1305,12 +1559,13 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
 //        InputStream is = classPathResource.getInputStream();
         String property = System.getProperty("user.dir");
         String filePath = (property + File.separator + "d4.js");
-        log.info("filePath ： {}", filePath);
+//        log.info("filePath ： {}", filePath);
         File inputFile = new File(filePath);
         InputStream is = new FileInputStream(inputFile);
         File file = new File("tmp");
         CommonUtil.inputStreamToFile(is, file);
         FileReader reader = new FileReader(file);   // 执行指定脚本
+        HttpResponse resp = null;
         try {
             engine.eval(reader);
             if (engine instanceof Invocable) {
@@ -1322,7 +1577,7 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
 
                 SecCode secCode = gee4Service.capSecCodeForQuery();
 
-                HttpResponse resp = HttpRequest.get("https://pf-api.xoyo.com/passport/common_api/login")
+                resp = HttpRequest.get("https://pf-api.xoyo.com/passport/common_api/login")
                         .form("account", acAccount)
                         .form("encrypt_method", "rsa")
                         .form("captcha_id", secCode.getCaptcha_id())
@@ -1341,13 +1596,14 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
                 cookie = resp.headerList("Set-Cookie").get(0);
 
                 JSONObject obj = JSONObject.parseObject(jsonResp);
-                log.info("login ---- obj: {}", obj);
+                log.info("login 取出ck ---- obj: {}", obj);
 //                System.out.println(obj);
 //                System.out.println(data);
             }
         } catch (ScriptException e) {
             e.printStackTrace();
         } catch (Exception e) {
+            log.error("/common_api/login, err resp : {}", resp == null ? "无响应数据" : resp.body());
             throw new RuntimeException(e);
         }
 
@@ -1496,6 +1752,43 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
     public String orderWxHtml(String orderId) {
         PayOrderEvent event = pOrderEventMapper.getPOrderEventByOid(orderId);
         return event.getExt();
+    }
+
+    @Override
+    public Object handleRealOrder(HttpServletRequest request, String orderId) {
+        String ip = null;
+        try {
+            ip = ProxyUtil.getIP(request);
+        } catch (Exception e) {
+            log.error("ip err: {}", e.getMessage());
+        }
+        log.info("handleRealOrder. ip check : {}", CommonUtil.ip2region(ip));
+
+        PayOrder poDB = pOrderMapper.getPOrderByOid(orderId);
+        if (poDB == null) throw new NotFoundException("该订单不存在， orderId :" + orderId);
+        boolean has = redisUtil.hasKey(CommonConstant.ORDER_WAIT_QUEUE + orderId);
+        if (has) {
+            return 1;
+        }
+        if (poDB.getOrderStatus() != null && poDB.getOrderStatus() == 4) {
+            redisUtil.set(CommonConstant.ORDER_WAIT_QUEUE + orderId, 1);
+            POrderQueue pOrderQueue = new POrderQueue();
+            pOrderQueue.setPa(poDB.getPAccount());
+            Channel channel = channelMapper.getChannelByChannelId(poDB.getCChannelId());
+            pOrderQueue.setChannel(channel.getId());
+            pOrderQueue.setOrderId(orderId);
+            pOrderQueue.setPayIp(ip);
+            pOrderQueue.setReqMoney(poDB.getCost());
+//                pOrderQueue.setArea(area);
+            pOrderQueue.setAcid(poDB.getAcId());
+//                pOrderQueue.setPr(pr);
+            redisUtil.lPush(CommonConstant.ORDER_CREATE_QUEUE, pOrderQueue);
+//                createAsyncOrder()
+            return 2;
+        }
+
+
+        return null;
     }
 
     @NotNull
@@ -1651,7 +1944,7 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
                     cookie = c.getCk();
                     log.info("资源池计算. 库中ck取出...{}", c.getCk());
                 } else {
-                    cookie = getCK(acAccount, acPwd);
+                    cookie = getCKforQuery(acAccount, acPwd);
                     log.info("资源池计算. 接口ck取出...{}", c.getCk());
                 }
 
@@ -1663,6 +1956,157 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
                     cAccount.setId(c.getId());
                     cAccount.setSysStatus(0);
                     cAccount.setSysLog("充值账户或密码有误，请更新确认");
+                    cAccountMapper.updateById(cAccount);
+                    iterator.remove();
+                    continue;
+                }
+
+                rs.add(c);
+                break;
+            }
+        }
+        return rs;
+    }
+
+    @NotNull
+    private List<CAccountInfo> computeAsync(Integer channelId, String now, List<CAccountInfo> cAccountList, List<CAccountInfo> cAccountListToday) throws IOException {
+        cAccountList.addAll(cAccountListToday);
+        Map<String, Map<String, List<CAccountInfo>>> collect = cAccountList.stream()
+                .collect(
+                        Collectors.groupingBy(c -> {
+                                    return c.getId() + "." + c.getCaid();
+                                }
+                                , Collectors.groupingBy(cc -> {
+                                    LocalDateTime createTime = cc.getCreateTime();
+                                    if (createTime == null) {
+                                        return "null";
+                                    }
+                                    String date = DateUtil.format(createTime, "yyyy-MM-dd");
+                                    return date;
+                                })
+                        )
+                );
+
+        // 日求和
+        Map<String, Integer> dailySum = cAccountList.stream()
+                .collect(
+                        Collectors.groupingBy(c -> {
+                                    LocalDateTime createTime = c.getCreateTime();
+                                    String date = DateUtil.format(createTime, "yyyy-MM-dd");
+
+                                    return c.getId() + "." + c.getCaid() + "|" + date;
+                                }
+                                , Collectors.summingInt(e -> {
+                                    if (e.getCost() == null) {
+                                        return 0;
+                                    } else return e.getCost();
+                                })
+                        )
+                );
+
+        // 总求和
+        Map<String, Integer> totalSum = cAccountList.stream()
+                .collect(
+                        Collectors.groupingBy(c -> c.getId() + "." + c.getCaid()
+                                , Collectors.summingInt(e -> {
+                                    if (e.getCost() == null) {
+                                        return 0;
+                                    } else return e.getCost();
+                                })
+                        )
+                );
+
+        // 判断求和大于总限额的先过滤
+        Iterator<Map.Entry<String, Map<String, List<CAccountInfo>>>> it = collect.entrySet().iterator();
+        while (it.hasNext()) {
+            Map.Entry<String, Map<String, List<CAccountInfo>>> entry = it.next();
+            String key = entry.getKey();
+            Map<String, List<CAccountInfo>> valueMap = entry.getValue();
+
+            Integer totalCost = totalSum.get(key);
+            CAccountInfo temp = null;
+            for (String k : valueMap.keySet()) {
+                List<CAccountInfo> cl = valueMap.get(k);
+                temp = cl.get(0);
+                break;
+            }
+            if (temp != null && totalCost >= temp.getTotalLimit()) it.remove();
+        }
+
+        // 日限额过滤
+        Iterator<Map.Entry<String, Map<String, List<CAccountInfo>>>> it2 = collect.entrySet().iterator();
+        while (it2.hasNext()) {
+            Map.Entry<String, Map<String, List<CAccountInfo>>> entry = it2.next();
+            String key = entry.getKey();
+            Map<String, List<CAccountInfo>> valueMap = entry.getValue();
+
+            Iterator<Map.Entry<String, List<CAccountInfo>>> it_inner = valueMap.entrySet().iterator();
+            while (it_inner.hasNext()) {
+                Map.Entry<String, List<CAccountInfo>> next = it_inner.next();
+                List<CAccountInfo> cValue = next.getValue();
+                Iterator<CAccountInfo> itrList = cValue.iterator();
+                while (itrList.hasNext()) {
+                    CAccountInfo c = itrList.next();
+                    LocalDateTime createTime = c.getCreateTime();
+                    if (createTime == null) continue;
+                    String date = DateUtil.format(createTime, "yyyy-MM-dd");
+                    if (!now.equals(date)) {
+                        itrList.remove();
+                        continue;
+                    }
+
+                    Integer dailyCost = dailySum.get(key + "|" + now);
+                    Integer dailyLimit = c.getDailyLimit();
+                    if (dailyLimit == null || dailyLimit == 0) continue;
+                    if (dailyCost >= dailyLimit) {
+                        itrList.remove();
+                    }
+                }
+
+                if (cValue.size() == 0) it_inner.remove();
+            }
+
+            if (valueMap.values().size() == 0) {
+                it2.remove();
+            }
+        }
+
+        // 计算一个可用的 account
+        ArrayList<Map<String, List<CAccountInfo>>> randomList = new ArrayList<>(collect.values());
+
+        Set<CAccountInfo> randomSet = new HashSet<>();
+        for (Map<String, List<CAccountInfo>> valMap : randomList) {
+            for (List<CAccountInfo> valList : valMap.values()) {
+                randomSet.addAll(valList);
+            }
+        }
+
+        List<CAccountInfo> randomTemp = new ArrayList<>(randomSet);
+
+        //随机打乱
+        Collections.shuffle(randomTemp);
+
+        Iterator<CAccountInfo> iterator = randomTemp.iterator();
+        List<CAccountInfo> rs = new ArrayList<>();
+        while (iterator.hasNext()) {
+            CAccountInfo c = iterator.next();
+            if (Objects.equals(channelId, c.getCid())) {
+                // --------------- --------------
+                // 总账户充值
+                Integer totalRecharge = vboxUserWalletMapper.getTotalRechargeByUid(c.getUid());
+
+                // 总订单充值（花费）
+                Integer totalCost = vboxUserWalletMapper.getTotalCostByUid(c.getUid());
+
+                totalRecharge = totalRecharge == null ? 0 : totalRecharge;
+                totalCost = totalCost == null ? 0 : totalCost;
+                // 总余额
+                int balance = totalRecharge - totalCost;
+                if (balance <= 0) {
+                    CAccount cAccount = new CAccount();
+                    cAccount.setId(c.getId());
+                    cAccount.setSysStatus(0);
+                    cAccount.setSysLog("总余额不足，请联系管理员充值");
                     cAccountMapper.updateById(cAccount);
                     iterator.remove();
                     continue;

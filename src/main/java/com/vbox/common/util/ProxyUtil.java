@@ -5,6 +5,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.lionsoul.ip2region.xdb.Searcher;
 import org.springframework.util.StringUtils;
 
+import javax.servlet.http.HttpServletRequest;
 import java.io.File;
 import java.util.Collection;
 import java.util.HashMap;
@@ -14,7 +15,7 @@ import java.util.concurrent.TimeUnit;
 @Slf4j
 public class ProxyUtil {
 
-    public static Map<String, String> loc = new HashMap() {
+    /*public static Map<String, String> loc = new HashMap() {
         {
             put("110000", "中国,,北京市");
             put("110101", "中国,,北京市,东城区");
@@ -3645,7 +3646,7 @@ public class ProxyUtil {
             put("820103", "中国,澳门特别行政区,澳门特别行政区,路凼城");
             put("820104", "中国,澳门特别行政区,澳门特别行政区,路环");
         }
-    };
+    };*/
 
     /**
      * ip查询
@@ -3691,9 +3692,39 @@ public class ProxyUtil {
     public static void addProxy(String payIp) {
         String region = ip2region(payIp);
 
-        Collection<String> values = loc.values();
+//        Collection<String> values = loc.values();
 
 
 //        ProxyInfoThreadHolder.addProxy();
+    }
+
+    /***
+     * 获取客户端ip地址
+     */
+    public static String getIP(final HttpServletRequest request) throws Exception {
+        if (request == null) {
+            throw (new Exception("get IpAddr method HttpServletRequest Object is null"));
+        }
+        String ipStr = request.getHeader("x-forwarded-for");
+        if (StringUtils.isEmpty(ipStr) || "unknown".equalsIgnoreCase(ipStr)) {
+            ipStr = request.getHeader("Proxy-Client-IP");
+        }
+        if (StringUtils.isEmpty(ipStr) || "unknown".equalsIgnoreCase(ipStr)) {
+            ipStr = request.getHeader("WL-Proxy-Client-IP");
+        }
+        if (StringUtils.isEmpty(ipStr) || "unknown".equalsIgnoreCase(ipStr)) {
+            ipStr = request.getRemoteAddr();
+        }
+
+        // 多个路由时，取第一个非unknown的ip
+        final String[] arr = ipStr.split(",");
+        for (final String str : arr) {
+            if (!"unknown".equalsIgnoreCase(str)) {
+                ipStr = str;
+                break;
+            }
+        }
+        //目的是将localhost访问对应的ip 0:0:0:0:0:0:0:1 转成 127.0.0.1。
+        return ipStr.equals("0:0:0:0:0:0:0:1") ? "127.0.0.1" : ipStr;
     }
 }

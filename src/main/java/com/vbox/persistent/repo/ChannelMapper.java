@@ -14,4 +14,7 @@ public interface ChannelMapper extends BaseMapper<Channel> {
     @Select("SELECT * FROM vbox_channel WHERE c_channel_id = #{channelId}")
     Channel getChannelByChannelId(String channelId);
 
+    @Select("SELECT id FROM vbox_channel WHERE c_channel_id = #{channelId}")
+    Integer getChannelIdByChannelId(String channelId);
+
 }

@@ -8,7 +8,7 @@ package com.vbox.common.enums;
 import java.util.Objects;
 
 public enum CodeUseStatusEnum {
-    PLATFORM_NOT_PAY(4, "平台查询未支付"),
+    PLATFORM_NOT_PAY(4, "平台未支付"),
     TIMEOUT(3, "取码超时"),
     NO_USE(2, "未取码"),
     FINISHED(1, "取码成功"),

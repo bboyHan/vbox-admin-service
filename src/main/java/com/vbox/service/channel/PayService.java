@@ -7,6 +7,7 @@ import com.vbox.persistent.entity.PAccount;
 import com.vbox.persistent.pojo.param.*;
 import com.vbox.persistent.pojo.vo.*;
 
+import javax.servlet.http.HttpServletRequest;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.List;
@@ -15,7 +16,11 @@ public interface PayService extends IService<PAccount> {
 
     int createPAccount(PAccountParam param);
 
+    void addProxy(String area, String payIp, String pr);
+
     Object createOrder(OrderCreateParam orderCreateParam, String area, String pr) throws Exception;
+
+    Object createAsyncOrder(OrderCreateParam orderCreateParam, String area, String pr) throws Exception;
 
     Object createTestOrder(Integer num, String acid, String channel, String area, String pr, String payIp) throws Exception;
 
@@ -48,4 +53,6 @@ public interface PayService extends IService<PAccount> {
     OrderQueryVO queryAndCallback(String orderId) throws Exception;
 
     String orderWxHtml(String orderId);
+
+    Object handleRealOrder(HttpServletRequest request, String orderId);
 }

@@ -18,6 +18,7 @@ import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import javax.servlet.http.HttpServletRequest;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.SortedMap;
@@ -113,17 +114,18 @@ public class PayController {
 //    @AccessLimit(maxCount = 30)
     public ResponseEntity<Result<Object>> createOrder(@RequestBody OrderCreateParam orderCreateParam, String area, String pr) throws Exception {
         Object rl = null;
-        try {
-            rl = payService.createOrder(orderCreateParam, area, pr);
-        } catch (IORuntimeException e) {
-            log.error("IO ex 1次 : {}", e.getMessage());
-            try {
-                rl = payService.createOrder(orderCreateParam, area, pr);
-            } catch (IORuntimeException ex) {
-                log.error("IO ex 2次 : {}", ex.getMessage());
-                rl = payService.createOrder(orderCreateParam, area, pr);
-            }
-        }
+//        try {
+//            rl = payService.createOrder(orderCreateParam, area, pr);
+//        } catch (IORuntimeException e) {
+//            log.error("IO ex 1次 : {}", e.getMessage());
+//            try {
+//                rl = payService.createOrder(orderCreateParam, area, pr);
+//            } catch (IORuntimeException ex) {
+//                log.error("IO ex 2次 : {}", ex.getMessage());
+//                rl = payService.createOrder(orderCreateParam, area, pr);
+//            }
+//        }
+        rl = payService.createAsyncOrder(orderCreateParam, area, pr);
         return Result.ok(rl);
     }
 
@@ -147,6 +149,11 @@ public class PayController {
         return Result.ok(rl);
     }
 
+    @GetMapping("/channel/order/handle/{orderId}")
+    public ResponseEntity<Result<Object>> orderTest(HttpServletRequest request,@PathVariable String orderId) throws Exception {
+        Object rl = payService.handleRealOrder(request, orderId);
+        return Result.ok(rl);
+    }
     @GetMapping("/channel/order/create/test/{num}")
     public ResponseEntity<Result<Object>> orderTest(@PathVariable Integer num, String acid,
                                                     String channel, String area,
