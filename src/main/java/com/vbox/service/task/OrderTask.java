@@ -42,7 +42,6 @@ public class OrderTask {
 
     @Resource
     private RedisUtil redisUtil;
-
     @Autowired
     private UserMapper userMapper;
     @Autowired
@@ -324,7 +323,13 @@ public class OrderTask {
         }
         log.info("OrderCreateTask.handleUnPayOrder.start");
         String text = ele.toString();
-        PayOrder po = JSONObject.parseObject(text, PayOrder.class);
+        PayOrder po = null;
+        try {
+            po = JSONObject.parseObject(text, PayOrder.class);
+        } catch (Exception e) {
+            log.error("handleAsyncUnPayOrder.order解析异常： {}", text);
+            return;
+        }
         try {
             String orderId = po.getOrderId();
             // 生产
@@ -381,8 +386,10 @@ public class OrderTask {
 //                pOrderMapper.updateOStatusByOidForQueue(po.getOrderId(), OrderStatusEnum.PAY_CREATING_ERROR.getCode());
 //                log.error("【任务执行】handleUnPayOrder数据库置为异常单, orderId : {}", po.getOrderId());
 //            } else {
+            if (po != null) {
                 boolean b = redisUtil.lPush(CommonConstant.ORDER_QUERY_QUEUE, po);
                 log.error("【任务执行】handleUnPayOrder重新丢回队列, {}, push: {}", po.getOrderId(), b);
+            }
 //            }
             log.error("OrderCreateTask.handleUnPayOrder", e);
         }

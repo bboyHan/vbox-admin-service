@@ -3,8 +3,8 @@ package com.vbox.service.channel.impl;
 import cn.hutool.core.codec.Base64;
 import cn.hutool.core.date.DateUtil;
 import cn.hutool.core.exceptions.ValidateException;
-import cn.hutool.core.net.Ipv4Util;
 import cn.hutool.core.util.IdUtil;
+import cn.hutool.core.util.NumberUtil;
 import cn.hutool.core.util.RandomUtil;
 import cn.hutool.core.util.URLUtil;
 import cn.hutool.crypto.SecureUtil;
@@ -21,7 +21,10 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.vbox.common.ResultOfList;
 import com.vbox.common.constant.CommonConstant;
-import com.vbox.common.enums.*;
+import com.vbox.common.enums.ChannelEnum;
+import com.vbox.common.enums.CodeUseStatusEnum;
+import com.vbox.common.enums.OrderCallbackEnum;
+import com.vbox.common.enums.OrderStatusEnum;
 import com.vbox.common.util.CommonUtil;
 import com.vbox.common.util.ProxyUtil;
 import com.vbox.common.util.RedisUtil;
@@ -42,7 +45,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.core.io.ClassPathResource;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
@@ -58,6 +60,7 @@ import java.net.URLDecoder;
 import java.net.URLEncoder;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.security.KeyPair;
 import java.security.PrivateKey;
 import java.time.LocalDateTime;
@@ -137,6 +140,7 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
         String ripAddr = null;
         int port = 0;
 
+        // shenlong
         if (StringUtils.hasLength(payIp)) {
             String location = CommonUtil.ip2region(payIp);
             if (location == null) {
@@ -158,7 +162,7 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
             }
 
             if (StringUtils.hasLength(areaCity)) {
-                String bodyCity = HttpRequest.get("http://api.shenlongip.com/ip?key=iah0c7fo&sign=94f84cf83d512b135be2a82f9028d353&mr=2&protocol=2&count=1&rip=1&pattern=json&area=" + areaCity).execute().body();
+                String bodyCity = HttpRequest.get("http://api.shenlongip.com/ip?key=iah0c7fo&sign=94f84cf83d512b135be2a82f9028d353&mr=1&protocol=1&count=1&rip=1&pattern=json&area=" + areaCity).execute().body();
 //                String bodyCity = HttpRequest.get("http://ip.quanminip.com/ip?secret=n7VuiYE6&num=1&port=1&type=json&cs=1&mr=1&sign=27ec7a99aa182aa07192281bbcb652d3&region=" + areaCity).execute().body();
                 log.info("1- 市区area传入，获取代理 resp: {}", bodyCity);
                 JSONObject resp = null;
@@ -172,7 +176,7 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
                 } catch (Exception e) { //省区
                     log.info("1- 代理解析失败 msg: {}", e.getMessage());
                     if (StringUtils.hasLength(area)) {
-                        String body = HttpRequest.get("http://api.shenlongip.com/ip?key=iah0c7fo&sign=94f84cf83d512b135be2a82f9028d353&mr=2&protocol=2&count=1&rip=1&pattern=json&area=" + area).execute().body();
+                        String body = HttpRequest.get("http://api.shenlongip.com/ip?key=iah0c7fo&sign=94f84cf83d512b135be2a82f9028d353&mr=1&protocol=2&count=1&rip=1&pattern=json&area=" + area).execute().body();
 //                        String body = HttpRequest.get("http://ip.quanminip.com/ip?secret=n7VuiYE6&num=1&port=1&type=json&cs=1&mr=1&sign=27ec7a99aa182aa07192281bbcb652d3&region=" + area).execute().body();
                         log.info("2- 从省区area，获取代理 resp: {}", body);
                         try {
@@ -184,7 +188,7 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
                             port = data.getInteger("port");
                         } catch (Exception ex) {
                             log.info("2- 代理解析失败 msg: {}", ex.getMessage());
-                            String bodyRandom = HttpRequest.get("http://api.shenlongip.com/ip?key=iah0c7fo&sign=94f84cf83d512b135be2a82f9028d353&mr=2&protocol=2&count=1&rip=1&pattern=json").execute().body();
+                            String bodyRandom = HttpRequest.get("http://api.shenlongip.com/ip?key=iah0c7fo&sign=94f84cf83d512b135be2a82f9028d353&mr=1&protocol=2&count=1&rip=1&pattern=json").execute().body();
                             log.info("3- 全国area，获取代理 resp: {}", bodyRandom);
                             try {
                                 resp = JSONObject.parseObject(bodyRandom);
@@ -201,7 +205,7 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
 
                 }
             } else if (!StringUtils.hasLength(areaCity) && StringUtils.hasLength(area)) {
-                String body = HttpRequest.get("http://api.shenlongip.com/ip?key=iah0c7fo&sign=94f84cf83d512b135be2a82f9028d353&mr=2&protocol=2&count=1&rip=1&pattern=json&area=" + area).execute().body();
+                String body = HttpRequest.get("http://api.shenlongip.com/ip?key=iah0c7fo&sign=94f84cf83d512b135be2a82f9028d353&mr=1&protocol=2&count=1&rip=1&pattern=json&area=" + area).execute().body();
 //                String body = HttpRequest.get("http://ip.quanminip.com/ip?secret=n7VuiYE6&num=1&port=1&type=json&cs=1&mr=1&sign=27ec7a99aa182aa07192281bbcb652d3&region=" + area).execute().body();
                 log.info("11- 从省区area，获取代理 resp: {}", body);
                 JSONObject resp = null;
@@ -214,7 +218,7 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
                     port = data.getInteger("port");
                 } catch (Exception ex) {
                     log.info("11- 代理解析失败 msg: {}", ex.getMessage());
-                    String bodyRandom = HttpRequest.get("http://api.shenlongip.com/ip?key=iah0c7fo&sign=94f84cf83d512b135be2a82f9028d353&mr=2&protocol=2&count=1&rip=1&pattern=json").execute().body();
+                    String bodyRandom = HttpRequest.get("http://api.shenlongip.com/ip?key=iah0c7fo&sign=94f84cf83d512b135be2a82f9028d353&mr=1&protocol=2&count=1&rip=1&pattern=json").execute().body();
 //                    String bodyRandom = HttpRequest.get("http://ip.quanminip.com/ip?secret=n7VuiYE6&num=1&port=1&type=json&cs=1&mr=1&sign=27ec7a99aa182aa07192281bbcb652d3").execute().body();
                     log.info("22- 全国area，获取代理 resp: {}", bodyRandom);
                     try {
@@ -230,7 +234,7 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
                 }
 
             }else {
-                String bodyRandom = HttpRequest.get("http://api.shenlongip.com/ip?key=iah0c7fo&sign=94f84cf83d512b135be2a82f9028d353&mr=2&protocol=2&count=1&rip=1&pattern=json").execute().body();
+                String bodyRandom = HttpRequest.get("http://api.shenlongip.com/ip?key=iah0c7fo&sign=94f84cf83d512b135be2a82f9028d353&mr=1&protocol=2&count=1&rip=1&pattern=json").execute().body();
 //                String bodyRandom = HttpRequest.get("http://ip.quanminip.com/ip?secret=n7VuiYE6&num=1&port=1&type=json&cs=1&mr=1&sign=27ec7a99aa182aa07192281bbcb652d3").execute().body();
                 log.info("111- 全国area，获取代理 resp: {}", bodyRandom);
                 JSONObject resp = null;
@@ -245,38 +249,10 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
                     log.info("222- 代理解析失败 msg: {}", exx.getMessage());
                 }
             }
-
         }
 
-        /*if ((payIp == null || "".equals(payIp)) && pr == null) {
-//            String body = HttpRequest.get("http://api.shenlongip.com/ip?key=f1wwoih7&sign=94f84cf83d512b135be2a82f9028d353&mr=1&protocol=2&count=1&rip=1&pattern=json").execute().body();
-            JSONObject resp = null;
-            try {
-                String body = HttpRequest.get("http://api.shenlongip.com/ip?key=iah0c7fo&sign=94f84cf83d512b135be2a82f9028d353&mr=2&protocol=2&count=1&rip=1&pattern=json&area=" + area).execute().body();
-                log.info(body);
-                resp = JSONObject.parseObject(body);
-            } catch (HttpException e) {
-                log.error("shenlong err: {}", e.getMessage());
-                String body = HttpRequest.get("http://api.shenlongip.com/ip?key=iah0c7fo&sign=94f84cf83d512b135be2a82f9028d353&mr=2&protocol=2&count=1&rip=1&pattern=json").execute().body();
-                log.info("shenlong 二次取: {}", body);
-                resp = JSONObject.parseObject(body);
-            }
-            JSONArray list = resp.getJSONArray("data");
-            JSONObject data = list.getJSONObject(0);
-            ipAddr = data.getString("ip");
-            ripAddr = data.getString("rip");
-            port = data.getInteger("port");
-
-            ProxyInfo proxyInfo = new ProxyInfo();
-            proxyInfo.setPort(port);
-            proxyInfo.setIpAddr(ipAddr);
-
-            ProxyInfoThreadHolder.addProxy(proxyInfo);
-            CommonUtil.ip2region(ipAddr);
-            CommonUtil.ip2region(ripAddr);
-            return;
-        }
-        if (StringUtils.hasLength(payIp)) {
+        // 豫南
+        /*if (StringUtils.hasLength(payIp)) {
             String location = CommonUtil.ip2region(payIp);
             if (location == null) {
                 throw new ServiceException("传入ip有误，请确认是否为正确Ipv4地址");
@@ -286,108 +262,207 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
             String regionCity = split[3];
             Location locCity = locationMapper.regionSearch(regionCity);
             if (locCity != null) {
-                areaCity = locCity.getArea();
+                areaCity = locCity.getRegion().split("-")[2];
+
                 log.info("从库里取出【市区】, area : {} ,loc : {}", areaCity, locCity);
             }
             String region = split[2];
             Location loc = locationMapper.regionSearch(region);
             if (loc != null) {
-                area = loc.getArea();
+                area = loc.getRegion().split("-")[1];
+
                 log.info("从库里取出【省区】, area : {} ,loc : {}", area, loc);
             }
-        }
-        if (pr == null || "shenlong".equals(pr)) {
-            try {
-                String body = null;
-                String bodyCity = null;
-                if (StringUtils.hasLength(area)) {
-//                    body = HttpRequest.get("http://api.shenlongip.com/ip?key=f1wwoih7&sign=94f84cf83d512b135be2a82f9028d353&mr=1&protocol=2&count=1&rip=1&pattern=json&area=" + area).execute().body();
-//                    body = HttpRequest.get("http://api.shenlongip.com/ip?key=ah3yw232&sign=bdad24bb1b322eebc34be6c35e9c63c7&mr=1&protocol=2&count=1&rip=1&pattern=json&area=" + area).execute().body();
-                    if (StringUtils.hasLength(areaCity)) {
-                        bodyCity = HttpRequest.get("http://api.shenlongip.com/ip?key=iah0c7fo&sign=94f84cf83d512b135be2a82f9028d353&mr=2&protocol=2&count=1&rip=1&pattern=json&area=" + areaCity).execute().body();
+
+            if (StringUtils.hasLength(areaCity)) {
+                //https://aapi.51daili.com/getapi2?linePoolIndex=1&packid=2&unkey=&tid=&qty=1&time=2&port=1&format=json&ss=5&css=&pro=%E6%B1%9F%E8%8B%8F%E7%9C%81&city=&dt=0&ct=0&service=1&usertype=17
+                //https://aapi.51daili.com/getapi2?linePoolIndex=1&packid=2&unkey=&tid=&qty=1&time=2&port=1&format=json&ss=5&css=&pro=%E9%99%95%E8%A5%BF%E7%9C%81&city=%E5%AE%89%E5%BA%B7%E5%B8%82&dt=1&ct=0&service=1&usertype=17
+                JSONObject data = new JSONObject();
+                data.put("area", areaCity);
+                String bodyCityParam = data.toString();
+                String bodyCity = HttpRequest.post("http://118.31.4.40/getIpThird")
+                        .body(bodyCityParam, "application/json")
+                        .execute().body();
+//                String bodyCity = HttpRequest.get("http://ip.quanminip.com/ip?secret=n7VuiYE6&num=1&port=1&type=json&cs=1&mr=1&sign=27ec7a99aa182aa07192281bbcb652d3&region=" + areaCity).execute().body();
+                log.info("1- 市区area传入: {}，获取代理 resp: {}", bodyCityParam, bodyCity);
+                JSONObject resp = null;
+                try { //市区
+                    resp = JSONObject.parseObject(bodyCity);
+                    data = resp.getJSONObject("data");
+                    ipAddr = data.getString("ip");
+                    ripAddr = data.getString("real_ip");
+                    port = data.getInteger("port");
+                } catch (Exception e) { //省区
+                    log.info("1- 代理解析失败 msg: {}", e.getMessage());
+                    if (StringUtils.hasLength(area)) {
+                        data = new JSONObject();
+                        data.put("area", area);
+                        String bodyRegion = data.toString();
+                        String bodyProvince = HttpRequest.post("http://118.31.4.40/getIpThird")
+                                .body(bodyRegion, "application/json")
+                                .execute().body();
+                        log.info("2- 从省区area传入： {}，获取代理 resp: {}", bodyRegion, bodyProvince);
                         try {
-                            JSONObject respCity = JSONObject.parseObject(bodyCity);
-                            JSONArray list = respCity.getJSONArray("data");
-                            JSONObject data = list.getJSONObject(0);
+                            resp = JSONObject.parseObject(bodyProvince);
+                            data = resp.getJSONObject("data");
                             ipAddr = data.getString("ip");
-                            ripAddr = data.getString("rip");
+                            ripAddr = data.getString("real_ip");
                             port = data.getInteger("port");
-                        } catch (Exception e) {
-                            log.info();
+                        } catch (Exception ex) {
+                            log.info("2- 代理解析失败 msg: {}", ex.getMessage());
                         }
-                    } else {
-                        body = HttpRequest.get("http://api.shenlongip.com/ip?key=iah0c7fo&sign=94f84cf83d512b135be2a82f9028d353&mr=2&protocol=2&count=1&rip=1&pattern=json&area=" + area).execute().body();
-                        log.info("shenlong - {}", body);
-                        JSONObject resp = JSONObject.parseObject(body);
-                        JSONArray list = resp.getJSONArray("data");
-                        JSONObject data = list.getJSONObject(0);
-                        ipAddr = data.getString("ip");
-                        ripAddr = data.getString("rip");
-                        port = data.getInteger("port");
                     }
 
-                } else {
-//                    body = HttpRequest.get("http://api.shenlongip.com/ip?key=f1wwoih7&sign=94f84cf83d512b135be2a82f9028d353&mr=1&protocol=2&count=1&rip=1&pattern=json").execute().body();
-                    body = HttpRequest.get("http://api.shenlongip.com/ip?key=iah0c7fo&sign=94f84cf83d512b135be2a82f9028d353&mr=2&protocol=2&count=1&rip=1&pattern=json&area=" + area).execute().body();
+                }
+            } else if (!StringUtils.hasLength(areaCity) && StringUtils.hasLength(area)) {
+                JSONObject data = new JSONObject();
+                data.put("area", area);
+                String bodyRegion = data.toString();
+                String bodyProvince = HttpRequest.post("http://118.31.4.40/getIpThird")
+                        .body(bodyRegion, "application/json")
+                        .execute().body();
+                log.info("11- 从省区area，传入: {}, 获取代理 resp: {}", bodyRegion, bodyProvince);
+                JSONObject resp = null;
+                try {
+                    resp = JSONObject.parseObject(bodyProvince);
+                    data = resp.getJSONObject("data");
+                    ipAddr = data.getString("ip");
+                    ripAddr = data.getString("real_ip");
+                    port = data.getInteger("port");
+                } catch (Exception ex) {
+                    log.info("11- 代理解析失败 msg: {}", ex.getMessage());
+                }
+            } else {
+                String bodyRandom = HttpRequest.get("https://aapi.51daili.com/getapi2?linePoolIndex=1&packid=2&unkey=&tid=&qty=1&time=2" +
+                        "&port=1&format=json&ss=5&css=&city=&dt=1&ct=0&service=1&usertype=17&pro=").execute().body();
+//                String bodyRandom = HttpRequest.get("http://ip.quanminip.com/ip?secret=n7VuiYE6&num=1&port=1&type=json&cs=1&mr=1&sign=27ec7a99aa182aa07192281bbcb652d3").execute().body();
+                log.info("111- 全国area，获取代理 resp: {}", bodyRandom);
+                JSONObject resp = null;
+                try {
+                    resp = JSONObject.parseObject(bodyRandom);
+                    JSONArray list = resp.getJSONArray("data");
+                    JSONObject data = list.getJSONObject(0);
+                    ipAddr = data.getString("IP");
+                    port = data.getInteger("Port");
+                } catch (Exception exx) {
+                    log.info("222- 代理解析失败 msg: {}", exx.getMessage());
+                }
+            }
+        }*/
+
+        /*if (StringUtils.hasLength(payIp)) {
+            String location = CommonUtil.ip2region(payIp);
+            if (location == null) {
+                throw new ServiceException("传入ip有误，请确认是否为正确Ipv4地址");
+            }
+            log.info("当前传入ip，查询location为 : {}", location);
+            String[] split = location.split("\\|");
+            String regionCity = split[3];
+            Location locCity = locationMapper.regionSearch(regionCity);
+            if (locCity != null) {
+                areaCity = locCity.getRegion().split("-")[2];
+
+                log.info("从库里取出【市区】, area : {} ,loc : {}", areaCity, locCity);
+            }
+            String region = split[2];
+            Location loc = locationMapper.regionSearch(region);
+            if (loc != null) {
+                area = loc.getRegion().split("-")[1];
+
+                log.info("从库里取出【省区】, area : {} ,loc : {}", area, loc);
+            }
+
+            if (StringUtils.hasLength(areaCity)) {
+                //https://aapi.51daili.com/getapi2?linePoolIndex=1&packid=2&unkey=&tid=&qty=1&time=2&port=1&format=json&ss=5&css=&pro=%E6%B1%9F%E8%8B%8F%E7%9C%81&city=&dt=0&ct=0&service=1&usertype=17
+                //https://aapi.51daili.com/getapi2?linePoolIndex=1&packid=2&unkey=&tid=&qty=1&time=2&port=1&format=json&ss=5&css=&pro=%E9%99%95%E8%A5%BF%E7%9C%81&city=%E5%AE%89%E5%BA%B7%E5%B8%82&dt=1&ct=0&service=1&usertype=17
+                String bodyCity = HttpRequest.get("https://aapi.51daili.com/getapi2?linePoolIndex=1&packid=2&unkey=&tid=&qty=1&time=2" +
+                                "&port=1&format=json&ss=5&css=&city=&dt=0&ct=0&service=1&usertype=17&pro=" + area + "&city=" + areaCity)
+                        .execute().body();
+//                String bodyCity = HttpRequest.get("http://ip.quanminip.com/ip?secret=n7VuiYE6&num=1&port=1&type=json&cs=1&mr=1&sign=27ec7a99aa182aa07192281bbcb652d3&region=" + areaCity).execute().body();
+                log.info("1- 市区area传入: {}，获取代理 resp: {}", areaCity, bodyCity);
+                JSONObject resp = null;
+                try { //市区
+                    resp = JSONObject.parseObject(bodyCity);
+                    JSONArray list = resp.getJSONArray("data");
+                    JSONObject data = list.getJSONObject(0);
+                    ipAddr = data.getString("IP");
+                    port = data.getInteger("Port");
+                } catch (Exception e) { //省区
+                    log.info("1- 代理解析失败 msg: {}", e.getMessage());
+                    if (StringUtils.hasLength(area)) {
+                        String body = HttpRequest.get("https://aapi.51daili.com/getapi2?linePoolIndex=1&packid=2&unkey=&tid=&qty=1&time=2" +
+                                "&port=1&format=json&ss=5&css=&city=&dt=1&ct=0&service=1&usertype=17&pro=" + area).execute().body();
+//                        String body = HttpRequest.get("http://ip.quanminip.com/ip?secret=n7VuiYE6&num=1&port=1&type=json&cs=1&mr=1&sign=27ec7a99aa182aa07192281bbcb652d3&region=" + area).execute().body();
+                        log.info("2- 从省区area传入： {}，获取代理 resp: {}", area, body);
+                        try {
+                            resp = JSONObject.parseObject(body);
+                            JSONArray list = resp.getJSONArray("data");
+                            JSONObject data = list.getJSONObject(0);
+                            ipAddr = data.getString("IP");
+                            port = data.getInteger("Port");
+                        } catch (Exception ex) {
+                            log.info("2- 代理解析失败 msg: {}", ex.getMessage());
+                            String bodyRandom = HttpRequest.get("https://aapi.51daili.com/getapi2?linePoolIndex=1&packid=2&unkey=&tid=&qty=1&time=2" +
+                                    "&port=1&format=json&ss=5&css=&city=&dt=1&ct=0&service=1&usertype=17").execute().body();
+                            log.info("3- 全国area，获取代理 resp: {}", bodyRandom);
+                            try {
+                                resp = JSONObject.parseObject(bodyRandom);
+                                JSONArray list = resp.getJSONArray("data");
+                                JSONObject data = list.getJSONObject(0);
+                                ipAddr = data.getString("IP");
+                                port = data.getInteger("Port");
+                            } catch (Exception exx) {
+                                log.info("3- 代理解析失败 msg: {}", ex.getMessage());
+                            }
+                        }
+                    }
+
+                }
+            } else if (!StringUtils.hasLength(areaCity) && StringUtils.hasLength(area)) {
+                String body = HttpRequest.get("https://aapi.51daili.com/getapi2?linePoolIndex=1&packid=2&unkey=&tid=&qty=1&time=2" +
+                        "&port=1&format=json&ss=5&css=&city=&dt=1&ct=0&service=1&usertype=17&pro=" + area).execute().body();
+//                String body = HttpRequest.get("http://ip.quanminip.com/ip?secret=n7VuiYE6&num=1&port=1&type=json&cs=1&mr=1&sign=27ec7a99aa182aa07192281bbcb652d3&region=" + area).execute().body();
+                log.info("11- 从省区area，获取代理 resp: {}", body);
+                JSONObject resp = null;
+                try {
+                    resp = JSONObject.parseObject(body);
+                    JSONArray list = resp.getJSONArray("data");
+                    JSONObject data = list.getJSONObject(0);
+                    ipAddr = data.getString("IP");
+                    port = data.getInteger("Port");
+                } catch (Exception ex) {
+                    log.info("11- 代理解析失败 msg: {}", ex.getMessage());
+                    String bodyRandom = HttpRequest.get("https://aapi.51daili.com/getapi2?linePoolIndex=1&packid=2&unkey=&tid=&qty=1&time=2" +
+                            "&port=1&format=json&ss=5&css=&city=&dt=1&ct=0&service=1&usertype=17&pro=").execute().body();
+//                    String bodyRandom = HttpRequest.get("http://ip.quanminip.com/ip?secret=n7VuiYE6&num=1&port=1&type=json&cs=1&mr=1&sign=27ec7a99aa182aa07192281bbcb652d3").execute().body();
+                    log.info("22- 全国area，获取代理 resp: {}", bodyRandom);
+                    try {
+                        resp = JSONObject.parseObject(bodyRandom);
+                        JSONArray list = resp.getJSONArray("data");
+                        JSONObject data = list.getJSONObject(0);
+                        ipAddr = data.getString("IP");
+                        port = data.getInteger("Port");
+                    } catch (Exception exx) {
+                        log.info("22- 代理解析失败 msg: {}", exx.getMessage());
+                    }
                 }
 
-                log.info("shenlong - {}", body);
-                JSONObject resp = JSONObject.parseObject(body);
-                JSONArray list = resp.getJSONArray("data");
-                JSONObject data = list.getJSONObject(0);
-                ipAddr = data.getString("ip");
-                ripAddr = data.getString("rip");
-                port = data.getInteger("port");
-            } catch (Exception e) {
-                log.error(e.getMessage());
-//                String body = HttpRequest.get("http://api.shenlongip.com/ip?key=f1wwoih7&sign=94f84cf83d512b135be2a82f9028d353&mr=1&protocol=2&count=1&rip=1&pattern=json").execute().body();
-                String body = HttpRequest.get("http://api.shenlongip.com/ip?key=iah0c7fo&sign=94f84cf83d512b135be2a82f9028d353&mr=2&protocol=2&count=1&rip=1&pattern=json").execute().body();
-
-                log.info("shenlong - 正常取没取到，二次取 - {}", body);
-                JSONObject resp = JSONObject.parseObject(body);
-                JSONArray list = resp.getJSONArray("data");
-                JSONObject data = list.getJSONObject(0);
-                ipAddr = data.getString("ip");
-                ripAddr = data.getString("rip");
-                port = data.getInteger("port");
+            } else {
+                String bodyRandom = HttpRequest.get("https://aapi.51daili.com/getapi2?linePoolIndex=1&packid=2&unkey=&tid=&qty=1&time=2" +
+                        "&port=1&format=json&ss=5&css=&city=&dt=1&ct=0&service=1&usertype=17&pro=").execute().body();
+//                String bodyRandom = HttpRequest.get("http://ip.quanminip.com/ip?secret=n7VuiYE6&num=1&port=1&type=json&cs=1&mr=1&sign=27ec7a99aa182aa07192281bbcb652d3").execute().body();
+                log.info("111- 全国area，获取代理 resp: {}", bodyRandom);
+                JSONObject resp = null;
+                try {
+                    resp = JSONObject.parseObject(bodyRandom);
+                    JSONArray list = resp.getJSONArray("data");
+                    JSONObject data = list.getJSONObject(0);
+                    ipAddr = data.getString("IP");
+                    port = data.getInteger("Port");
+                } catch (Exception exx) {
+                    log.info("222- 代理解析失败 msg: {}", exx.getMessage());
+                }
             }
-        } else if ("huasheng".equals(pr)) {
-            String body = HttpRequest.get("https://mobile.huashengdaili.com/servers.php?session=U216f946c0315205246--3b78a97ba1bd30781f9e769942c562b8&time=1&count=1&type=text&only=1&pw=no&protocol=http&ip_type=direct&province=" + area)
-                    .execute().body().trim();
-            log.info("huasheng - {}", body);
-            String[] split = body.split(":");
-            port = Integer.parseInt(split[1]);
-            ipAddr = split[0];
-        } else if ("zhima".equals(pr)) {
-            String body = HttpRequest.get("http://http.tiqu.letecs.com/getip3?num=1&type=1&city=0&yys=0&port=11&time=1&ts=0&ys=0&cs=0&lb=1&sb=0&pb=45&mr=2&regions=&gm=4&pro=" + area)
-                    .execute().body().trim();
-            log.info("zhima - {}", body);
-            String[] split = body.split(":");
-            port = Integer.parseInt(split[1]);
-            ipAddr = split[0];
-        } else if ("woniu".equals(pr)) {
-            String body = HttpRequest.get("https://www.biuhttp.com/api/get/ips?order_id=d1ac61790bea8f274f5197a6582fcaa9&num=1&proxy_type=http&format=txt&city=&split=2&duplicate=24&province=" + area)
-                    .execute().body().trim();
-            log.info("woniu - {}", body);
-            String[] split = body.split(":");
-            port = Integer.parseInt(split[1]);
-            ipAddr = split[0];
-        } else if ("wandou".equals(pr)) {
-            String body = HttpRequest.get("http://api.wandoudl.com/api/ip?app_key=335df332a886cbaf27698df5f42ff936&pack=228272&num=1&xy=1&type=1&lb=\\r\\n&nr=99&area_id=" + area)
-                    .execute().body().trim();
-            log.info("wandou - {}", body);
-            String[] split = body.split(":");
-            port = Integer.parseInt(split[1]);
-            ipAddr = split[0];
-        } else if ("qingguo".equals(pr)) {
-            String body = HttpRequest.get("https://proxy.qg.net/allocate?Pool=1&Key=1981DB74&Distinct=1&AreaId=" + area)
-                    .execute().body().trim();
-            log.info("qingguo - {}", body);
-            JSONObject resp = JSONObject.parseObject(body);
-            JSONArray list = resp.getJSONArray("Data");
-            JSONObject data = list.getJSONObject(0);
-            ipAddr = data.getString("IP");
-            port = data.getInteger("port");
         }*/
 
         ProxyInfo proxyInfo = new ProxyInfo();
@@ -401,7 +476,10 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
     }
 
     @Override
-    public Object createOrder(OrderCreateParam orderCreateParam, String area, String pr) throws Exception {
+    public Object createOrder(OrderCreateExtParam orderCreateExtParam, String area, String pr) throws Exception {
+        OrderCreateParam orderCreateParam = new OrderCreateParam();
+        BeanUtils.copyProperties(orderCreateExtParam, orderCreateParam);
+        orderCreateParam.setMoney(NumberUtil.parseInt(orderCreateExtParam.getMoney()));
         log.info("入参: area - {}, pr - {}, {}", area, pr, orderCreateParam);
         String pa = orderCreateParam.getP_account();
         String orderId = orderCreateParam.getP_order_id();
@@ -662,16 +740,16 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
     }
 
     public Channel paramCheckCreateOrder(OrderCreateParam orderCreateParam) throws IllegalAccessException {
-        String pa = orderCreateParam.getP_account();
-        String sign = orderCreateParam.getSign();
-        PAccount paDB = pAccountMapper.selectOne((new QueryWrapper<PAccount>()).eq("p_account", pa));
-        String pKey = paDB.getPKey();
-        orderCreateParam.setSign((String) null);
-        SortedMap<String, String> map = CommonUtil.objToTreeMap(orderCreateParam);
-        String signDB = CommonUtil.encodeSign(map, pKey);
-        if (!signDB.equals(sign)) {
-            throw new ValidateException("入参仅限文档包含字段，请核对");
-        } else {
+//        String pa = orderCreateParam.getP_account();
+//        String sign = orderCreateParam.getSign();
+//        PAccount paDB = pAccountMapper.selectOne((new QueryWrapper<PAccount>()).eq("p_account", pa));
+//        String pKey = paDB.getPKey();
+//        orderCreateParam.setSign((String) null);
+//        SortedMap<String, String> map = CommonUtil.objToTreeMap(orderCreateParam);
+//        String signDB = CommonUtil.encodeSign(map, pKey);
+//        if (!signDB.equals(sign)) {
+//            throw new ValidateException("入参仅限文档包含字段，请核对");
+//        } else {
             String channelId = orderCreateParam.getChannel_id();
             Channel channel = channelMapper.getChannelByChannelId(channelId);
             if (channel == null) {
@@ -700,7 +778,7 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
                     }
                 }
             }
-        }
+//        }
     }
 
     @Override
@@ -718,13 +796,32 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
         SortedMap<String, String> map = CommonUtil.objToTreeMap(orderCreateParam);
         String sign = CommonUtil.encodeSign(map, "00b79aa26d6f412984c8926300427e39");
         orderCreateParam.setSign(sign);
-        return createAsyncOrder(orderCreateParam, area, pr);
+        OrderCreateExtParam orderCreateExtParam = new OrderCreateExtParam();
+        BeanUtils.copyProperties(orderCreateParam, orderCreateExtParam);
+        orderCreateExtParam.setMoney(orderCreateParam.getMoney() + "");
+        return createAsyncOrder(orderCreateExtParam, area, pr);
     }
 
     @Override
-    public Object createAsyncOrder(OrderCreateParam orderCreateParam, String area, String pr) throws Exception {
-        log.info("入参: area - {}, pr - {}, {}", area, pr, orderCreateParam);
-        String pa = orderCreateParam.getP_account();
+    public Object createAsyncOrder(OrderCreateExtParam orderCreateExtParam, String area, String pr) throws Exception {
+        log.info("入参: area - {}, pr - {}, {}", area, pr, orderCreateExtParam);
+
+        String pa = orderCreateExtParam.getP_account();
+        String sign = orderCreateExtParam.getSign();
+        PAccount paDB = pAccountMapper.selectOne((new QueryWrapper<PAccount>()).eq("p_account", pa));
+        String pKey = paDB.getPKey();
+        orderCreateExtParam.setSign((String) null);
+        SortedMap<String, String> map = CommonUtil.objToTreeMap(orderCreateExtParam);
+        String signDB = CommonUtil.encodeSign(map, pKey);
+        if (!signDB.equals(sign)) {
+            throw new ValidateException("入参仅限文档包含字段，请核对");
+        }
+
+        OrderCreateParam orderCreateParam = new OrderCreateParam();
+        BeanUtils.copyProperties(orderCreateExtParam, orderCreateParam);
+        orderCreateParam.setMoney(NumberUtil.parseInt(orderCreateExtParam.getMoney()));
+
+        log.info("修正参: area - {}, pr - {}, {}", area, pr, orderCreateParam);
         String orderId = orderCreateParam.getP_order_id();
         //参数校验
         Channel channel = paramCheckCreateOrder(orderCreateParam);
@@ -1187,7 +1284,7 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
             queryWrapper.eq("p_account", queryParam.getP_account());
         }
         if (StringUtils.hasLength(queryParam.getOrderId())) {
-            queryWrapper.eq("order_id", queryParam.getOrderId());
+            queryWrapper.likeLeft("order_id", queryParam.getOrderId());
         }
         if (StringUtils.hasLength(queryParam.getOrderStatus())) {
             queryWrapper.eq("order_status", queryParam.getOrderStatus());
@@ -1312,12 +1409,24 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
         String orderId = orderCreateParam.getP_order_id();
         PayOrder po = pOrderMapper.getPOrderByOid(orderId);
         if (po == null) throw new NotFoundException("订单不存在");
+        if (po.getOrderStatus() == 4) {
+            PayOrder pov = pOrderMapper.getPOrderByOid(orderId);
+            OrderQueryVO vo = new OrderQueryVO();
+            vo.setStatus(2);
+//        vo.setPayUrl(pov.getResourceUrl());
+            vo.setPayUrl(CommonConstant.ENV_HOST_PAY_URL + pov.getOrderId());
+            vo.setCost(pov.getCost());
+            vo.setOrderId(pov.getOrderId());
+            vo.setNotifyUrl(pov.getNotifyUrl());
+            return vo;
+        }
 
-        JSONObject data = null;
+        /*JSONObject data = null;
         CAccountWallet wallet = cAccountWalletMapper.selectOne(new QueryWrapper<CAccountWallet>().eq("oid", orderId));
         Integer code;
         JSONObject resp;
         boolean flag = false;
+
         if (wallet != null) {
             code = 2;
             log.info("商户查单时发现该订单已支付入库, info: {}", wallet);
@@ -1389,7 +1498,7 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
                 }
             }
         }
-
+*/
         PayOrder pov = pOrderMapper.getPOrderByOid(orderId);
         OrderQueryVO vo = new OrderQueryVO();
         vo.setStatus(pov.getOrderStatus());
@@ -1493,7 +1602,7 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
         String filePath = (property + File.separator + "d4.js");
         log.info("filePath ： {}", filePath);
         File inputFile = new File(filePath);
-        InputStream is = new FileInputStream(inputFile);
+        InputStream is = Files.newInputStream(inputFile.toPath());
         File file = new File("tmp");
         CommonUtil.inputStreamToFile(is, file);
         FileReader reader = new FileReader(file);   // 执行指定脚本
@@ -1561,7 +1670,7 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
         String filePath = (property + File.separator + "d4.js");
 //        log.info("filePath ： {}", filePath);
         File inputFile = new File(filePath);
-        InputStream is = new FileInputStream(inputFile);
+        InputStream is = Files.newInputStream(inputFile.toPath());
         File file = new File("tmp");
         CommonUtil.inputStreamToFile(is, file);
         FileReader reader = new FileReader(file);   // 执行指定脚本
@@ -1762,7 +1871,6 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
         } catch (Exception e) {
             log.error("ip err: {}", e.getMessage());
         }
-        log.info("handleRealOrder. ip check : {}", CommonUtil.ip2region(ip));
 
         PayOrder poDB = pOrderMapper.getPOrderByOid(orderId);
         if (poDB == null) throw new NotFoundException("该订单不存在， orderId :" + orderId);
@@ -1771,6 +1879,8 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
             return 1;
         }
         if (poDB.getOrderStatus() != null && poDB.getOrderStatus() == 4) {
+            log.info("handleRealOrder, 当前用户. ip check : {}", CommonUtil.ip2region(ip));
+
             redisUtil.set(CommonConstant.ORDER_WAIT_QUEUE + orderId, 1);
             POrderQueue pOrderQueue = new POrderQueue();
             pOrderQueue.setPa(poDB.getPAccount());

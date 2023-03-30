@@ -1,10 +1,11 @@
 package com.vbox;
 
+import cn.hutool.core.util.NumberUtil;
 import cn.hutool.http.HttpRequest;
 import cn.hutool.http.HttpResponse;
 import com.alibaba.fastjson2.JSON;
+import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
-import com.vbox.common.Result;
 import com.vbox.common.util.CommonUtil;
 import com.vbox.common.util.ProxyUtil;
 import com.vbox.persistent.pojo.param.GeeProdCodeParam;
@@ -39,22 +40,67 @@ import java.util.regex.Pattern;
  */
 public class ScriptEngineTest {
     public static void main(String[] args) throws Exception {
+
+        String a = "100.00";
+        int i = NumberUtil.parseInt(a);
+        System.out.print(i);
+
 //        String body = HttpRequest.get("https://mobile.huashengdaili.com/servers.php?session=U216f946c0315205246--3b78a97ba1bd30781f9e769942c562b8&time=1&count=1&type=text&only=1&pw=no&protocol=http&ip_type=direct&province=" + 610000)
-//        String body = HttpRequest.get("http://opendata.baidu.com/api.php?query=117.136.12.79&co=&resource_id=6006&oe=utf8")
+//        String body = HttpRequest.get("http://v2.api.juliangip.com/dynamic/getips?area=三明&num=1&pt=1&result_type=text&split=1&trade_no=1102019502692322&sign=0dd65623a208cf5b1d35d3787cf1c017")
 //                .setHttpProxy("119.96.108.78", 10249)
 //                .basicProxyAuth("wj0217", "123123")
 //                .header("Content-type", "application/json")
 //                .execute().body();
+        //http://v2.api.juliangip.com/dynamic/getips?area=天津&filter=1&num=1&pt=1&result_type=text&split=1&trade_no=1102019502692322&sign=9c26f7afb42d1a33fcd243818b143453
+//        String s = "星际二省";
+////        String s = "星际二区";
+//        if (s.contains("省")) {
+//            int a = s.indexOf("省");
+//            String substring = s.substring(0, a);
+//            System.out.println(substring);
+//        }else if (s.contains("区")) {
+//            String substring = s.substring(0, 2);
+//            System.out.println(substring);
+//        }
+
+        /*SortedMap<String, String> map = new TreeMap<>();
+        map.put("trade_no", "1102019502692322");
+        map.put("area", "安康");
+        map.put("filter", "1");
+        map.put("pt", "1");
+        map.put("num", "1");
+        map.put("result_type", "text");
+        String s = encodeSign(map, "60bfa08147244afca968b0360f02d067");
+        map.put("sign", s);
+        Map<String, Object> m = new HashMap<>(map);
+        String body = HttpRequest.get("http://v2.api.juliangip.com/dynamic/getips")
+                .form(m)
+                .execute().body();
+        System.out.print(body);*/
+
 //        System.out.println(body);
 //        String[] split = body.split(":");
 //        int port = Integer.parseInt(split[1].trim());
 //        String ipAddr = split[0];
 //        System.out.println(body);
 //        System.out.println(ipAddr + port );
-        String location = ProxyUtil.ip2region("183.247.221.119");
+
+        //https://aapi.51daili.com/getapi2?linePoolIndex=1&packid=2&unkey=&tid=&qty=1&time=2&port=1&format=json&ss=5&css=&pro=%E5%AE%81%E5%A4%8F&city=&dt=1&ct=0&service=1&usertype=17
+        String body = HttpRequest.get("https://aapi.51daili.com/getapi2?linePoolIndex=1&packid=2&unkey=&tid=&qty=1&time=2&port=1&format=json&ss=5&css=&city=&dt=1&ct=0&service=1&usertype=17&pro=陕西省")
+                .execute().body();
+        System.out.println(body);
+
+        JSONObject resp = JSONObject.parseObject(body);
+        JSONArray list = resp.getJSONArray("data");
+        JSONObject data = list.getJSONObject(0);
+        String ipAddr = data.getString("IP");
+        Integer port = data.getInteger("Port");
+
+        String location = ProxyUtil.ip2region(ipAddr);
         System.out.println(location);
         String[] split = location.split("\\|");
         System.out.println(split[2]);
+
 //        String body = HttpRequest.get("http://api.wandoudl.com/api/ip?app_key=335df332a886cbaf27698df5f42ff936&pack=228272&num=1&xy=1&type=1&lb=\\r\\n&nr=99&area_id=210400").execute().body();
 //        System.out.println(body);
     }

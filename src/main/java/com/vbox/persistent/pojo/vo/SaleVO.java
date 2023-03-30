@@ -14,7 +14,11 @@ public class SaleVO {
     private Integer totalCost;
     private Integer totalCostNum;
     private Integer totalNum;
-    private Integer todayCost;
-    private Integer todayCostNum;
-    private Integer todayNum;
+    private Integer todayOrderSum;
+    private Integer todayOrderNum;
+    private Integer todayProdOrderNum;
+
+    private Integer yesterdayOrderSum;
+    private Integer yesterdayOrderNum;
+    private Integer yesterdayProdOrderNum;
 }

@@ -20,9 +20,27 @@ public interface CAccountMapper extends BaseMapper<CAccount> {
             " #{item}" +
             "</foreach>" +
             "</if>" +
+            "<if test='status != null'>" +
+            " AND status = #{status}" +
+            "</if>" +
+            " order by id desc limit #{page}, #{pageSize}" +
+            "</script>")
+    List<CAccount> listACInUids(@Param("sidList") List<Integer> sidList, Integer status, Integer page,  Integer pageSize);
+
+    @Select("<script>" +
+            "SELECT count(1) FROM vbox_channel_account WHERE 1=1" +
+            "<if test='sidList != null and sidList.size()!=0 '>" +
+            " AND uid IN " +
+            "<foreach item='item' index='index' collection='sidList' open='(' separator=',' close=')'>" +
+            " #{item}" +
+            "</foreach>" +
+            "</if>" +
+            "<if test='status != null'>" +
+            " AND status = #{status}" +
+            "</if>" +
             " order by id desc" +
             "</script>")
-    List<CAccount> listACInUids(@Param("sidList") List<Integer> sidList);
+    Integer countACInUids(@Param("sidList") List<Integer> sidList, Integer status, Integer page, Integer pageSize);
 
     @Select({"select count(1) from vbox_channel_account where uid = #{uid}"})
     Integer countByUid(Integer uid);
@@ -54,7 +72,7 @@ public interface CAccountMapper extends BaseMapper<CAccount> {
 
 
     @Select("select a.*, w.id as wid, w.caid, w.cost, w.oid, w.create_time from vbox_channel_account a left JOIN vbox_channel_acwallet w" +
-            " ON a.id = w.caid AND w.create_time > #{createTime} where a.status = 1 and a.sys_status = 1")
+            " ON a.id = w.caid AND w.create_time > DATE_SUB(curdate(),INTERVAL 0 DAY) where a.status = 1 and a.sys_status = 1")
     @Results(id = "listCAccountToday",value = {
             @Result(id = true,column = "id",property = "id"),
             @Result(column = "caid",property = "caid"),

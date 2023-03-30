@@ -9,12 +9,13 @@ spring:
     #      username: root
     #      password: root
     druid:
-      url: jdbc:mysql://54.64.162.81:3306/vbox_admin?allowMultiQueries=true&useUnicode=true&characterEncoding=UTF-8&serverTimezone=GMT%2B8
+      url: jdbc:mysql://47.97.200.110:3306/vbox_admin?allowMultiQueries=true&useUnicode=true&characterEncoding=UTF-8&serverTimezone=GMT%2B8
       username: vbox_admin
       password: Vbox123qwe
   redis:
     host: 47.97.200.110
 #    host: 127.0.0.1
+#    host: 54.64.162.81
     port: 6379
     password: Vbox123qwe
 #    redisson: classpath:redisson.yml

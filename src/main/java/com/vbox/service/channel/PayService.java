@@ -18,9 +18,9 @@ public interface PayService extends IService<PAccount> {
 
     void addProxy(String area, String payIp, String pr);
 
-    Object createOrder(OrderCreateParam orderCreateParam, String area, String pr) throws Exception;
+    Object createOrder(OrderCreateExtParam orderCreateExtParam, String area, String pr) throws Exception;
 
-    Object createAsyncOrder(OrderCreateParam orderCreateParam, String area, String pr) throws Exception;
+    Object createAsyncOrder(OrderCreateExtParam orderCreateExtParam, String area, String pr) throws Exception;
 
     Object createTestOrder(Integer num, String acid, String channel, String area, String pr, String payIp) throws Exception;
 

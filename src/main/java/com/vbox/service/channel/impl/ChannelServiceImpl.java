@@ -12,9 +12,9 @@ import com.vbox.config.local.TokenInfoThreadHolder;
 import com.vbox.persistent.entity.CAccount;
 import com.vbox.persistent.entity.CAccountWallet;
 import com.vbox.persistent.entity.User;
+import com.vbox.persistent.pojo.dto.CGatewayInfo;
 import com.vbox.persistent.pojo.param.CAEnableParam;
 import com.vbox.persistent.pojo.param.CAccountParam;
-import com.vbox.persistent.pojo.dto.CGatewayInfo;
 import com.vbox.persistent.pojo.vo.CAccountVO;
 import com.vbox.persistent.pojo.vo.CGatewayVO;
 import com.vbox.persistent.pojo.vo.VboxUserVO;
@@ -26,7 +26,7 @@ import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import java.io.*;
+import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -78,6 +78,9 @@ public class ChannelServiceImpl implements ChannelService {
         // 昨日订单数量
         Integer yesterdayOrderNum = vboxUserWalletMapper.getYesterdayOrderNum(uid);
 
+        // 昨日订单数量
+        Integer yesterdayProdOrderNum = vboxUserWalletMapper.getYesterdayProdOrderNum(uid);
+
         // 今日订单数量
         Integer todayOrderNum = vboxUserWalletMapper.getTodayOrderNum(uid);
 
@@ -106,6 +109,7 @@ public class ChannelServiceImpl implements ChannelService {
         vo.setBalance(balance);
 
         vo.setYesterdayOrderNum(yesterdayOrderNum == null ? 0 : yesterdayOrderNum);
+        vo.setYesterdayProdOrderNum(yesterdayProdOrderNum == null ? 0 : yesterdayProdOrderNum);
         vo.setYesterdayOrderSum(yesterdayOrderSum == null ? 0 : yesterdayOrderSum);
 
         vo.setTodayOrderNum(todayOrderNum == null ? 0 : todayOrderNum);
@@ -235,9 +239,11 @@ public class ChannelServiceImpl implements ChannelService {
 
         sidList.add(currentUid);
 
-        //TODO 分页未做
+        Integer pageSize = caParam.getPageSize() == null? 20 : caParam.getPageSize();
+        Integer page = caParam.getPage() == null? 0 : (caParam.getPage() - 1 )* pageSize;
 
-        List<CAccount> caList = caMapper.listACInUids(sidList);
+        List<CAccount> caList = caMapper.listACInUids(sidList, caParam.getStatus(), page, pageSize);
+        Integer count = caMapper.countACInUids(sidList, caParam.getStatus(), page, pageSize);
         List<CAccountVO> acVOList = new ArrayList<>();
         for (CAccount ca : caList) {
             CAccountVO acv = CAccountVO.transfer(ca);
@@ -256,7 +262,7 @@ public class ChannelServiceImpl implements ChannelService {
             acVOList.add(acv);
         }
 
-        ResultOfList<List<CAccountVO>> rl = new ResultOfList<>(acVOList, acVOList.size());
+        ResultOfList<List<CAccountVO>> rl = new ResultOfList<>(acVOList, count);
 
         return rl;
     }
@@ -357,7 +363,7 @@ public class ChannelServiceImpl implements ChannelService {
         Integer count = pOrderMapper.countPOrderByAcId(ca.getAcid());
         if (count == 0) {
             return caMapper.deleteById(cid);
-        }else { //有过订单，软删
+        } else { //有过订单，软删
             CAccount upd = new CAccount();
             upd.setId(cid);
             upd.setSoftDel(0);

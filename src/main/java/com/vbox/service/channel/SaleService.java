@@ -1,5 +1,6 @@
 package com.vbox.service.channel;
 
+import com.vbox.common.ResultOfList;
 import com.vbox.persistent.pojo.param.UserSubCreateOrUpdParam;
 import com.vbox.persistent.pojo.vo.CAccountVO;
 import com.vbox.persistent.pojo.vo.SaleVO;
@@ -9,9 +10,9 @@ import java.util.List;
 
 public interface SaleService {
 
-    List<CAccountVO> listSaleInfo();
+    List<SaleVO> listSaleInfo();
 
-    List<CAccountVO> listSaleCAccount();
+    ResultOfList listSaleCAccount(Integer status,Integer page, Integer pageSize);
 
     int createSub(UserSubCreateOrUpdParam subCreateOrUpdParam) throws Exception;
 

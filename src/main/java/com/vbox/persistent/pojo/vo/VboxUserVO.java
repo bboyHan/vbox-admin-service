@@ -11,6 +11,7 @@ public class VboxUserVO {
     private Integer balance;
     private Integer userLevel;
     private Integer yesterdayOrderNum;
+    private Integer yesterdayProdOrderNum;
     private Integer yesterdayOrderSum;
 
     private Integer todayOrderNum;

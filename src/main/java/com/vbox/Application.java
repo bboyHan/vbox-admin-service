@@ -1,27 +1,10 @@
 package com.vbox;
 
-import cn.hutool.core.codec.Base64;
-import cn.hutool.http.HttpRequest;
-import com.alibaba.fastjson2.JSON;
-import com.alibaba.fastjson2.JSONArray;
-import com.alibaba.fastjson2.JSONObject;
-import org.jetbrains.annotations.NotNull;
 import org.mybatis.spring.annotation.MapperScan;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.context.annotation.Bean;
 import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.web.socket.config.annotation.EnableWebSocket;
-import org.springframework.web.socket.server.standard.ServerEndpointExporter;
-
-import java.io.*;
-import java.net.MalformedURLException;
-import java.net.URI;
-import java.net.URL;
-import java.net.URLConnection;
-import java.nio.charset.StandardCharsets;
-import java.util.HashMap;
-import java.util.Map;
 
 @SpringBootApplication
 @MapperScan("com.vbox.persistent.*")
@@ -33,7 +16,7 @@ public class Application {
         SpringApplication.run(Application.class, args);
     }
 
-    private static void test() {
+    /*private static void test() {
         int[][] cptList = new int[3][2];
         JSONArray array = new JSONArray();
         array.add(1);
@@ -41,15 +24,15 @@ public class Application {
         array.add(8);
         for (int i = 0; i < array.size(); i++) {
             Integer xy = array.getInteger(i);
-            if (xy < 3){
+            if (xy < 3) {
                 int xi = 1;
                 int yi = xy + 1;
                 cptList[i] = new int[]{xi, yi};
-            }else if (xy < 6){
+            } else if (xy < 6) {
                 int xi = 2;
                 int yi = xy - 2;
                 cptList[i] = new int[]{xi, yi};
-            }else {
+            } else {
                 int xi = 3;
                 int yi = xy - 5;
                 cptList[i] = new int[]{xi, yi};
@@ -57,7 +40,7 @@ public class Application {
         }
 
         System.out.println(JSONArray.toJSONString(cptList));
-    }
+    }*/
 
     /*public static void main(String[] args) throws IOException {
 

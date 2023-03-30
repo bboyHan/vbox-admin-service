@@ -38,7 +38,7 @@ public class PayController {
     private RedisTemplate redisTemplate;
     public boolean customerThread = false;
 
-    @PostMapping("/channel/pac")
+    /*@PostMapping("/channel/pac")
     public ResponseEntity<Result<Integer>> createPAccount(@RequestBody PAccountParam pAccountParam) {
         int rl = 0;
         try {
@@ -102,7 +102,7 @@ public class PayController {
         }
 
         return Result.ok(rl);
-    }
+    }*/
 
     @PostMapping("/channel/order/pre_auth")
     public ResponseEntity<Result<String>> preAuth(@RequestBody OrderPreAuthParam authParam) throws Exception {
@@ -112,7 +112,7 @@ public class PayController {
 
     @PostMapping("/channel/order/create")
 //    @AccessLimit(maxCount = 30)
-    public ResponseEntity<Result<Object>> createOrder(@RequestBody OrderCreateParam orderCreateParam, String area, String pr) throws Exception {
+    public ResponseEntity<Result<Object>> createOrder(@RequestBody OrderCreateExtParam orderCreateExtParam, String area, String pr) throws Exception {
         Object rl = null;
 //        try {
 //            rl = payService.createOrder(orderCreateParam, area, pr);
@@ -125,7 +125,7 @@ public class PayController {
 //                rl = payService.createOrder(orderCreateParam, area, pr);
 //            }
 //        }
-        rl = payService.createAsyncOrder(orderCreateParam, area, pr);
+        rl = payService.createAsyncOrder(orderCreateExtParam, area, pr);
         return Result.ok(rl);
     }
 

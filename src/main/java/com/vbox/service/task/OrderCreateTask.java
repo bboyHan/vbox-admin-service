@@ -42,13 +42,12 @@ import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
-//@Component
+@Component
 @Slf4j
 public class OrderCreateTask {
 
     @Resource
     private RedisUtil redisUtil;
-
     @Autowired
     private UserMapper userMapper;
     @Autowired
@@ -70,16 +69,24 @@ public class OrderCreateTask {
     @Autowired
     private PAccountMapper pAccountMapper;
 
-    @Scheduled(cron = "0/2 * * * * ?")   //每 2s 执行一次, 接受订单创建的队列
+    @Scheduled(cron = "0/1 * * * * ?")   //每 2s 执行一次, 接受订单创建的队列
     @Async("scheduleExecutor")
     public void handleAsyncCreateOrder() throws Exception {
         Object ele = redisUtil.rPop(CommonConstant.ORDER_CREATE_QUEUE);
         if (ele == null) {
             return;
         }
+        Thread.sleep(200L);
         log.info("handleAsyncCreateOrder.start");
+
         String text = ele.toString();
-        POrderQueue po = JSONObject.parseObject(text, POrderQueue.class);
+        POrderQueue po = null;
+        try {
+            po = JSONObject.parseObject(text, POrderQueue.class);
+        } catch (Exception e) {
+            log.error("pOrderQueue解析异常, text: {}", text);
+            return;
+        }
 
         try {
             asyncOrder(po);
@@ -491,8 +498,6 @@ public class OrderCreateTask {
 //                    .header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7")
 //                    .execute();
 //            String body = execute.body();
-            payUrl = resource_url;
-        } else {
             payUrl = resource_url;
         }
 

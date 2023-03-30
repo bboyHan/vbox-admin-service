@@ -5,6 +5,7 @@ import cn.hutool.core.codec.Base64;
 import cn.hutool.core.util.DesensitizedUtil;
 import cn.hutool.crypto.SecureUtil;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.vbox.common.ResultOfList;
 import com.vbox.common.enums.LoginEnum;
 import com.vbox.common.util.RandomNameUtil;
 import com.vbox.config.local.TokenInfoThreadHolder;
@@ -23,7 +24,6 @@ import org.springframework.stereotype.Service;
 import java.security.KeyPair;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
 
 @Service
@@ -83,16 +83,22 @@ public class SaleServiceImpl implements SaleService {
         List<Integer> sidList = this.usMapper.listSidByUid(uid);
         if (sidList != null && sidList.size() != 0) {
             List<User> userList = this.userMapper.selectBatchIds(sidList);
-            List<SaleVO> saleVOList = new ArrayList();
+            List<SaleVO> saleVOList = new ArrayList<>();
 
             for (User user : userList) {
                 Integer sid = user.getId();
                 Integer totalCost = this.vboxUserWalletMapper.getTotalCostByUid(sid);
                 Integer totalCostNum = this.vboxUserWalletMapper.getTotalCostNumByUid(sid);
-                Integer totalNum = this.vboxUserWalletMapper.getTotalProdOrderNum(sid);
-                Integer todayNum = this.vboxUserWalletMapper.getTodayProdOrderNum(sid);
-                Integer todayCostNum = this.vboxUserWalletMapper.getTodayOrderNum(sid);
-                Integer todayCost = this.vboxUserWalletMapper.getTodayOrderSum(sid);
+                Integer totalProdOrderNum = this.vboxUserWalletMapper.getTotalProdOrderNum(sid);
+
+                Integer todayProdOrderNum = this.vboxUserWalletMapper.getTodayProdOrderNum(sid);
+                Integer todayOrderNum = this.vboxUserWalletMapper.getTodayOrderNum(sid);
+                Integer todayOrderSum = this.vboxUserWalletMapper.getTodayOrderSum(sid);
+
+                Integer yesterdayProdNum = this.vboxUserWalletMapper.getYesterdayProdOrderNum(sid);
+                Integer yesterdayNum = this.vboxUserWalletMapper.getYesterdayOrderNum(sid);
+                Integer yesterdayOrderSum = this.vboxUserWalletMapper.getYesterdayOrderSum(sid);
+
                 Integer countCA = this.cAccountMapper.countByUid(sid);
                 Integer countEnableCA = this.cAccountMapper.countACEnableByUid(sid);
                 Integer totalRecharge = this.vboxUserWalletMapper.getTotalRechargeByUid(sid);
@@ -101,12 +107,19 @@ public class SaleServiceImpl implements SaleService {
                 saleVO.setAccount(user.getAccount());
                 saleVO.setNickname(user.getNickname());
                 totalCost = totalCost == null ? 0 : totalCost;
+
                 saleVO.setTotalCost(totalCost);
                 saleVO.setTotalCostNum(totalCostNum == null ? 0 : totalCostNum);
-                saleVO.setTotalNum(totalNum == null ? 0 : totalNum);
-                saleVO.setTodayNum(todayNum == null ? 0 : todayNum);
-                saleVO.setTodayCostNum(todayCostNum == null ? 0 : todayCostNum);
-                saleVO.setTodayCost(todayCost == null ? 0 : todayCost);
+                saleVO.setTotalNum(totalProdOrderNum == null ? 0 : totalProdOrderNum);
+
+                saleVO.setTodayProdOrderNum(todayProdOrderNum == null ? 0 : todayProdOrderNum);
+                saleVO.setTodayOrderNum(todayOrderNum == null ? 0 : todayOrderNum);
+                saleVO.setTodayOrderSum(todayOrderSum == null ? 0 : todayOrderSum);
+
+                saleVO.setYesterdayProdOrderNum(yesterdayProdNum == null ? 0 : yesterdayProdNum);
+                saleVO.setYesterdayOrderNum(yesterdayNum == null ? 0 : yesterdayNum);
+                saleVO.setYesterdayOrderSum(yesterdayOrderSum == null ? 0 : yesterdayOrderSum);
+
                 saleVO.setCountCA(countCA);
                 saleVO.setCountEnableCA(countEnableCA);
                 saleVO.setBalance(totalRecharge - totalCost);
@@ -120,18 +133,71 @@ public class SaleServiceImpl implements SaleService {
     }
 
     @Override
-    public List<CAccountVO> listSaleInfo() {
+    public List<SaleVO> listSaleInfo() {
+        Integer uid = TokenInfoThreadHolder.getToken().getId();
+        List<Integer> sidList = this.usMapper.listSidByUid(uid);
+        sidList.add(uid);
+        if (sidList != null && sidList.size() != 0) {
+            List<User> userList = this.userMapper.selectBatchIds(sidList);
+            List<SaleVO> saleVOList = new ArrayList<>();
 
+            for (User user : userList) {
+                Integer sid = user.getId();
+                Integer totalCost = this.vboxUserWalletMapper.getTotalCostByUid(sid);
+                Integer totalCostNum = this.vboxUserWalletMapper.getTotalCostNumByUid(sid);
+                Integer totalProdOrderNum = this.vboxUserWalletMapper.getTotalProdOrderNum(sid);
 
-        return null;
+                Integer todayProdOrderNum = this.vboxUserWalletMapper.getTodayProdOrderNum(sid);
+                Integer todayOrderNum = this.vboxUserWalletMapper.getTodayOrderNum(sid);
+                Integer todayOrderSum = this.vboxUserWalletMapper.getTodayOrderSum(sid);
+
+                Integer yesterdayProdNum = this.vboxUserWalletMapper.getYesterdayProdOrderNum(sid);
+                Integer yesterdayNum = this.vboxUserWalletMapper.getYesterdayOrderNum(sid);
+                Integer yesterdayOrderSum = this.vboxUserWalletMapper.getYesterdayOrderSum(sid);
+
+                Integer countCA = this.cAccountMapper.countByUid(sid);
+                Integer countEnableCA = this.cAccountMapper.countACEnableByUid(sid);
+                Integer totalRecharge = this.vboxUserWalletMapper.getTotalRechargeByUid(sid);
+                SaleVO saleVO = new SaleVO();
+                saleVO.setId(sid);
+                saleVO.setAccount(user.getAccount());
+                saleVO.setNickname(user.getNickname());
+                totalCost = totalCost == null ? 0 : totalCost;
+                totalRecharge = totalRecharge == null ? 0 : totalRecharge;
+
+                saleVO.setTotalCost(totalCost);
+                saleVO.setTotalCostNum(totalCostNum == null ? 0 : totalCostNum);
+                saleVO.setTotalNum(totalProdOrderNum == null ? 0 : totalProdOrderNum);
+
+                saleVO.setTodayProdOrderNum(todayProdOrderNum == null ? 0 : todayProdOrderNum);
+                saleVO.setTodayOrderNum(todayOrderNum == null ? 0 : todayOrderNum);
+                saleVO.setTodayOrderSum(todayOrderSum == null ? 0 : todayOrderSum);
+
+                saleVO.setYesterdayProdOrderNum(yesterdayProdNum == null ? 0 : yesterdayProdNum);
+                saleVO.setYesterdayOrderNum(yesterdayNum == null ? 0 : yesterdayNum);
+                saleVO.setYesterdayOrderSum(yesterdayOrderSum == null ? 0 : yesterdayOrderSum);
+
+                saleVO.setCountCA(countCA);
+                saleVO.setCountEnableCA(countEnableCA);
+                saleVO.setBalance(totalRecharge - totalCost);
+                saleVOList.add(saleVO);
+            }
+
+            return saleVOList;
+        } else {
+            return new ArrayList<>();
+        }
     }
 
     @Override
-    public List<CAccountVO> listSaleCAccount() {
+    public ResultOfList listSaleCAccount(Integer status, Integer page, Integer pageSize) {
         Integer uid = TokenInfoThreadHolder.getToken().getId();
         List<Integer> sidList = usMapper.listSidByUid(uid);
 
-        List<CAccount> caList = cAccountMapper.listACInUids(sidList);
+        pageSize = pageSize == null ? 20 : pageSize;
+        page = page == null ? 0 : (page - 1) * pageSize;
+        List<CAccount> caList = cAccountMapper.listACInUids(sidList, status, page, pageSize);
+        Integer count = cAccountMapper.countACInUids(sidList, status, page, pageSize);
         List<CAccountVO> acVOList = new ArrayList<>();
         for (CAccount ca : caList) {
             CAccountVO acv = CAccountVO.transfer(ca);
@@ -141,18 +207,25 @@ public class SaleServiceImpl implements SaleService {
             acv.setC_gateway_name(gw.getCGatewayName());
             acv.setAc_pwd(DesensitizedUtil.idCardNum(Base64.decodeStr(ca.getAcPwd()), 1, 1));
 
-            //cost
+            //总充值
             Integer totalCost = vboxUserWalletMapper.getTotalCostByCaid(ca.getId());
+            //今充值
             Integer todayCost = vboxUserWalletMapper.getTodayOrderSumByCaid(ca.getId());
+            //昨充值
+            Integer yesterdayCost = vboxUserWalletMapper.getYesterdayOrderSumByCaid(ca.getId());
+
+            acv.setYesterday_cost(yesterdayCost == null ? 0 : yesterdayCost);
             acv.setToday_cost(todayCost == null ? 0 : todayCost);
             acv.setTotal_cost(totalCost == null ? 0 : totalCost);
-
+            acv.setDaily_limit(ca.getDailyLimit());
+            acv.setTotal_limit(ca.getTotalLimit());
             //
             User user = userMapper.selectOne(new QueryWrapper<User>().eq("id", ca.getUid()));
             acv.setSale_name(user.getAccount());
             acVOList.add(acv);
         }
-        return acVOList;
+        ResultOfList rs = new ResultOfList<>(acVOList, count);
+        return rs;
     }
 
     @Override

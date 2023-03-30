@@ -117,6 +117,28 @@ public class Gee4Service {
         return resp;
     }
 
+    public JSONObject createOrderWithoutProxy(PayInfo payInfo) throws Exception {
+        SecCode secCode = verifyGeeCapForQuery();
+
+//        payInfo.setChannel("weixin");
+//        payInfo.setGateway("z01");
+//        payInfo.setRecharge_type(6); //通宝type
+//        payInfo.setRecharge_unit(15);
+//        payInfo.setRepeat_passport("chenzhj11");
+//        payInfo.setGame("jx3");
+
+        String payload = getPayload(secCode, payInfo);
+
+        GeeProdCodeParam prodCodeParam = new GeeProdCodeParam();
+        prodCodeParam.setToken(payInfo.getCk());
+        prodCodeParam.setPayload(payload);
+        prodCodeParam.setEncrypt_fields("payload");
+        prodCodeParam.setEncrypt_version("v1");
+        prodCodeParam.setEncrypt_method("xoyo_combine");
+        JSONObject resp = prodCodeForQuery(prodCodeParam);
+        return resp;
+    }
+
     public SecCode verifyGeeCap() throws Exception {
         String captchaId = null;
         JSONObject pow_detail;
@@ -861,20 +883,26 @@ public class Gee4Service {
         param.set__ts__("1678538618837");
         param.setCallback("__xfe5");
         String jp = JSON.toJSONString(param);
-//        String body = HttpRequest.get("http://api.xydaili.net:2022/Tools/IP.ashx?action=GetAPI&OrderNumber=f376afa86d3642bcbbc85a03897e431e&area=610400&split=json&protocol=1&qty=1")
-//                .execute().body();
-//        log.info(body);
-//        JSONObject jsonObject = JSONObject.parseObject(body);
-//        JSONArray data = jsonObject.getJSONArray("data");
-//        JSONObject o = data.getJSONObject(0);
-//        String ipAddr = o.getString("ip");
-//        Integer port = o.getInteger("port");
-//        String body = HttpRequest.get("http://1.14.96.183:8005/server?num=1&Ackey=1h1cf17").execute().body();
-//        String[] split = body.split(":");
-//        int port = Integer.parseInt(split[1]);
         String resp = HttpRequest.get("https://pay-pf-api.xoyo.com/pay/recharge_api/create_order")
-//                .setHttpProxy(ipAddr, port)
                 .setHttpProxy(ProxyInfoThreadHolder.getIpAddr(), ProxyInfoThreadHolder.getPort())
+                .body(jp)
+                .cookie(param.getToken())
+                .execute().body();
+        log.info(resp);
+        JSONObject obj = JSONObject.parseObject(resp);
+
+        return obj;
+    }
+
+    public JSONObject prodCodeForQuery(GeeProdCodeParam param) {
+
+        param.setEncrypt_fields("payload");
+        param.setEncrypt_version("v1");
+        param.setEncrypt_method("xoyo_combine");
+        param.set__ts__("1678538618837");
+        param.setCallback("__xfe5");
+        String jp = JSON.toJSONString(param);
+        String resp = HttpRequest.get("https://pay-pf-api.xoyo.com/pay/recharge_api/create_order")
                 .body(jp)
                 .cookie(param.getToken())
                 .execute().body();
