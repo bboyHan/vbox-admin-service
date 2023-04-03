@@ -14,6 +14,7 @@ public class InterceptorConfig implements WebMvcConfigurer {
         String[] excludePath = {
                 "/api/login",
                 "/error",
+                "/api/code/jx3/cap",
                 "/api/code/test",
                 "/api/test/test",
                 "/api/test/callback",

@@ -239,10 +239,10 @@ public class ChannelServiceImpl implements ChannelService {
 
         sidList.add(currentUid);
 
-        Integer pageSize = caParam.getPageSize() == null? 20 : caParam.getPageSize();
-        Integer page = caParam.getPage() == null? 0 : (caParam.getPage() - 1 )* pageSize;
+        Integer pageSize = caParam.getPageSize() == null ? 20 : caParam.getPageSize();
+        Integer page = caParam.getPage() == null ? 0 : (caParam.getPage() - 1) * pageSize;
 
-        List<CAccount> caList = caMapper.listACInUids(sidList, caParam.getStatus(), page, pageSize);
+        List<CAccount> caList = caMapper.listACInUids(sidList, caParam.getAc_remark(), caParam.getStatus(), page, pageSize);
         Integer count = caMapper.countACInUids(sidList, caParam.getStatus(), page, pageSize);
         List<CAccountVO> acVOList = new ArrayList<>();
         for (CAccount ca : caList) {
@@ -256,9 +256,10 @@ public class ChannelServiceImpl implements ChannelService {
             //cost
             Integer totalCost = vboxUserWalletMapper.getTotalCostByCaid(ca.getId());
             Integer todayCost = vboxUserWalletMapper.getTodayOrderSumByCaid(ca.getId());
+            Integer yesterdayCost = vboxUserWalletMapper.getYesterdayOrderSumByCaid(ca.getId());
             acv.setToday_cost(todayCost == null ? 0 : todayCost);
             acv.setTotal_cost(totalCost == null ? 0 : totalCost);
-
+            acv.setYesterday_cost(yesterdayCost == null ? 0 : yesterdayCost);
             acVOList.add(acv);
         }
 

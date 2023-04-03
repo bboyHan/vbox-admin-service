@@ -12,11 +12,13 @@ public interface SaleService {
 
     List<SaleVO> listSaleInfo();
 
-    ResultOfList listSaleCAccount(Integer status,Integer page, Integer pageSize);
+    ResultOfList listSaleCAccount(Integer status, String acRemark,Integer page, Integer pageSize);
 
     int createSub(UserSubCreateOrUpdParam subCreateOrUpdParam) throws Exception;
 
     List<SaleVO> listSaleOverView();
 
     TotalVO totalOverView();
+
+    ResultOfList listSaleCAOverviewToday();
 }

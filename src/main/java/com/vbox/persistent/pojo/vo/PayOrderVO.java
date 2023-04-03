@@ -16,8 +16,11 @@ public class PayOrderVO {
     private String platformOid;
     private String channel;
     private String resourceUrl;
+    private String payRegion;
     private Integer orderStatus;
     private Integer codeUseStatus;
     private Integer callbackStatus;
     private LocalDateTime createTime;
+    private LocalDateTime asyncTime;
+    private LocalDateTime callTime;
 }

@@ -22,6 +22,7 @@ import com.vbox.service.channel.PayerService;
 import com.vbox.service.task.Gee4Service;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 

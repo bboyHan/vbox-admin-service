@@ -521,9 +521,9 @@ public class RedisUtil {
      * @param value 值
      * @return
      */
-    public boolean lSet(String key, List<Object> value) {
+    public boolean lPushAll(String key, List<Object> value) {
         try {
-            redisTemplate.opsForList().rightPushAll(key, value);
+            redisTemplate.opsForList().leftPushAll(key, value);
             return true;
         } catch (Exception e) {
             e.printStackTrace();

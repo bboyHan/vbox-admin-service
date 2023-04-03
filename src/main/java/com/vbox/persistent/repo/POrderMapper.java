@@ -31,6 +31,9 @@ public interface POrderMapper extends BaseMapper<PayOrder> {
     @Update("update vbox_pay_order set callback_status = 1, call_time = #{callTime} where order_id = #{orderId}")
     int updateCallbackStatusByOIdForSys(@Param("orderId") String orderId, LocalDateTime callTime);
 
+    @Update("update vbox_pay_order set pay_region = #{region} where order_id = #{orderId}")
+    int updateRegionByOIdForSys(@Param("orderId") String orderId, String region);
+
     @Update("update vbox_pay_order set order_status = #{status}, callback_status = 1, code_use_status = #{useStatus} where order_id = #{orderId}")
     int updateStatusByOIdWhenCall(@Param("orderId") String orderId, @Param("status") int status, @Param("useStatus") int useStatus);
 
@@ -43,8 +46,8 @@ public interface POrderMapper extends BaseMapper<PayOrder> {
     @Select("select * from vbox_pay_order where order_status = 2 AND create_time < DATE_SUB(NOW(), INTERVAL 5 MINUTE)")
     List<PayOrder> listUnPay();
 
-    @Update("update vbox_pay_order set order_status = #{status}, code_use_status = 1, resource_url = #{payUrl}, platform_oid = #{platformOid}, pay_ip = #{payIp}, async_time = #{asyncTime} where order_id = #{orderId}")
-    int updateInfoForQueue(@Param("orderId") String orderId, @Param("status") int status, @Param("platformOid") String platformOid, @Param("payUrl") String payUrl, @Param("payIp") String payIp, LocalDateTime asyncTime);
+    @Update("update vbox_pay_order set order_status = #{status},ac_id = #{acid}, code_use_status = 1, resource_url = #{payUrl}, platform_oid = #{platformOid}, pay_ip = #{payIp}, async_time = #{asyncTime} where order_id = #{orderId}")
+    int updateInfoForQueue(@Param("orderId") String orderId, @Param("acid") String acid, @Param("status") int status, @Param("platformOid") String platformOid, @Param("payUrl") String payUrl, @Param("payIp") String payIp, LocalDateTime asyncTime);
 
     // ===================== 通道 订单数=============================
     // 通道 所有产单

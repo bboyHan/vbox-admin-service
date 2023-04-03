@@ -4,6 +4,7 @@ import com.alibaba.fastjson2.JSONObject;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.vbox.common.ResultOfList;
 import com.vbox.persistent.entity.PAccount;
+import com.vbox.persistent.pojo.dto.PayInfo;
 import com.vbox.persistent.pojo.param.*;
 import com.vbox.persistent.pojo.vo.*;
 
@@ -38,6 +39,7 @@ public interface PayService extends IService<PAccount> {
 
     String preAuth(OrderPreAuthParam authParam) throws Exception;
 
+    Object listOrderWait(OrderQueryParam queryParam);
     Object listOrder(OrderQueryParam queryParam);
 
     long orderCallback(OrderCallbackParam callbackParam) throws Exception;
@@ -54,5 +56,7 @@ public interface PayService extends IService<PAccount> {
 
     String orderWxHtml(String orderId);
 
-    Object handleRealOrder(HttpServletRequest request, String orderId);
+    Object handleRealOrder(HttpServletRequest request, String orderId) throws Exception;
+
+    Object ynForPayload(PayInfoParam param) throws Exception;
 }

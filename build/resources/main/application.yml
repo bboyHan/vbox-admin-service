@@ -12,10 +12,22 @@ spring:
       url: jdbc:mysql://47.97.200.110:3306/vbox_admin?allowMultiQueries=true&useUnicode=true&characterEncoding=UTF-8&serverTimezone=GMT%2B8
       username: vbox_admin
       password: Vbox123qwe
+      # 初始化连接池 最小 最大
+      initial-size: 10
+      min-idle: 10
+      max-active: 50
+      # 获取连接池等待时间
+      max-wait: 60000
+      # 检测间隔，关闭空闲连接
+      time-between-eviction-runs-millis: 60000
+      # 连接最小生存时间
+      min-evictable-idle-time-millis: 300000
+
   redis:
-    host: 47.97.200.110
+    # 正式
+#    host: 47.97.200.110
+    host: 39.98.203.241
 #    host: 127.0.0.1
-#    host: 54.64.162.81
     port: 6379
     password: Vbox123qwe
 #    redisson: classpath:redisson.yml

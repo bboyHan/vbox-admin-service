@@ -2,21 +2,13 @@ package com.vbox.api;
 
 import com.vbox.common.Result;
 import com.vbox.common.ResultOfList;
-import com.vbox.persistent.pojo.param.CAEnableParam;
-import com.vbox.persistent.pojo.param.CAccountParam;
 import com.vbox.persistent.pojo.param.UserSubCreateOrUpdParam;
-import com.vbox.persistent.pojo.vo.CAccountVO;
-import com.vbox.persistent.pojo.vo.CGatewayVO;
 import com.vbox.persistent.pojo.vo.SaleVO;
-import com.vbox.persistent.pojo.vo.VboxUserVO;
-import com.vbox.service.channel.ChannelService;
 import com.vbox.service.channel.SaleService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.io.IOException;
-import java.util.ArrayList;
 import java.util.List;
 
 @RestController
@@ -48,11 +40,19 @@ public class SaleController {
      * 所有码商帐号
      */
     @GetMapping("/sale/cAccount")
-    public ResponseEntity<Result<Object>> listSaleCAccount(Integer status, Integer page, Integer pageSize) {
-        ResultOfList rs = saleService.listSaleCAccount(status,page, pageSize);
+    public ResponseEntity<Result<Object>> listSaleCAccount(Integer status, String acRemark, Integer page, Integer pageSize) {
+        ResultOfList rs = saleService.listSaleCAccount(status, acRemark, page, pageSize);
         return Result.ok(rs);
     }
 
+    /**
+     * 所有码商帐号
+     */
+    @GetMapping("/sale/cAccount/overview/today")
+    public ResponseEntity<Result<Object>> listSaleCAccountOverview(Integer status, Integer page, Integer pageSize) {
+        ResultOfList rs = saleService.listSaleCAOverviewToday();
+        return Result.ok(rs);
+    }
 
     /**
      * 添加码商

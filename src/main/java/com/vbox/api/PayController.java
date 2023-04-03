@@ -135,6 +135,12 @@ public class PayController {
         return Result.ok(param);
     }
 
+    @GetMapping("/sys/order/wait")
+    public ResponseEntity<Result<Object>> listOrderWait(OrderQueryParam queryParam) {
+        Object rl = payService.listOrderWait(queryParam);
+        return Result.ok(rl);
+    }
+
     @GetMapping("/sys/order")
     public ResponseEntity<Result<Object>> listOrder(OrderQueryParam queryParam) {
         Object rl = payService.listOrder(queryParam);

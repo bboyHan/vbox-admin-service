@@ -7,6 +7,7 @@ public class POrderQueue {
 
     private String pa;
     private Integer channel;
+    private String channelId;
     private String orderId;
     private Integer reqMoney;
     private String notify;

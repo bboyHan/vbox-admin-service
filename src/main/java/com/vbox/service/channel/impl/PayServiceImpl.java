@@ -46,6 +46,7 @@ import org.jetbrains.annotations.NotNull;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DuplicateKeyException;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
@@ -233,7 +234,7 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
                     }
                 }
 
-            }else {
+            } else {
                 String bodyRandom = HttpRequest.get("http://api.shenlongip.com/ip?key=iah0c7fo&sign=94f84cf83d512b135be2a82f9028d353&mr=1&protocol=2&count=1&rip=1&pattern=json").execute().body();
 //                String bodyRandom = HttpRequest.get("http://ip.quanminip.com/ip?secret=n7VuiYE6&num=1&port=1&type=json&cs=1&mr=1&sign=27ec7a99aa182aa07192281bbcb652d3").execute().body();
                 log.info("111- 全国area，获取代理 resp: {}", bodyRandom);
@@ -750,34 +751,34 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
 //        if (!signDB.equals(sign)) {
 //            throw new ValidateException("入参仅限文档包含字段，请核对");
 //        } else {
-            String channelId = orderCreateParam.getChannel_id();
-            Channel channel = channelMapper.getChannelByChannelId(channelId);
-            if (channel == null) {
-                throw new ValidateException("通道id错误，请重新查询确认");
+        String channelId = orderCreateParam.getChannel_id();
+        Channel channel = channelMapper.getChannelByChannelId(channelId);
+        if (channel == null) {
+            throw new ValidateException("通道id错误，请重新查询确认");
+        } else {
+            String notify = orderCreateParam.getNotify_url();
+            boolean isUrl = CommonUtil.isUrl(notify);
+            if (!isUrl) {
+                throw new ValidateException("notify_url不合法，请检验入参");
             } else {
-                String notify = orderCreateParam.getNotify_url();
-                boolean isUrl = CommonUtil.isUrl(notify);
-                if (!isUrl) {
-                    throw new ValidateException("notify_url不合法，请检验入参");
+                String attach = orderCreateParam.getAttach();
+                if (attach != null && attach.length() > 128) {
+                    throw new ValidateException("attach不合法，请检验入参");
                 } else {
-                    String attach = orderCreateParam.getAttach();
-                    if (attach != null && attach.length() > 128) {
-                        throw new ValidateException("attach不合法，请检验入参");
-                    } else {
-                        String orderId = orderCreateParam.getP_order_id();
-                        if (orderId != null && orderId.length() <= 32 && orderId.length() >= 16) {
-                            PayOrder poDB = pOrderMapper.getPOrderByOid(orderId);
-                            if (poDB != null) {
-                                throw new DuplicateKeyException("该订单已创建，请勿重复操作，order id: " + orderId);
-                            } else {
-                                return channel;
-                            }
+                    String orderId = orderCreateParam.getP_order_id();
+                    if (orderId != null && orderId.length() <= 32 && orderId.length() >= 16) {
+                        PayOrder poDB = pOrderMapper.getPOrderByOid(orderId);
+                        if (poDB != null) {
+                            throw new DuplicateKeyException("该订单已创建，请勿重复操作，order id: " + orderId);
                         } else {
-                            throw new ValidateException("orderId不合法，请检验入参");
+                            return channel;
                         }
+                    } else {
+                        throw new ValidateException("orderId不合法，请检验入参");
                     }
                 }
             }
+        }
 //        }
     }
 
@@ -810,7 +811,7 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
         String sign = orderCreateExtParam.getSign();
         PAccount paDB = pAccountMapper.selectOne((new QueryWrapper<PAccount>()).eq("p_account", pa));
         String pKey = paDB.getPKey();
-        orderCreateExtParam.setSign((String) null);
+        orderCreateExtParam.setSign(null);
         SortedMap<String, String> map = CommonUtil.objToTreeMap(orderCreateExtParam);
         String signDB = CommonUtil.encodeSign(map, pKey);
         if (!signDB.equals(sign)) {
@@ -827,8 +828,14 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
         Channel channel = paramCheckCreateOrder(orderCreateParam);
 
         Integer reqMoney = orderCreateParam.getMoney();
+        log.info("create order 创建订单: {}, p account: {}, 金额: {}", orderId, pa, reqMoney);
         LocalDateTime nowTime = LocalDateTime.now();
-        CAccountInfo randomACInfo = new CAccountInfo();
+        String orderKey = "redisLock_order:" + orderId;
+        if (redisUtil.hasKey(orderKey)) {
+            throw new DuplicateKeyException("该订单已创建，请勿重复操作，order id: " + orderId);
+        }
+        redisUtil.set(orderKey, 1, 300L);
+        /*CAccountInfo randomACInfo = new CAccountInfo();
         String account;
         String now;
         if (null == orderCreateParam.getAcid()) {
@@ -877,20 +884,20 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
         payInfo.setGame(cgi.getCGame());
         payInfo.setGateway(cgi.getCGateway());
         payInfo.setRecharge_unit(reqMoney);
-        payInfo.setRecharge_type(6);
+        payInfo.setRecharge_type(6);*/
 
-        redisUtil.pub("【商户：" + pa + "】【订单ID：" + orderId + "】创建订单准备.... ck 校验成功  ");
-        log.info("【商户：" + pa + "】【订单ID：" + orderId + "】创建订单准备.... ck 校验成功  ");
+//        redisUtil.pub("【商户：" + pa + "】【订单ID：" + orderId + "】创建订单准备.... ck 校验成功  ");
+//        log.info("【商户：" + pa + "】【订单ID：" + orderId + "】创建订单准备.... ck 校验成功  ");
         //
-        String acId = randomACInfo.getAcid();
-        String cChannelId = cgi.getCChannelId();
+//        String acId = randomACInfo.getAcid();
+        String cChannelId = channel.getC_channel_id();
         PayOrder payOrder = new PayOrder();
         payOrder.setOrderId(orderId);
         payOrder.setPAccount(pa);
         payOrder.setCost(reqMoney);
-        payOrder.setAcId(acId);
+//        payOrder.setAcId(acId);
 //        payOrder.setPayIp(orderCreateParam.getPay_ip());
-        payOrder.setCChannelId(cChannelId);
+        payOrder.setCChannelId(orderCreateParam.getChannel_id());
         String h5Url = CommonConstant.ENV_HOST_PAY_URL + orderId;
         payOrder.setNotifyUrl(orderCreateParam.getNotify_url());
         payOrder.setOrderStatus(OrderStatusEnum.PAY_CREATING.getCode()); //4 - 创建中
@@ -922,8 +929,8 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
         p.setAttach(orderCreateParam.getAttach());
         p.setStatus(4);
         p.setChannelId(orderCreateParam.getChannel_id());
-        redisUtil.pub("【商户：" + pa + "】【订单ID：" + orderId + "】创建异步订单准备工作完成.... 付款链接: " + h5Url);
-        log.info("【商户：" + pa + "】【订单ID：" + orderId + "】创建异步订单准备工作完成.... 付款链接: " + h5Url);
+//        redisUtil.pub("【商户：" + pa + "】【订单ID：" + orderId + "】创建异步订单准备工作完成.... 付款链接: " + h5Url);
+        log.info("【商户：" + pa + "】【订单ID：" + orderId + "】创建订单准备工作完成.... 付款链接: " + h5Url);
         return p;
 
     }
@@ -1270,6 +1277,58 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
      * 查询账户自己的所有订单
      */
     @Override
+    public Object listOrderWait(OrderQueryParam queryParam) {
+
+        QueryWrapper<PayOrder> queryWrapper = new QueryWrapper<>();
+        if (StringUtils.hasLength(queryParam.getP_account())) {
+            queryWrapper.eq("p_account", queryParam.getP_account());
+        }
+        if (StringUtils.hasLength(queryParam.getOrderId())) {
+            queryWrapper.likeRight("order_id", queryParam.getOrderId());
+        }
+
+        if (StringUtils.hasLength(queryParam.getCallbackStatus())) {
+            queryWrapper.eq("callback_status", queryParam.getCallbackStatus());
+        }
+        if (StringUtils.hasLength(queryParam.getCChannelId())) {
+            queryWrapper.eq("c_channel_id", queryParam.getCChannelId());
+        }
+
+        queryWrapper.eq("order_status", 4);
+        queryWrapper.orderByDesc("id");
+
+        Page<PayOrder> page = null;
+        if (null != queryParam.getPage() && null != queryParam.getPageSize()) {
+            page = new Page<>(queryParam.getPage(), queryParam.getPageSize());
+        } else {
+            page = new Page<>(1, 20);
+        }
+
+        Page<PayOrder> payOrderPage = pOrderMapper.selectPage(page, queryWrapper);
+        List<PayOrder> payOrders = payOrderPage.getRecords();
+        List<PayOrderVO> voList = new ArrayList<>(payOrders.size());
+        for (PayOrder p : payOrders) {
+            PayOrderVO target = new PayOrderVO();
+            BeanUtils.copyProperties(p, target);
+            target.setPa(p.getPAccount());
+
+            CAccount ca = cAccountMapper.getCAccountByAcid(p.getAcId());
+            target.setAcRemark(ca == null ? null : ca.getAcRemark());
+            target.setAcAccount(ca == null ? null : ca.getAcAccount());
+            target.setChannel(ChannelEnum.of(p.getCChannelId()));
+            target.setCallbackStatus(p.getCallbackStatus());
+            voList.add(target);
+        }
+
+        ResultOfList rs = new ResultOfList(voList, (int) page.getTotal());
+
+        return rs;
+    }
+
+    /**
+     * 查询账户自己的所有订单
+     */
+    @Override
     public Object listOrder(OrderQueryParam queryParam) {
         Integer currentUid = TokenInfoThreadHolder.getToken().getId();
         List<Integer> sidList = relationUSMapper.listSidByUid(currentUid);
@@ -1284,7 +1343,7 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
             queryWrapper.eq("p_account", queryParam.getP_account());
         }
         if (StringUtils.hasLength(queryParam.getOrderId())) {
-            queryWrapper.likeLeft("order_id", queryParam.getOrderId());
+            queryWrapper.likeRight("order_id", queryParam.getOrderId());
         }
         if (StringUtils.hasLength(queryParam.getOrderStatus())) {
             queryWrapper.eq("order_status", queryParam.getOrderStatus());
@@ -1314,8 +1373,8 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
             target.setPa(p.getPAccount());
 
             CAccount ca = cAccountMapper.getCAccountByAcid(p.getAcId());
-            target.setAcRemark(ca.getAcRemark());
-            target.setAcAccount(ca.getAcAccount());
+            target.setAcRemark(ca == null ? null : ca.getAcRemark());
+            target.setAcAccount(ca == null ? null : ca.getAcAccount());
             target.setChannel(ChannelEnum.of(p.getCChannelId()));
             target.setCallbackStatus(p.getCallbackStatus());
             voList.add(target);
@@ -1858,19 +1917,20 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
     }
 
     @Override
+    @Async("scheduleExecutor")
     public String orderWxHtml(String orderId) {
-        PayOrderEvent event = pOrderEventMapper.getPOrderEventByOid(orderId);
-        return event.getExt();
+//        PayOrderEvent event = pOrderEventMapper.getPOrderEventByOid(orderId);
+        log.info(LocalDateTime.now().toString());
+        return LocalDateTime.now().toString();
     }
 
     @Override
-    public Object handleRealOrder(HttpServletRequest request, String orderId) {
-        String ip = null;
-        try {
-            ip = ProxyUtil.getIP(request);
-        } catch (Exception e) {
-            log.error("ip err: {}", e.getMessage());
-        }
+    public Object handleRealOrder(HttpServletRequest request, String orderId) throws Exception {
+        String ip = ProxyUtil.getIP(request);
+        String region = CommonUtil.ip2region(ip);
+//        if (region == null || !region.contains("中国")) {
+//            throw new ServiceException("该地区不允许操作");
+//        }
 
         PayOrder poDB = pOrderMapper.getPOrderByOid(orderId);
         if (poDB == null) throw new NotFoundException("该订单不存在， orderId :" + orderId);
@@ -1879,26 +1939,64 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
             return 1;
         }
         if (poDB.getOrderStatus() != null && poDB.getOrderStatus() == 4) {
-            log.info("handleRealOrder, 当前用户. ip check : {}", CommonUtil.ip2region(ip));
+            log.info("handleRealOrder, 当前用户. ip check : {}", region);
 
             redisUtil.set(CommonConstant.ORDER_WAIT_QUEUE + orderId, 1);
             POrderQueue pOrderQueue = new POrderQueue();
             pOrderQueue.setPa(poDB.getPAccount());
             Channel channel = channelMapper.getChannelByChannelId(poDB.getCChannelId());
             pOrderQueue.setChannel(channel.getId());
+            pOrderQueue.setChannelId(poDB.getCChannelId());
             pOrderQueue.setOrderId(orderId);
             pOrderQueue.setPayIp(ip);
             pOrderQueue.setReqMoney(poDB.getCost());
 //                pOrderQueue.setArea(area);
-            pOrderQueue.setAcid(poDB.getAcId());
+//            pOrderQueue.setAcid(poDB.getAcId());
 //                pOrderQueue.setPr(pr);
             redisUtil.lPush(CommonConstant.ORDER_CREATE_QUEUE, pOrderQueue);
+
+            pOrderMapper.updateRegionByOIdForSys(orderId, region);
 //                createAsyncOrder()
             return 2;
         }
 
 
         return null;
+    }
+
+    @Override
+    public Object ynForPayload(PayInfoParam param) throws Exception {
+
+        PayInfo payInfo = new PayInfo();
+        payInfo.setChannel("weixin_mobile");
+        payInfo.setRepeat_passport(param.getPassport());
+        payInfo.setGame("jx3");
+        payInfo.setGateway(param.getGateway());
+        payInfo.setRecharge_unit(param.getMoney());
+        payInfo.setRecharge_type(6);
+        payInfo.setCk(param.getCk());
+
+        log.info("yn 入参：{}", payInfo);
+
+        SecCode secCode = gee4Service.verifyGeeCapForQuery();
+
+//        payInfo.setChannel("weixin");
+//        payInfo.setGateway("z01");
+//        payInfo.setRecharge_type(6); //通宝type
+//        payInfo.setRecharge_unit(15);
+//        payInfo.setRepeat_passport("chenzhj11");
+//        payInfo.setGame("jx3");
+
+        String payload = gee4Service.getPayload(secCode, payInfo);
+
+//        GeeProdCodeParam prodCodeParam = new GeeProdCodeParam();
+//        prodCodeParam.setToken(payInfo.getCk());
+//        prodCodeParam.setPayload(payload);
+//        prodCodeParam.setEncrypt_fields("payload");
+//        prodCodeParam.setEncrypt_version("v1");
+//        prodCodeParam.setEncrypt_method("xoyo_combine");
+//        JSONObject resp = gee4Service.prodCodeForQuery(prodCodeParam);
+        return payload;
     }
 
     @NotNull

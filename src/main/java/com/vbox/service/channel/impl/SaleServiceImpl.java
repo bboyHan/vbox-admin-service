@@ -25,6 +25,9 @@ import java.security.KeyPair;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 public class SaleServiceImpl implements SaleService {
@@ -75,6 +78,27 @@ public class SaleServiceImpl implements SaleService {
         } else {
             return null;
         }
+    }
+
+    @Autowired
+    private POrderMapper pOrderMapper;
+
+    @Override
+    public ResultOfList listSaleCAOverviewToday() {
+        Integer uid = TokenInfoThreadHolder.getToken().getId();
+        List<Integer> sidList = this.usMapper.listSidByUid(uid);
+
+        for (Integer sid : sidList) {
+            List<CAccount> acList = cAccountMapper.listAcInUid(sid);
+            Set<String> acidSet = cAccountMapper.setAcIdInUid(sid);
+            List<PayOrder> poList = pOrderMapper.selectList(new QueryWrapper<PayOrder>()
+                    .in("ac_id", acidSet)
+            );
+            if (poList != null && poList.size() > 0) {
+                Map<String, List<PayOrder>> collect = poList.stream().collect(Collectors.groupingBy(PayOrder::getAcId));
+            }
+        }
+        return null; //TODO
     }
 
     @Override
@@ -190,13 +214,13 @@ public class SaleServiceImpl implements SaleService {
     }
 
     @Override
-    public ResultOfList listSaleCAccount(Integer status, Integer page, Integer pageSize) {
+    public ResultOfList listSaleCAccount(Integer status, String acRemark, Integer page, Integer pageSize) {
         Integer uid = TokenInfoThreadHolder.getToken().getId();
         List<Integer> sidList = usMapper.listSidByUid(uid);
 
         pageSize = pageSize == null ? 20 : pageSize;
         page = page == null ? 0 : (page - 1) * pageSize;
-        List<CAccount> caList = cAccountMapper.listACInUids(sidList, status, page, pageSize);
+        List<CAccount> caList = cAccountMapper.listACInUids(sidList, acRemark, status, page, pageSize);
         Integer count = cAccountMapper.countACInUids(sidList, status, page, pageSize);
         List<CAccountVO> acVOList = new ArrayList<>();
         for (CAccount ca : caList) {

@@ -18,6 +18,7 @@ public class PayOrder {
     private Integer cost;
     private String acId;
     private String payIp;
+    private String payRegion;
     private String platformOid;
     private String cChannelId;
     private String resourceUrl;

@@ -6,6 +6,7 @@ import com.vbox.persistent.pojo.dto.CAccountInfo;
 import org.apache.ibatis.annotations.*;
 
 import java.util.List;
+import java.util.Set;
 
 @Mapper
 public interface CAccountMapper extends BaseMapper<CAccount> {
@@ -23,9 +24,12 @@ public interface CAccountMapper extends BaseMapper<CAccount> {
             "<if test='status != null'>" +
             " AND status = #{status}" +
             "</if>" +
+            "<if test='acRemark != null'>" +
+            " AND ac_remark like concat('%',#{acRemark},'%')" +
+            "</if>" +
             " order by id desc limit #{page}, #{pageSize}" +
             "</script>")
-    List<CAccount> listACInUids(@Param("sidList") List<Integer> sidList, Integer status, Integer page,  Integer pageSize);
+    List<CAccount> listACInUids(@Param("sidList") List<Integer> sidList, String acRemark, Integer status, Integer page,  Integer pageSize);
 
     @Select("<script>" +
             "SELECT count(1) FROM vbox_channel_account WHERE 1=1" +
@@ -58,6 +62,11 @@ public interface CAccountMapper extends BaseMapper<CAccount> {
             + "</script>")
     List<String> listAcIdInUids(@Param("sidList") List<Integer> sidList);
 
+    @Select("SELECT * FROM vbox_channel_account WHERE uid = #{uid}")
+    List<CAccount> listAcInUid(Integer uid);
+
+    @Select("SELECT * FROM vbox_channel_account WHERE uid = #{uid}")
+    Set<String> setAcIdInUid(Integer uid);
 
     @Select("select a.*, w.id as wid, w.caid, w.cost, w.oid, w.create_time from vbox_channel_account a left JOIN vbox_channel_acwallet w" +
             " ON a.id = w.caid where a.status = 1 and a.sys_status = 1")
@@ -68,6 +77,7 @@ public interface CAccountMapper extends BaseMapper<CAccount> {
             @Result(column = "oid",property = "oid"),
             @Result(column = "create_time",property = "createTime"),
     })
+    @Options(flushCache = Options.FlushCachePolicy.FALSE ,timeout = 300000)
     List<CAccountInfo> listCanPayForCAccount();
 
 
@@ -80,6 +90,7 @@ public interface CAccountMapper extends BaseMapper<CAccount> {
             @Result(column = "oid",property = "oid"),
             @Result(column = "create_time",property = "createTime"),
     })
+    @Options(flushCache = Options.FlushCachePolicy.FALSE ,timeout = 300000)
     List<CAccountInfo> listCanPayForCAccountToday(String createTime);
 
     @Select("select * from vbox_channel_account where acid = #{acid}")

@@ -17,7 +17,9 @@ import com.vbox.common.util.RedisUtil;
 import com.vbox.config.exception.NotFoundException;
 import com.vbox.config.exception.ServiceException;
 import com.vbox.config.local.ProxyInfoThreadHolder;
-import com.vbox.persistent.entity.*;
+import com.vbox.persistent.entity.CAccount;
+import com.vbox.persistent.entity.PayOrder;
+import com.vbox.persistent.entity.PayOrderEvent;
 import com.vbox.persistent.pojo.dto.CAccountInfo;
 import com.vbox.persistent.pojo.dto.CGatewayInfo;
 import com.vbox.persistent.pojo.dto.POrderQueue;
@@ -25,7 +27,6 @@ import com.vbox.persistent.pojo.dto.PayInfo;
 import com.vbox.persistent.repo.*;
 import com.vbox.service.channel.PayService;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -42,7 +43,7 @@ import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
-@Component
+//@Component
 @Slf4j
 public class OrderCreateTask {
 
@@ -71,12 +72,12 @@ public class OrderCreateTask {
 
     @Scheduled(cron = "0/1 * * * * ?")   //每 2s 执行一次, 接受订单创建的队列
     @Async("scheduleExecutor")
-    public void handleAsyncCreateOrder() throws Exception {
+    public void handleAsyncCreateOrder2() throws Exception {
         Object ele = redisUtil.rPop(CommonConstant.ORDER_CREATE_QUEUE);
         if (ele == null) {
             return;
         }
-        Thread.sleep(200L);
+//        Thread.sleep(200L);
         log.info("handleAsyncCreateOrder.start");
 
         String text = ele.toString();
@@ -109,71 +110,112 @@ public class OrderCreateTask {
 //                pOrderMapper.updateOStatusByOidForQueue(po.getOrderId(), OrderStatusEnum.PAY_CREATING_ERROR.getCode());
 //                log.error("【任务执行】数据库置为异常单, orderId : {}", po.getOrderId());
 //            } else {
-                boolean b = redisUtil.lPush(CommonConstant.ORDER_CREATE_QUEUE, po);
-                log.error("【任务执行】重新丢回队列, {}, push: {}", po, b);
+//            boolean b = redisUtil.lPush(CommonConstant.ORDER_CREATE_QUEUE, po);
+            log.error("【任务执行】异常单，丢弃, {}", po);
 //            }
+        }
+        log.info("handleAsyncCreateOrder.end");
+    }
+
+    @Scheduled(cron = "0/1 * * * * ?")   //每 2s 执行一次, 接受订单创建的队列
+    @Async("scheduleExecutor")
+    public void handleAsyncCreateOrder() throws Exception {
+        Object ele = redisUtil.rPop(CommonConstant.ORDER_CREATE_QUEUE);
+        if (ele == null) {
+            return;
+        }
+//        Thread.sleep(200L);
+        log.info("handleAsyncCreateOrder.start");
+
+        String text = ele.toString();
+        POrderQueue po = null;
+        try {
+            po = JSONObject.parseObject(text, POrderQueue.class);
+        } catch (Exception e) {
+            log.error("pOrderQueue解析异常, text: {}", text);
+            return;
+        }
+
+        try {
+            asyncOrder(po);
+        } catch (IORuntimeException e) {
+            log.error("【任务执行】IO ex 1次 : {}", e.getMessage());
+            try {
+                asyncOrder(po);
+            } catch (IORuntimeException ex) {
+                log.error("【任务执行】IO ex 2次 : {}", e.getMessage());
+                asyncOrder(po);
+            }
+        } catch (Exception e) {
+            log.error("【任务执行】handleAsyncCreateOrder, err: {}", e.getMessage());
+            // 判断订单创建时间，小于2分钟的丢回队列
+//            PayOrder poDB = pOrderMapper.getPOrderByOid(po.getOrderId());
+//            LocalDateTime createTime = poDB.getCreateTime();
+//            LocalDateTime nowTime = LocalDateTime.now().plusMinutes(-2);
+//            if (nowTime.isAfter(createTime)) {
+//                log.error("【任务执行】超时2分钟直接丢弃, {}", po);
+//                pOrderMapper.updateOStatusByOidForQueue(po.getOrderId(), OrderStatusEnum.PAY_CREATING_ERROR.getCode());
+//                log.error("【任务执行】数据库置为异常单, orderId : {}", po.getOrderId());
+//            } else {
+//                boolean b = redisUtil.lPush(CommonConstant.ORDER_CREATE_QUEUE, po);
+//                log.error("【任务执行】重新丢回队列, {}, push: {}", po, b);
+//            }
+            log.error("【任务执行】异常单，丢弃, {}", po);
         }
         log.info("handleAsyncCreateOrder.end");
     }
 
     private void asyncOrder(POrderQueue po) throws Exception {
         String pa = po.getPa();
-        Integer channelId = po.getChannel();
         String orderId = po.getOrderId();
         String payIp = po.getPayIp();
         Integer reqMoney = po.getReqMoney();
-        String acid = po.getAcid();
         String pr = po.getPr();
         String area = po.getArea();
+        String channelId = po.getChannelId();
+        Integer cid = po.getChannel();
+
+        String account;
+        CAccount c = null;
+
+        Object ele = redisUtil.rPop(CommonConstant.CHANNEL_ACCOUNT_QUEUE + cid);
+        if (ele == null) {
+            List<CAccount> randomTempList = cAccountMapper.selectList(new QueryWrapper<CAccount>()
+                    .eq("status", 1)
+                    .eq("sys_status", 1)
+                    .eq("cid", cid)
+            );
+            for (CAccount cAccount : randomTempList) {
+                redisUtil.lPush(CommonConstant.CHANNEL_ACCOUNT_QUEUE + cid, cAccount);
+            }
+            int randomIndex = RandomUtil.randomInt(randomTempList.size());
+            c = randomTempList.get(randomIndex);
+        } else {
+            String text = ele.toString();
+            try {
+                c = JSONObject.parseObject(text, CAccount.class);
+            } catch (Exception e) {
+                log.error("CAccount queue解析异常, text: {}", text);
+                return;
+            }
+        }
+        log.info("handleAsyncCreateOrder.start");
+
+        log.info("【任务执行】资源池取出..po channel id {} .randomACInfo - {}", channelId, c);
 
         // proxy
         payService.addProxy(area, payIp, pr);
 
-        LocalDateTime nowTime = LocalDateTime.now();
-        CAccountInfo randomACInfo = new CAccountInfo();
-        String account;
-        String now;
-        if (null == acid) {
-            List<CAccountInfo> cAccountList = cAccountMapper.listCanPayForCAccount();
-            if (cAccountList == null || cAccountList.size() == 0) {
-                throw new NotFoundException("系统不可用充值渠道，请联系管理员");
-            }
-
-            log.info("【任务执行】create order 创建订单: {}, p account: {}", orderId, pa);
-            redisUtil.pub("【任务执行】【商户：" + pa + "】【订单ID：" + orderId + "】正在创建订单....  ");
-            nowTime = LocalDateTime.now();
-            now = DateUtil.format(nowTime, "yyyy-MM-dd");
-            List<CAccountInfo> cAccountListToday = cAccountMapper.listCanPayForCAccountToday(now);
-            for (CAccountInfo c : cAccountListToday) {
-                c.setCreateTime(nowTime);
-            }
-
-            List<CAccountInfo> randomTemp = compute(channelId, now, cAccountList, cAccountListToday);
-            if (randomTemp.size() == 0) {
-                throw new NotFoundException("【任务执行】系统无可用充值账户，请联系管理员");
-            }
-
-            int randomIndex = RandomUtil.randomInt(randomTemp.size());
-            randomACInfo = randomTemp.get(randomIndex);
-        } else {
-            CAccount acDB = cAccountMapper.selectOne((new QueryWrapper<CAccount>()).eq("acid", acid));
-            if (acDB.getStatus() != 1 || acDB.getSysStatus() != 1) {
-                throw new ServiceException("【任务执行】该账户未开启后台设置开关，不允许建单");
-            }
-            BeanUtils.copyProperties(acDB, randomACInfo);
-        }
-        log.info("【任务执行】资源池取出...randomACInfo - {}", randomACInfo);
-
         PayInfo payInfo = new PayInfo();
-        CGatewayInfo cgi = this.cGatewayMapper.getGateWayInfoByCIdAndGId(randomACInfo.getCid(), randomACInfo.getGid());
+        CGatewayInfo cgi = this.cGatewayMapper.getGateWayInfoByCIdAndGId(c.getCid(), c.getGid());
         payInfo.setChannel(cgi.getCChannel());
-        account = randomACInfo.getAcAccount();
+        account = c.getAcAccount();
         payInfo.setRepeat_passport(account);
         payInfo.setGame(cgi.getCGame());
         payInfo.setGateway(cgi.getCGateway());
         payInfo.setRecharge_unit(reqMoney);
         payInfo.setRecharge_type(6);
-        String acPwd = randomACInfo.getAcPwd();
+        String acPwd = c.getAcPwd();
         String cookie = "";
         cookie = payService.getCKforQuery(account, Base64.decodeStr(acPwd));
         boolean expire = gee4Service.tokenCheck(cookie, account);
@@ -233,7 +275,7 @@ public class OrderCreateTask {
 
                 String payUrl = handelPayUrl(data, resource_url);
                 LocalDateTime asyncTime = LocalDateTime.now();
-                pOrderMapper.updateInfoForQueue(orderId, OrderStatusEnum.NO_PAY.getCode(), platform_oid, payUrl, payIp, asyncTime);
+                pOrderMapper.updateInfoForQueue(orderId, c.getAcid(), OrderStatusEnum.NO_PAY.getCode(), platform_oid, payUrl, payIp, asyncTime);
                 pOrderEventMapper.updateInfoForQueue(orderId, data.toJSONString(), platform_oid, event.getExt());
 
                 PayOrder poDB = pOrderMapper.getPOrderByOid(orderId);
@@ -243,6 +285,9 @@ public class OrderCreateTask {
                     if (has) redisUtil.del(CommonConstant.ORDER_WAIT_QUEUE + orderId);
                     log.info("【任务执行】成功订单入查单回调池子, orderId: {}", orderId);
                 }
+
+//                pOrderMapper.sumPorderByCAID(c.getAcid());
+
             }
         } else {
             log.error("create order error, resp -> {}", orderResp);
@@ -312,7 +357,15 @@ public class OrderCreateTask {
                 temp = cl.get(0);
                 break;
             }
-            if (temp != null && totalCost >= temp.getTotalLimit()) it.remove();
+            if (temp != null && totalCost >= temp.getTotalLimit()) {
+                //
+//                CAccount cAccount = new CAccount();
+//                cAccount.setId(temp.getId());
+//                cAccount.setSysStatus(0);
+//                cAccount.setSysLog("总余额不足，请联系管理员充值");
+//                cAccountMapper.updateById(cAccount);
+                it.remove();
+            }
         }
 
         // 日限额过滤
