@@ -23,10 +23,7 @@ import org.springframework.stereotype.Service;
 
 import java.security.KeyPair;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -214,9 +211,16 @@ public class SaleServiceImpl implements SaleService {
     }
 
     @Override
-    public ResultOfList listSaleCAccount(Integer status, String acRemark, Integer page, Integer pageSize) {
+    public ResultOfList listSaleCAccount(Integer status, String saleName, String acRemark, Integer page, Integer pageSize) {
         Integer uid = TokenInfoThreadHolder.getToken().getId();
         List<Integer> sidList = usMapper.listSidByUid(uid);
+
+        if (saleName != null) {
+            User account = userMapper.selectOne(new QueryWrapper<User>().eq("id", saleName));
+            if (sidList != null && sidList.size() > 0 && account != null && sidList.contains(account.getId())) {
+                sidList = Collections.singletonList(account.getId());
+            }
+        }
 
         pageSize = pageSize == null ? 20 : pageSize;
         page = page == null ? 0 : (page - 1) * pageSize;
@@ -236,8 +240,10 @@ public class SaleServiceImpl implements SaleService {
             //今充值
             Integer todayCost = vboxUserWalletMapper.getTodayOrderSumByCaid(ca.getId());
             //昨充值
-            Integer yesterdayCost = vboxUserWalletMapper.getYesterdayOrderSumByCaid(ca.getId());
+            Integer yesterdayCost = vboxUserWalletMapper.getYesterdayOrderSumByCaid(ca.getId());//昨充值
+            Integer beforeDayCost = vboxUserWalletMapper.getBeforeDayOrderSumByCaid(ca.getId());
 
+            acv.setBefore_day_cost(beforeDayCost == null ? 0 : beforeDayCost);
             acv.setYesterday_cost(yesterdayCost == null ? 0 : yesterdayCost);
             acv.setToday_cost(todayCost == null ? 0 : todayCost);
             acv.setTotal_cost(totalCost == null ? 0 : totalCost);

@@ -1,6 +1,7 @@
 package com.vbox.service.channel.impl;
 
 import cn.hutool.core.codec.Base64;
+import cn.hutool.core.date.DateUtil;
 import cn.hutool.core.util.DesensitizedUtil;
 import cn.hutool.core.util.IdUtil;
 import com.vbox.common.ResultOfList;
@@ -22,18 +23,18 @@ import com.vbox.persistent.repo.*;
 import com.vbox.service.channel.ChannelService;
 import com.vbox.service.channel.PayService;
 import com.vbox.service.task.Gee4Service;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
+@Slf4j
 public class ChannelServiceImpl implements ChannelService {
 
     @Autowired
@@ -128,35 +129,70 @@ public class ChannelServiceImpl implements ChannelService {
     }
 
     @Override
-    public List<Integer> getVboxUserViewOrderSum() {
+    public List<Object> getVboxUserViewOrderSum() {
 
-        List<Integer> rsList = new ArrayList<>(36);
+        List<Object> rsList = new ArrayList<>(36);
         Integer uid = TokenInfoThreadHolder.getToken().getId();
+        List<Integer> sidList = relationUSMapper.listSidByUid(uid);
 
-        List<CAccountWallet> todayOrderList = vboxUserWalletMapper.getTodayOrder(uid);
+        sidList.add(uid);
 
-        if (todayOrderList == null || todayOrderList.size() == 0) {
-            return rsList;
+        for (Integer sid : sidList) {
+            List<CAccountWallet> sidTodayOrderList = vboxUserWalletMapper.getLast24HOrder(sid);
+            Map<String, Object> sm = new HashMap<>();
+            User user = userMapper.selectById(sid);
+            sm.put("sid", sid);
+            sm.put("account", user.getAccount());
+            if (sidTodayOrderList == null || sidTodayOrderList.size() == 0) {
+                sm.put("list", new HashMap<String, Integer>());
+            }else {
+                Map<String, Integer> sidCollect = sidTodayOrderList.stream().collect(
+                        Collectors.groupingBy(v -> {
+                                    LocalDateTime createTime = v.getCreateTime();
+                                    String format = DateUtil.format(createTime, "dd-HH:mm");
+//                                    int hour = createTime.getHour();
+//                                    int minute = createTime.getMinute();
+//                                    return hour + ":" + minute;
+                                    return format;
+                                }
+                                , Collectors.summingInt(e -> {
+                                    if (e.getCost() == null) {
+                                        return 0;
+                                    } else return e.getCost();
+                                })
+                        ));
+
+                sm.put("list", new TreeMap<>(sidCollect));
+            }
+            rsList.add(sm);
         }
 
-        Map<Integer, Integer> collect = todayOrderList.stream().collect(
-                Collectors.groupingBy(v -> {
-                            LocalDateTime createTime = v.getCreateTime();
-                            int hour = createTime.getHour();
-                            return hour;
-                        }
-                        , Collectors.summingInt(e -> {
-                            if (e.getCost() == null) {
-                                return 0;
-                            } else return e.getCost();
-                        })
-                ));
+//        List<CAccountWallet> todayOrderList = vboxUserWalletMapper.getTodayOrder(uid);
+//
+//        if (todayOrderList == null || todayOrderList.size() == 0) {
+//        }else {
+//
+//        }
+//
+//        Map<String, Integer> collect = todayOrderList.stream().collect(
+//                Collectors.groupingBy(v -> {
+//                            LocalDateTime createTime = v.getCreateTime();
+//                            int hour = createTime.getHour();
+//                            int minute = createTime.getMinute();
+//                            return hour + ":" + minute;
+//                        }
+//                        , Collectors.summingInt(e -> {
+//                            if (e.getCost() == null) {
+//                                return 0;
+//                            } else return e.getCost();
+//                        })
+//                ));
 
-        for (int i = 0; i < 24; i++) {
-            rsList.add(0);
-        }
+//        for (int i = 0; i < 24; i++) {
+//            rsList.add(0);
+//        }
 
-        collect.forEach(rsList::set);
+//        collect.forEach(rsList::set);
 
         return rsList;
     }
@@ -351,6 +387,27 @@ public class ChannelServiceImpl implements ChannelService {
             cAccount.setCk(ck);
             cAccount.setSysStatus(1);
             cAccount.setSysLog("账户手动设置开启");
+
+            Integer dailyLimit = caDB.getDailyLimit();
+            Integer totalLimit = caDB.getTotalLimit();
+            Integer acID = caDB.getId();
+            Integer todayCost = vboxUserWalletMapper.getTodayOrderSumByCaid(acID);
+            Integer totalCost = vboxUserWalletMapper.getTotalCostByCaid(acID);
+
+            if (dailyLimit != null && dailyLimit > 0 && todayCost != null && todayCost >= dailyLimit) {
+                cAccount.setSysStatus(0);
+                cAccount.setStatus(0);
+                cAccount.setSysLog("日内限额不足, 账户手动开启异常");
+                log.info("手动开启但限额不足，当前 daily cost: {}, 当前账号: {}", todayCost, caDB);
+            }
+
+            if (totalLimit != null && totalLimit > 0 && totalCost != null && totalCost >= totalLimit) {
+                cAccount.setSysStatus(0);
+                cAccount.setStatus(0);
+                cAccount.setSysLog("总限额不足, 账户手动开启异常");
+                log.info("手动开启但限额不足，当前 total cost: {}, 当前账号: {}", totalCost, caDB);
+            }
+
         }
 
         return caMapper.updateById(cAccount);

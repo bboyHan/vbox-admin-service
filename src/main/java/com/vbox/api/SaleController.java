@@ -40,8 +40,8 @@ public class SaleController {
      * 所有码商帐号
      */
     @GetMapping("/sale/cAccount")
-    public ResponseEntity<Result<Object>> listSaleCAccount(Integer status, String acRemark, Integer page, Integer pageSize) {
-        ResultOfList rs = saleService.listSaleCAccount(status, acRemark, page, pageSize);
+    public ResponseEntity<Result<Object>> listSaleCAccount(Integer status, String saleName, String acRemark, Integer page, Integer pageSize) {
+        ResultOfList rs = saleService.listSaleCAccount(status, saleName, acRemark, page, pageSize);
         return Result.ok(rs);
     }
 

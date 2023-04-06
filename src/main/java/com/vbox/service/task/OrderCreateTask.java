@@ -20,10 +20,7 @@ import com.vbox.config.local.ProxyInfoThreadHolder;
 import com.vbox.persistent.entity.CAccount;
 import com.vbox.persistent.entity.PayOrder;
 import com.vbox.persistent.entity.PayOrderEvent;
-import com.vbox.persistent.pojo.dto.CAccountInfo;
-import com.vbox.persistent.pojo.dto.CGatewayInfo;
-import com.vbox.persistent.pojo.dto.POrderQueue;
-import com.vbox.persistent.pojo.dto.PayInfo;
+import com.vbox.persistent.pojo.dto.*;
 import com.vbox.persistent.repo.*;
 import com.vbox.service.channel.PayService;
 import lombok.extern.slf4j.Slf4j;
@@ -43,7 +40,7 @@ import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
-//@Component
+@Component
 @Slf4j
 public class OrderCreateTask {
 
@@ -69,6 +66,61 @@ public class OrderCreateTask {
     private CGatewayMapper cGatewayMapper;
     @Autowired
     private PAccountMapper pAccountMapper;
+
+//    @Scheduled(cron = "0 */1 * * * ? ")  //每 1min
+    public void handleCapPool() throws Exception {
+        Object ele = redisUtil.rPop(CommonConstant.CHANNEL_ACCOUNT_QUEUE + 1);
+        CAccount c;
+        if (ele == null) {
+            List<CAccount> randomTempList = cAccountMapper.selectList(new QueryWrapper<CAccount>()
+                    .eq("status", 1)
+                    .eq("sys_status", 1)
+                    .eq("cid", 1)  // 1 - jd  2 - wx   3 - ali
+            );
+            for (CAccount cAccount : randomTempList) {
+                redisUtil.lPush(CommonConstant.CHANNEL_ACCOUNT_QUEUE + 1, cAccount);
+            }
+            int randomIndex = RandomUtil.randomInt(randomTempList.size());
+            c = randomTempList.get(randomIndex);
+        } else {
+            String text = ele.toString();
+            try {
+                c = JSONObject.parseObject(text, CAccount.class);
+            } catch (Exception e) {
+                log.error("CAccount queue解析异常, text: {}", text);
+                return;
+            }
+        }
+
+        CGatewayInfo cgi = cGatewayMapper.getGateWayInfoByCIdAndGId(c.getCid(), c.getGid());
+
+        PayInfo payInfo = new PayInfo();
+        payInfo.setChannel("weixin_mobile");
+        payInfo.setRepeat_passport(c.getAcAccount());
+        payInfo.setGame("jx3");
+        payInfo.setGateway(cgi.getCGateway());
+        payInfo.setRecharge_unit(10);
+        payInfo.setRecharge_type(6);
+
+        log.info("yn 入参：{}", payInfo);
+
+        SecCode secCode = gee4Service.verifyGeeCapForQuery();
+
+//        payInfo.setChannel("weixin");
+//        payInfo.setGateway("z01");
+//        payInfo.setRecharge_type(6); //通宝type
+//        payInfo.setRecharge_unit(15);
+//        payInfo.setRepeat_passport("chenzhj11");
+//        payInfo.setGame("jx3");
+
+        String payload = gee4Service.getPayload(secCode, payInfo);
+
+        JSONObject jsonObject = new JSONObject();
+        jsonObject.put("ca", c);
+        jsonObject.put("p", payload);
+
+        redisUtil.lPush(CommonConstant.CHANNEL_ACCOUNT_GEE + 1, jsonObject, 30);
+    }
 
     @Scheduled(cron = "0/1 * * * * ?")   //每 2s 执行一次, 接受订单创建的队列
     @Async("scheduleExecutor")
@@ -100,7 +152,7 @@ public class OrderCreateTask {
                 asyncOrder(po);
             }
         } catch (Exception e) {
-            log.error("【任务执行】handleAsyncCreateOrder, err: {}", e.getMessage());
+            log.error("【任务执行】handleAsyncCreateOrder, err: ", e);
             // 判断订单创建时间，小于2分钟的丢回队列
 //            PayOrder poDB = pOrderMapper.getPOrderByOid(po.getOrderId());
 //            LocalDateTime createTime = poDB.getCreateTime();
@@ -113,6 +165,8 @@ public class OrderCreateTask {
 //            boolean b = redisUtil.lPush(CommonConstant.ORDER_CREATE_QUEUE, po);
             log.error("【任务执行】异常单，丢弃, {}", po);
 //            }
+        }finally {
+            ProxyInfoThreadHolder.remove();
         }
         log.info("handleAsyncCreateOrder.end");
     }
@@ -147,7 +201,7 @@ public class OrderCreateTask {
                 asyncOrder(po);
             }
         } catch (Exception e) {
-            log.error("【任务执行】handleAsyncCreateOrder, err: {}", e.getMessage());
+            log.error("【任务执行】handleAsyncCreateOrder, err: ", e);
             // 判断订单创建时间，小于2分钟的丢回队列
 //            PayOrder poDB = pOrderMapper.getPOrderByOid(po.getOrderId());
 //            LocalDateTime createTime = poDB.getCreateTime();
@@ -161,6 +215,8 @@ public class OrderCreateTask {
 //                log.error("【任务执行】重新丢回队列, {}, push: {}", po, b);
 //            }
             log.error("【任务执行】异常单，丢弃, {}", po);
+        }finally {
+            ProxyInfoThreadHolder.remove();
         }
         log.info("handleAsyncCreateOrder.end");
     }

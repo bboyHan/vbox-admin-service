@@ -1996,6 +1996,7 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
 //        prodCodeParam.setEncrypt_version("v1");
 //        prodCodeParam.setEncrypt_method("xoyo_combine");
 //        JSONObject resp = gee4Service.prodCodeForQuery(prodCodeParam);
+
         return payload;
     }
 

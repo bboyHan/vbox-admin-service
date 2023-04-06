@@ -34,8 +34,11 @@ public interface VboxUserWalletMapper extends BaseMapper<VboxUserWallet> {
     @Select("SELECT SUM(cost) FROM vbox_channel_acwallet WHERE caid = #{caid}")
     Integer getTotalCostByCaid(Integer caid);
     //    昨充值 caid ======================================
-    @Select("SELECT sum(cost) FROM vbox_channel_acwallet WHERE create_time between DATE_SUB(curdate(),INTERVAL 1 DAY) AND DATE_SUB(curdate(),INTERVAL 0 DAY) and DATE_SUB(curdate(),INTERVAL 0 DAY) AND caid = #{caid}")
+    @Select("SELECT sum(cost) FROM vbox_channel_acwallet WHERE create_time between DATE_SUB(curdate(),INTERVAL 1 DAY) AND DATE_SUB(curdate(),INTERVAL 0 DAY) AND caid = #{caid}")
     Integer getYesterdayOrderSumByCaid(Integer caid);
+    //    前天充值 caid ======================================
+    @Select("SELECT sum(cost) FROM vbox_channel_acwallet WHERE create_time between DATE_SUB(curdate(),INTERVAL 2 DAY) AND DATE_SUB(curdate(),INTERVAL 1 DAY) AND caid = #{caid}")
+    Integer getBeforeDayOrderSumByCaid(Integer id);
     @Select("SELECT count(1) FROM vbox_channel_acwallet WHERE create_time between DATE_SUB(curdate(),INTERVAL 1 DAY) AND DATE_SUB(curdate(),INTERVAL 0 DAY) AND caid IN (SELECT id FROM vbox_channel_account WHERE uid = #{uid})")
     Integer getYesterdayOrderNum(Integer uid);
     @Select("SELECT count(1) FROM vbox_pay_order WHERE create_time between DATE_SUB(curdate(),INTERVAL 1 DAY) AND DATE_SUB(curdate(),INTERVAL 0 DAY) AND ac_id IN (SELECT acid FROM vbox_channel_account WHERE uid = #{uid})")
@@ -48,6 +51,9 @@ public interface VboxUserWalletMapper extends BaseMapper<VboxUserWallet> {
     Integer getTodayOrderSumByCaid(Integer caid);
     @Select("SELECT * FROM vbox_channel_acwallet WHERE create_time > DATE_SUB(curdate(),INTERVAL 0 DAY) AND caid IN (SELECT id FROM vbox_channel_account WHERE uid = #{uid})")
     List<CAccountWallet> getTodayOrder(Integer uid);
+    // 过去24小时
+    @Select("SELECT * FROM vbox_channel_acwallet WHERE TO_DAYS(NOW()) - TO_DAYS(create_time) <= 1 AND caid IN (SELECT id FROM vbox_channel_account WHERE uid = #{uid})")
+    List<CAccountWallet> getLast24HOrder(Integer uid);
     @Select("SELECT count(1) FROM vbox_channel_acwallet WHERE create_time > DATE_SUB(curdate(),INTERVAL 0 DAY) AND caid IN (SELECT id FROM vbox_channel_account WHERE uid = #{uid})")
     Integer getTodayOrderNum(Integer uid);
     // 今充单量
@@ -71,5 +77,6 @@ public interface VboxUserWalletMapper extends BaseMapper<VboxUserWallet> {
     // 1hour 成功充值金额
     @Select("SELECT sum(cost) FROM vbox_channel_acwallet WHERE caid IN (SELECT id FROM vbox_channel_account WHERE uid = #{uid}) AND create_time > DATE_SUB(NOW(), INTERVAL 60 MINUTE)")
     Integer getHourOrderSum(Integer uid);
+
 
 }

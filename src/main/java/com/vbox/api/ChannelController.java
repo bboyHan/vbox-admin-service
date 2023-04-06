@@ -32,7 +32,7 @@ public class ChannelController {
 
     @GetMapping("/channel/vboxUser/view/orderSum")
     public ResponseEntity<Result<Object>> getVboxUserViewOrderSum() {
-        List<Integer> rs = channelService.getVboxUserViewOrderSum();
+        List<Object> rs = channelService.getVboxUserViewOrderSum();
         return Result.ok(rs);
     }
 

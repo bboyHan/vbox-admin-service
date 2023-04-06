@@ -14,7 +14,7 @@ import java.util.List;
 public interface ChannelService {
 
     VboxUserVO getVboxUser();
-    List<Integer> getVboxUserViewOrderSum();
+    List<Object> getVboxUserViewOrderSum();
     List<Long> getVboxUserViewOrderNum();
 
     int createChannelAccount(CAccountParam caParam);

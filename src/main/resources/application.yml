@@ -25,12 +25,12 @@ spring:
 
   redis:
     # 正式
-#    host: 39.98.203.241
-    host: 127.0.0.1
+#    host: 47.97.200.110
+#    host: 127.0.0.1
     port: 6379
     password: Vbox123qwe
 #    redisson: classpath:redisson.yml
-#    host: 47.97.200.110
+    host: 39.98.203.241
 
 #mybatis-plus:
 #  configuration:

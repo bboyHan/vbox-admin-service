@@ -11,13 +11,19 @@ import com.alibaba.fastjson2.TypeReference;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.vbox.common.Result;
 import com.vbox.common.constant.CommonConstant;
-import com.vbox.common.enums.*;
+import com.vbox.common.enums.CodeUseStatusEnum;
+import com.vbox.common.enums.OrderCallbackEnum;
+import com.vbox.common.enums.OrderStatusEnum;
+import com.vbox.common.enums.ResultEnum;
 import com.vbox.common.util.CommonUtil;
 import com.vbox.common.util.RedisUtil;
 import com.vbox.config.exception.NotFoundException;
 import com.vbox.config.exception.ServiceException;
 import com.vbox.persistent.entity.*;
-import com.vbox.persistent.pojo.dto.*;
+import com.vbox.persistent.pojo.dto.CAccountInfo;
+import com.vbox.persistent.pojo.dto.CGatewayInfo;
+import com.vbox.persistent.pojo.dto.POrderQueue;
+import com.vbox.persistent.pojo.dto.PayInfo;
 import com.vbox.persistent.pojo.vo.PayNotifyVO;
 import com.vbox.persistent.repo.*;
 import com.vbox.service.channel.PayService;
@@ -63,7 +69,7 @@ public class OrderTask {
     @Autowired
     private PAccountMapper pAccountMapper;
 
-    @Scheduled(cron = "0 */1 * * * ?")
+    //    @Scheduled(cron = "0 */1 * * * ?")
     public void handleUserBalance() {
         List<User> users = userMapper.selectList(null);
 
@@ -90,6 +96,28 @@ public class OrderTask {
 
             if (balance > 5000) {
                 cAccountMapper.startByUid("账户可正常使用，请随时查看状态", uid);
+            }
+        }
+
+        QueryWrapper<CAccount> queryWrapper = new QueryWrapper<>();
+//        queryWrapper.eq("status", 1);
+        queryWrapper.eq("sys_status", 1);
+        List<CAccount> acList = cAccountMapper.selectList(queryWrapper);
+
+        for (CAccount ca : acList) {
+            Integer dailyLimit = ca.getDailyLimit();
+            Integer totalLimit = ca.getTotalLimit();
+
+            Integer acID = ca.getId();
+            Integer todayCost = vboxUserWalletMapper.getTodayOrderSumByCaid(acID);
+            Integer totalCost = vboxUserWalletMapper.getTotalCostByCaid(acID);
+
+            if (dailyLimit != null && dailyLimit > 0 && todayCost != null && todayCost >= dailyLimit) {
+                cAccountMapper.stopByCaId("已超出日内限额，账号关闭", acID);
+            }
+
+            if (totalLimit != null && totalLimit > 0 && totalCost != null && totalCost >= totalLimit) {
+                cAccountMapper.stopByCaId("已超出总限额控制，账号关闭", acID);
             }
         }
     }
@@ -307,7 +335,7 @@ public class OrderTask {
                     }
                 }
             } catch (Exception e) {
-                log.error("OrderTask.handleUnPayOrder", e);
+                log.error("OrderTask. po: {}, handleUnPayOrder", po, e);
             }
         }
         log.info("handleUnPayOrder.end");
@@ -373,7 +401,7 @@ public class OrderTask {
                     if (row == 1) {
                         log.info("【任务执行】 not pay order, 订单超时置为超时状态, pay order: {}, platform order info: {}", po, data);
                     }
-                }else {
+                } else {
                     boolean b = redisUtil.lPush(CommonConstant.ORDER_QUERY_QUEUE, po);
                     log.error("【任务执行】handleUnPayOrder重新丢回队列, {}, push: {}", po.getOrderId(), b);
                 }

@@ -21,6 +21,7 @@ public class CAccountVO {
     private Integer total_limit;
     private Integer today_cost;
     private Integer yesterday_cost;
+    private Integer before_day_cost;
     private Integer total_cost;
     private Integer min;
     private Integer max;

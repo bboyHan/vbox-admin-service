@@ -501,9 +501,9 @@ public class RedisUtil {
      * @param time  时间(秒)
      * @return
      */
-    public boolean lSet(String key, Object value, long time) {
+    public boolean lPush(String key, Object value, long time) {
         try {
-            redisTemplate.opsForList().rightPush(key, value);
+            redisTemplate.opsForList().leftPush(key, value);
             if (time > 0) {
                 expire(key, time);
             }
