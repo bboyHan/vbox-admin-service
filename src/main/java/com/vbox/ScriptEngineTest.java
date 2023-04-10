@@ -41,9 +41,33 @@ import java.util.regex.Pattern;
 public class ScriptEngineTest {
     public static void main(String[] args) throws Exception {
 
-        String a = "100.00";
-        int i = NumberUtil.parseInt(a);
-        System.out.print(i);
+        String url = "      if(is_postmsg==\"1\")\n" +
+                "                {\n" +
+                "                    parent.postMessage(JSON.stringify({\n" +
+                "                        action : \"send_deeplink\",\n" +
+                "                        data : {\n" +
+                "                            deeplink : \"weixin://wap/pay?prepayid%3Dwx092048332302565f1ed2cc24f9739b0000&package=3170794954&noncestr=1681044546&sign=9c0cab0fc5e04b306c6109d1a8fb0061\"\n" +
+                "                        }\n" +
+                "                    }), \"\");\n" +
+                "                }\n" +
+                "                else\n" +
+                "                {\n" +
+                "                    var url=\"weixin://wap/pay?prepayid%3Dwx092048332302565f1ed2cc24f9739b0000&package=3170794954&noncestr=1681044546&sign=9c0cab0fc5e04b306c6109d1a8fb0061\";\n" +
+                "                    var redirect_url=\"https://m.xoyo.com/#/order-status?vouch_code=90016810445130668682&way=weixin_mobile&order_id=98e8f8fcc8426678adb01736a82f94e5&item=jx3\";\n" +
+                "                    top.location.href=url;\n" +
+                "\n" +
+                "                    if(redirect_url)\n" +
+                "                    {\n" +
+                "                        setTimeout(";
+
+        if (url.contains("weixin://wap")) {
+            String substring = url.substring(url.indexOf("weixin://wap"), url.indexOf("&sign=") + 38);
+            System.out.println(substring);
+        }
+
+//        String a = "100.00";
+//        int i = NumberUtil.parseInt(a);
+//        System.out.print(i);
 
 //        String body = HttpRequest.get("https://mobile.huashengdaili.com/servers.php?session=U216f946c0315205246--3b78a97ba1bd30781f9e769942c562b8&time=1&count=1&type=text&only=1&pw=no&protocol=http&ip_type=direct&province=" + 610000)
 //        String body = HttpRequest.get("http://v2.api.juliangip.com/dynamic/getips?area=三明&num=1&pt=1&result_type=text&split=1&trade_no=1102019502692322&sign=0dd65623a208cf5b1d35d3787cf1c017")
@@ -86,20 +110,20 @@ public class ScriptEngineTest {
 //        System.out.println(ipAddr + port );
 
         //https://aapi.51daili.com/getapi2?linePoolIndex=1&packid=2&unkey=&tid=&qty=1&time=2&port=1&format=json&ss=5&css=&pro=%E5%AE%81%E5%A4%8F&city=&dt=1&ct=0&service=1&usertype=17
-        String body = HttpRequest.get("https://aapi.51daili.com/getapi2?linePoolIndex=1&packid=2&unkey=&tid=&qty=1&time=2&port=1&format=json&ss=5&css=&city=&dt=1&ct=0&service=1&usertype=17&pro=陕西省")
-                .execute().body();
-        System.out.println(body);
-
-        JSONObject resp = JSONObject.parseObject(body);
-        JSONArray list = resp.getJSONArray("data");
-        JSONObject data = list.getJSONObject(0);
-        String ipAddr = data.getString("IP");
-        Integer port = data.getInteger("Port");
-
-        String location = ProxyUtil.ip2region(ipAddr);
-        System.out.println(location);
-        String[] split = location.split("\\|");
-        System.out.println(split[2]);
+//        String body = HttpRequest.get("https://aapi.51daili.com/getapi2?linePoolIndex=1&packid=2&unkey=&tid=&qty=1&time=2&port=1&format=json&ss=5&css=&city=&dt=1&ct=0&service=1&usertype=17&pro=陕西省")
+//                .execute().body();
+//        System.out.println(body);
+//
+//        JSONObject resp = JSONObject.parseObject(body);
+//        JSONArray list = resp.getJSONArray("data");
+//        JSONObject data = list.getJSONObject(0);
+//        String ipAddr = data.getString("IP");
+//        Integer port = data.getInteger("Port");
+//
+//        String location = ProxyUtil.ip2region(ipAddr);
+//        System.out.println(location);
+//        String[] split = location.split("\\|");
+//        System.out.println(split[2]);
 
 //        String body = HttpRequest.get("http://api.wandoudl.com/api/ip?app_key=335df332a886cbaf27698df5f42ff936&pack=228272&num=1&xy=1&type=1&lb=\\r\\n&nr=99&area_id=210400").execute().body();
 //        System.out.println(body);

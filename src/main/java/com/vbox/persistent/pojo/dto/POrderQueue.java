@@ -11,6 +11,7 @@ public class POrderQueue {
     private String orderId;
     private Integer reqMoney;
     private String notify;
+    private String userAgent;
     private String attach;
     private String payIp;
     private String acid;

@@ -32,7 +32,7 @@ public class ExecutorConfig implements AsyncConfigurer {
     /**
      * 设置缓冲队列大小
      */
-    private static final int QUEUE_CAPACITY = 100;
+    private static final int QUEUE_CAPACITY = 0;
 
     /**
      * 设置线程的最大空闲时间，超过了核心线程数之外的线程，在空闲时间到达之后会被销毁

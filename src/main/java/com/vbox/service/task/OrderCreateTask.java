@@ -228,6 +228,7 @@ public class OrderCreateTask {
         Integer reqMoney = po.getReqMoney();
         String pr = po.getPr();
         String area = po.getArea();
+        String userAgent = po.getUserAgent();
         String channelId = po.getChannelId();
         Integer cid = po.getChannel();
 
@@ -314,6 +315,7 @@ public class OrderCreateTask {
                                 .form(objectObjectSortedMap)
                                 .contentType("application/x-www-form-urlencoded")
                                 .header("X-Requested-With", "com.seasun.gamemgr")
+                                .header("User-Agent", userAgent)
                                 .header("Origin", "https://m.xoyo.com")
                                 .header("Referer", "https://m.xoyo.com")
                                 .header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7")
@@ -327,6 +329,11 @@ public class OrderCreateTask {
                     log.info("wx success");
                     if (!StringUtils.hasLength(body)) throw new ServiceException("微信端异常，请重新下单");
                     event.setExt(body);
+                    if (body.contains("weixin://wap")) {
+                        String wxPayUrl = body.substring(body.indexOf("weixin://wap"), body.indexOf("&sign=") + 38);
+                        resource_url = wxPayUrl;
+                        log.info("wx success : [{}]", wxPayUrl);
+                    }
                 }
 
                 String payUrl = handelPayUrl(data, resource_url);

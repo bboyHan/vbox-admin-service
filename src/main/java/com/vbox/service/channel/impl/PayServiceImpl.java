@@ -1928,6 +1928,7 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
     public Object handleRealOrder(HttpServletRequest request, String orderId) throws Exception {
         String ip = ProxyUtil.getIP(request);
         String region = CommonUtil.ip2region(ip);
+        String userAgent = request.getHeader("User-Agent");
 //        if (region == null || !region.contains("中国")) {
 //            throw new ServiceException("该地区不允许操作");
 //        }
@@ -1949,6 +1950,7 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
             pOrderQueue.setChannelId(poDB.getCChannelId());
             pOrderQueue.setOrderId(orderId);
             pOrderQueue.setPayIp(ip);
+            pOrderQueue.setUserAgent(userAgent);
             pOrderQueue.setReqMoney(poDB.getCost());
 //                pOrderQueue.setArea(area);
 //            pOrderQueue.setAcid(poDB.getAcId());
