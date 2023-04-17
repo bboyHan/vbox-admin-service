@@ -381,7 +381,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
             PublicKey pubKey = SecureUtil.rsa(null, pub).getPublicKey();
 
             boolean verify = JWTUtil.verify(token, JWTSignerUtil.rs256(pubKey));
-            System.out.println("verify: " + verify);
+//            System.out.println("verify: " + verify);
             // check expire time
             JWTValidator.of(token).validateDate();
 

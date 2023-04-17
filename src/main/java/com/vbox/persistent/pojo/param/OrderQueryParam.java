@@ -12,5 +12,6 @@ public class OrderQueryParam extends PageParam {
     private String orderId;    //付方订单号
     private String p_account;  //付方ID
     private String cChannelId;
+    private String acAccount;
 
 }

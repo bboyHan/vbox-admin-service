@@ -11,6 +11,7 @@ import cn.hutool.http.HttpResponse;
 import cn.hutool.http.HttpUtil;
 import com.alibaba.fastjson2.JSONObject;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.vbox.common.ExpireQueue;
 import com.vbox.common.constant.CommonConstant;
 import com.vbox.common.enums.OrderStatusEnum;
 import com.vbox.common.util.RedisUtil;
@@ -32,6 +33,7 @@ import org.springframework.util.StringUtils;
 
 import javax.annotation.Resource;
 import java.io.IOException;
+import java.io.UnsupportedEncodingException;
 import java.net.URL;
 import java.net.URLDecoder;
 import java.nio.charset.Charset;
@@ -40,7 +42,7 @@ import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
-@Component
+//@Component
 @Slf4j
 public class OrderCreateTask {
 
@@ -67,59 +69,66 @@ public class OrderCreateTask {
     @Autowired
     private PAccountMapper pAccountMapper;
 
-//    @Scheduled(cron = "0 */1 * * * ? ")  //每 1min
+    public static ExpireQueue<SecCode> queue = new ExpireQueue<>();
+
+//    @Scheduled(cron = "0/2 * * * * ? ")  //每 2s
+//    @Async("scheduleExecutor")
+//    public void testHandleCapPool() throws Exception {
+//        SecCode secEle = queue.poll();
+//        if (secEle == null){
+//            log.info("没元素");
+//            return;
+//        }
+//
+//        log.info("当前size: {}, 取到元素:  sec => {}", queue.size(), secEle);
+//    }
+
+
+//    @Scheduled(cron = "0/2 * * * * ? ")  //每 2s
+    @Async("scheduleExecutor")
     public void handleCapPool() throws Exception {
-        Object ele = redisUtil.rPop(CommonConstant.CHANNEL_ACCOUNT_QUEUE + 1);
-        CAccount c;
-        if (ele == null) {
-            List<CAccount> randomTempList = cAccountMapper.selectList(new QueryWrapper<CAccount>()
-                    .eq("status", 1)
-                    .eq("sys_status", 1)
-                    .eq("cid", 1)  // 1 - jd  2 - wx   3 - ali
-            );
-            for (CAccount cAccount : randomTempList) {
-                redisUtil.lPush(CommonConstant.CHANNEL_ACCOUNT_QUEUE + 1, cAccount);
-            }
-            int randomIndex = RandomUtil.randomInt(randomTempList.size());
-            c = randomTempList.get(randomIndex);
-        } else {
-            String text = ele.toString();
-            try {
-                c = JSONObject.parseObject(text, CAccount.class);
-            } catch (Exception e) {
-                log.error("CAccount queue解析异常, text: {}", text);
-                return;
-            }
-        }
+//        Object ele = redisUtil.rPop(CommonConstant.CHANNEL_ACCOUNT_QUEUE + 1);
+//        CAccount c;
+//        if (ele == null) {
+//            List<CAccount> randomTempList = cAccountMapper.selectList(new QueryWrapper<CAccount>()
+//                    .eq("status", 1)
+//                    .eq("sys_status", 1)
+//                    .eq("cid", 1)  // 1 - jd  2 - wx   3 - ali
+//            );
+//            for (CAccount cAccount : randomTempList) {
+//                redisUtil.lPush(CommonConstant.CHANNEL_ACCOUNT_QUEUE + 1, cAccount);
+//            }
+//            int randomIndex = RandomUtil.randomInt(randomTempList.size());
+//            c = randomTempList.get(randomIndex);
+//        } else {
+//            String text = ele.toString();
+//            try {
+//                c = JSONObject.parseObject(text, CAccount.class);
+//            } catch (Exception e) {
+//                log.error("CAccount queue解析异常, text: {}", text);
+//                return;
+//            }
+//        }
+//
+//        CGatewayInfo cgi = cGatewayMapper.getGateWayInfoByCIdAndGId(c.getCid(), c.getGid());
 
-        CGatewayInfo cgi = cGatewayMapper.getGateWayInfoByCIdAndGId(c.getCid(), c.getGid());
-
-        PayInfo payInfo = new PayInfo();
-        payInfo.setChannel("weixin_mobile");
-        payInfo.setRepeat_passport(c.getAcAccount());
-        payInfo.setGame("jx3");
-        payInfo.setGateway(cgi.getCGateway());
-        payInfo.setRecharge_unit(10);
-        payInfo.setRecharge_type(6);
-
-        log.info("yn 入参：{}", payInfo);
-
-        SecCode secCode = gee4Service.verifyGeeCapForQuery();
-
-//        payInfo.setChannel("weixin");
-//        payInfo.setGateway("z01");
-//        payInfo.setRecharge_type(6); //通宝type
-//        payInfo.setRecharge_unit(15);
-//        payInfo.setRepeat_passport("chenzhj11");
+//        PayInfo payInfo = new PayInfo();
+//        payInfo.setChannel("weixin_mobile");
+//        payInfo.setRepeat_passport(c.getAcAccount());
 //        payInfo.setGame("jx3");
+//        payInfo.setGateway(cgi.getCGateway());
+//        payInfo.setRecharge_unit(10);
+//        payInfo.setRecharge_type(6);
 
-        String payload = gee4Service.getPayload(secCode, payInfo);
+//        log.info("yn 入参：{}", payInfo);
 
-        JSONObject jsonObject = new JSONObject();
-        jsonObject.put("ca", c);
-        jsonObject.put("p", payload);
-
-        redisUtil.lPush(CommonConstant.CHANNEL_ACCOUNT_GEE + 1, jsonObject, 30);
+        try {
+            SecCode secCode = gee4Service.verifyGeeCapForQuery();
+            redisUtil.addSecCode(secCode);
+        } catch (NullPointerException e) {
+            log.error("handleCapPool.NPE, msg :{}", e.getMessage());
+        }
+//        redisUtil.lPush(CommonConstant.CHANNEL_ACCOUNT_GEE + 1, jsonObject, 30);
     }
 
     @Scheduled(cron = "0/1 * * * * ?")   //每 2s 执行一次, 接受订单创建的队列
@@ -165,7 +174,7 @@ public class OrderCreateTask {
 //            boolean b = redisUtil.lPush(CommonConstant.ORDER_CREATE_QUEUE, po);
             log.error("【任务执行】异常单，丢弃, {}", po);
 //            }
-        }finally {
+        } finally {
             ProxyInfoThreadHolder.remove();
         }
         log.info("handleAsyncCreateOrder.end");
@@ -215,7 +224,7 @@ public class OrderCreateTask {
 //                log.error("【任务执行】重新丢回队列, {}, push: {}", po, b);
 //            }
             log.error("【任务执行】异常单，丢弃, {}", po);
-        }finally {
+        } finally {
             ProxyInfoThreadHolder.remove();
         }
         log.info("handleAsyncCreateOrder.end");
@@ -264,7 +273,7 @@ public class OrderCreateTask {
         payService.addProxy(area, payIp, pr);
 
         PayInfo payInfo = new PayInfo();
-        CGatewayInfo cgi = this.cGatewayMapper.getGateWayInfoByCIdAndGId(c.getCid(), c.getGid());
+        CGatewayInfo cgi = cGatewayMapper.getGateWayInfoByCIdAndGId(c.getCid(), c.getGid());
         payInfo.setChannel(cgi.getCChannel());
         account = c.getAcAccount();
         payInfo.setRepeat_passport(account);
@@ -302,41 +311,41 @@ public class OrderCreateTask {
                 String platform_oid = data.getString("vouch_code");
                 String resource_url = data.getString("resource_url");
 
-                if ("weixin_mobile".equalsIgnoreCase(data.getString("channel"))) {
-                    URL url = URLUtil.url(resource_url);
-                    Map<String, String> stringMap = HttpUtil.decodeParamMap(url.getQuery(), null);
-                    String redirect_url = URLDecoder.decode(stringMap.get("redirect_url"), "utf-8");
-                    stringMap.put("redirect_url", redirect_url);
-                    Map<String, Object> objectObjectSortedMap = new HashMap<>(stringMap);
-                    String body = null;
-                    try {
-                        HttpResponse execute = HttpRequest.post("https://wx.tenpay.com/cgi-bin/mmpayweb-bin/checkmweb")
-                                .setHttpProxy(ProxyInfoThreadHolder.getIpAddr(), ProxyInfoThreadHolder.getPort())
-                                .form(objectObjectSortedMap)
-                                .contentType("application/x-www-form-urlencoded")
-                                .header("X-Requested-With", "com.seasun.gamemgr")
-                                .header("User-Agent", userAgent)
-                                .header("Origin", "https://m.xoyo.com")
-                                .header("Referer", "https://m.xoyo.com")
-                                .header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7")
-                                .timeout(5000)
-                                .execute();
-                        body = execute.body();
-                    } catch (HttpException e) {
-                        e.printStackTrace();
-                        throw new ServiceException("微信端异常，请重新下单");
-                    }
-                    log.info("wx success");
-                    if (!StringUtils.hasLength(body)) throw new ServiceException("微信端异常，请重新下单");
-                    event.setExt(body);
-                    if (body.contains("weixin://wap")) {
-                        String wxPayUrl = body.substring(body.indexOf("weixin://wap"), body.indexOf("&sign=") + 38);
-                        resource_url = wxPayUrl;
-                        log.info("wx success : [{}]", wxPayUrl);
-                    }
-                }
+//                if ("weixin_mobile".equalsIgnoreCase(data.getString("channel"))) {
+//                    URL url = URLUtil.url(resource_url);
+//                    Map<String, String> stringMap = HttpUtil.decodeParamMap(url.getQuery(), null);
+//                    String redirect_url = URLDecoder.decode(stringMap.get("redirect_url"), "utf-8");
+//                    stringMap.put("redirect_url", redirect_url);
+//                    Map<String, Object> objectObjectSortedMap = new HashMap<>(stringMap);
+//                    String body = null;
+//                    try {
+//                        HttpResponse execute = HttpRequest.post("https://wx.tenpay.com/cgi-bin/mmpayweb-bin/checkmweb")
+//                                .setHttpProxy(ProxyInfoThreadHolder.getIpAddr(), ProxyInfoThreadHolder.getPort())
+//                                .form(objectObjectSortedMap)
+//                                .contentType("application/x-www-form-urlencoded")
+//                                .header("X-Requested-With", "com.seasun.gamemgr")
+//                                .header("User-Agent", userAgent)
+//                                .header("Origin", "https://m.xoyo.com")
+//                                .header("Referer", "https://m.xoyo.com")
+//                                .header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7")
+//                                .timeout(5000)
+//                                .execute();
+//                        body = execute.body();
+//                    } catch (HttpException e) {
+//                        e.printStackTrace();
+//                        throw new ServiceException("微信端异常，请重新下单");
+//                    }
+//                    log.info("wx success");
+//                    if (!StringUtils.hasLength(body)) throw new ServiceException("微信端异常，请重新下单");
+//                    event.setExt(body);
+//                    if (body.contains("weixin://wap")) {
+//                        String wxPayUrl = body.substring(body.indexOf("weixin://wap"), body.indexOf("&sign=") + 38);
+//                        resource_url = wxPayUrl;
+//                        log.info("wx success : [{}]", wxPayUrl);
+//                    }
+//                }
 
-                String payUrl = handelPayUrl(data, resource_url);
+                String payUrl = handelPayUrl(data, resource_url, userAgent);
                 LocalDateTime asyncTime = LocalDateTime.now();
                 pOrderMapper.updateInfoForQueue(orderId, c.getAcid(), OrderStatusEnum.NO_PAY.getCode(), platform_oid, payUrl, payIp, asyncTime);
                 pOrderEventMapper.updateInfoForQueue(orderId, data.toJSONString(), platform_oid, event.getExt());
@@ -543,7 +552,7 @@ public class OrderCreateTask {
         return rs;
     }
 
-    private String handelPayUrl(JSONObject data, String resource_url) {
+    private String handelPayUrl(JSONObject data, String resource_url, String userAgent) throws UnsupportedEncodingException {
         String payUrl = "";
         if ("wyzxpoto".equalsIgnoreCase(data.getString("channel"))) {
             URL url = URLUtil.url(resource_url);
@@ -574,6 +583,7 @@ public class OrderCreateTask {
 //                                .form(objectObjectSortedMap)
                     .contentType("application/x-www-form-urlencoded")
                     .header("X-Requested-With", "com.seasun.gamemgr")
+                    .header("User-Agent", userAgent)
                     .header("Origin", "https://m.xoyo.com")
                     .header("Referer", "https://m.xoyo.com")
                     .header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7")
@@ -586,6 +596,7 @@ public class OrderCreateTask {
 //                                .form(objectObjectSortedMap)
                     .contentType("application/x-www-form-urlencoded")
                     .header("X-Requested-With", "com.seasun.gamemgr")
+                    .header("User-Agent", userAgent)
                     .header("Origin", "https://m.xoyo.com")
                     .header("Referer", "https://m.xoyo.com")
                     .header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7")
@@ -596,25 +607,60 @@ public class OrderCreateTask {
             payUrl = cashier;
         }
 
-        if ("weixin".equalsIgnoreCase(data.getString("channel"))) {
-            payUrl = resource_url;
-        }
         if ("weixin_mobile".equalsIgnoreCase(data.getString("channel"))) {
-//            URL url = URLUtil.url(resource_url);
-//            Map<String, String> stringMap = HttpUtil.decodeParamMap(url.getQuery(), null);
-//            String redirect_url = URLDecoder.decode(stringMap.get("redirect_url"), "utf-8");
-//            stringMap.put("redirect_url", redirect_url);
-//            Map<String, Object> objectObjectSortedMap = new HashMap(stringMap);
-//            HttpResponse execute = HttpRequest.post("https://wx.tenpay.com/cgi-bin/mmpayweb-bin/checkmweb")
-//                    .form(objectObjectSortedMap)
-//                    .contentType("application/x-www-form-urlencoded")
-//                    .header("X-Requested-With", "com.seasun.gamemgr")
-//                    .header("Origin", "https://m.xoyo.com")
-//                    .header("Referer", "https://m.xoyo.com")
-//                    .header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7")
-//                    .execute();
-//            String body = execute.body();
-            payUrl = resource_url;
+            log.info("weixin_mobile url 初始: {}", resource_url);
+
+            URL url = URLUtil.url(resource_url);
+            Map<String, String> stringMap = HttpUtil.decodeParamMap(url.getQuery(), null);
+            String redirect_url = URLDecoder.decode(stringMap.get("redirect_url"), "utf-8");
+            stringMap.put("redirect_url", redirect_url);
+            Map<String, Object> objectObjectSortedMap = new HashMap<>(stringMap);
+            String body = null;
+            try {
+                HttpResponse execute = HttpRequest.post("https://wx.tenpay.com/cgi-bin/mmpayweb-bin/checkmweb")
+                        .setHttpProxy(ProxyInfoThreadHolder.getIpAddr(), ProxyInfoThreadHolder.getPort())
+                        .form(objectObjectSortedMap)
+                        .contentType("application/x-www-form-urlencoded")
+                        .header("X-Requested-With", "com.seasun.gamemgr")
+                        .header("User-Agent", userAgent)
+                        .header("Origin", "https://m.xoyo.com")
+                        .header("Referer", "https://m.xoyo.com")
+                        .header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7")
+                        .timeout(5000)
+                        .execute();
+                body = execute.body();
+            } catch (HttpException e) {
+                e.printStackTrace();
+                throw new ServiceException("微信端异常，请重新下单");
+            }
+            if (!StringUtils.hasLength(body)) throw new ServiceException("微信端异常，请重新下单");
+            if (body.contains("weixin://wap")) {
+                String wxPayUrl = body.substring(body.indexOf("weixin://wap"), body.indexOf("&sign=") + 38);
+                payUrl = wxPayUrl;
+                log.info("wx success : [{}]", wxPayUrl);
+                return payUrl;
+            }
+
+            log.info("weixin_mobile url 初始: {}", resource_url);
+            String prepayId = stringMap.get("prepay_id");
+            String pkg = stringMap.get("package");
+
+            String ticketJson = HttpRequest.get("http://localhost:9797?aid=2093769752&proxy=" + ProxyInfoThreadHolder.getIpAddr() + ":" + ProxyInfoThreadHolder.getPort() + "&ua=" + userAgent)
+                    .execute().body();
+            log.info("weixin_mobile ticket 准备: {}", ticketJson);
+            JSONObject ticketObject = JSONObject.parseObject(ticketJson);
+            String ticket = ticketObject.getString("ticket");
+            String randStr = ticketObject.getString("randstr");
+
+            HttpResponse execute = HttpRequest.get("https://wx.tenpay.com/cgi-bin/mmpayweb-bin/checkcaptcha?ticket=" + ticket + "&randstr=" + randStr + "&prepayid=" + prepayId + "&package=" + pkg)
+                    .header("User-Agent", userAgent)
+                    .header("Referer", resource_url)
+                    .execute();
+            body = execute.body();
+            JSONObject parseObject = JSONObject.parseObject(body);
+            String deeplink = parseObject.getString("deeplink");
+            log.info("wx 修正 后 pay url: {}", deeplink);
+            payUrl = deeplink;
         }
 
         return payUrl;

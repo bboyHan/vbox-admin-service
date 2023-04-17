@@ -1,8 +1,12 @@
 package com.vbox.common.util;
 
 import com.alibaba.fastjson2.JSONObject;
+import com.vbox.common.constant.CommonConstant;
+import com.vbox.persistent.pojo.dto.SecCode;
 import com.vbox.service.task.DelayTask;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.ZSetOperations;
 import org.springframework.util.CollectionUtils;
 
 import java.util.Collection;
@@ -11,6 +15,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
+@Slf4j
 public class RedisUtil {
 
     private RedisTemplate<String, Object> redisTemplate;
@@ -30,6 +35,59 @@ public class RedisUtil {
 
     public void sub() {
     }
+
+    //============================= queue sec ============================
+    public void addSecCode(SecCode secCode) {
+        try {
+            long currentTime = System.currentTimeMillis();
+            String key = CommonConstant.CHANNEL_ACCOUNT_GEE;
+            String value = JSONObject.toJSONString(secCode);
+            ZSetOperations<String, Object> zSetOperations = redisTemplate.opsForZSet();
+            zSetOperations.add(key, value, currentTime);
+            zSetOperations.removeRangeByScore(key, 0, currentTime - 90000);
+            zSetOperations.removeRange(key, 0, -100 - 1);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    public int sizeSecCode() {
+        try {
+            ZSetOperations<String, Object> zSetOps = redisTemplate.opsForZSet();
+            String key = CommonConstant.CHANNEL_ACCOUNT_GEE;
+            Long zc = zSetOps.zCard(key);
+            if (zc != null) {
+                return zc.intValue();
+            } else return 0;
+        } catch (Exception e) {
+            e.printStackTrace();
+            return 0;
+        }
+    }
+
+    public SecCode popSecCode() {
+        try {
+            ZSetOperations<String, Object> zSetOps = redisTemplate.opsForZSet();
+            String key = CommonConstant.CHANNEL_ACCOUNT_GEE;
+            Set<Object> earliest = zSetOps.range(key, 0, 0);
+            if (earliest == null) {
+                return null;
+            }else {
+                Object value = earliest.iterator().next();
+                String ele = value.toString();
+                SecCode secCode = JSONObject.parseObject(ele, SecCode.class);
+                zSetOps.remove(key, value);
+
+                log.info("当前size: {}, 取到元素:  sec => {}", sizeSecCode(), secCode);
+                return secCode;
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
+
+    //============================= queue sec end ============================
 
     /**
      * 指定缓存失效时间

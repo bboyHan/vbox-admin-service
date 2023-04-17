@@ -4,7 +4,7 @@ public interface CommonConstant {
     /**
      * gee4
      */
-    String CHANNEL_ACCOUNT_GEE = "channel_account_gee:";
+    String CHANNEL_ACCOUNT_GEE = "gee_sec_code:";
 
     /**
      * 通道账户

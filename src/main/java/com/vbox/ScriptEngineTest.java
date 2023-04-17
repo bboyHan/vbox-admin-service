@@ -1,13 +1,11 @@
 package com.vbox;
 
-import cn.hutool.core.util.NumberUtil;
 import cn.hutool.http.HttpRequest;
 import cn.hutool.http.HttpResponse;
 import com.alibaba.fastjson2.JSON;
-import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
+import com.vbox.common.ExpireQueue;
 import com.vbox.common.util.CommonUtil;
-import com.vbox.common.util.ProxyUtil;
 import com.vbox.persistent.pojo.param.GeeProdCodeParam;
 import com.vbox.persistent.pojo.param.OrderCreateParam;
 import jdk.nashorn.api.scripting.ScriptObjectMirror;
@@ -41,29 +39,64 @@ import java.util.regex.Pattern;
 public class ScriptEngineTest {
     public static void main(String[] args) throws Exception {
 
-        String url = "      if(is_postmsg==\"1\")\n" +
-                "                {\n" +
-                "                    parent.postMessage(JSON.stringify({\n" +
-                "                        action : \"send_deeplink\",\n" +
-                "                        data : {\n" +
-                "                            deeplink : \"weixin://wap/pay?prepayid%3Dwx092048332302565f1ed2cc24f9739b0000&package=3170794954&noncestr=1681044546&sign=9c0cab0fc5e04b306c6109d1a8fb0061\"\n" +
-                "                        }\n" +
-                "                    }), \"\");\n" +
-                "                }\n" +
-                "                else\n" +
-                "                {\n" +
-                "                    var url=\"weixin://wap/pay?prepayid%3Dwx092048332302565f1ed2cc24f9739b0000&package=3170794954&noncestr=1681044546&sign=9c0cab0fc5e04b306c6109d1a8fb0061\";\n" +
-                "                    var redirect_url=\"https://m.xoyo.com/#/order-status?vouch_code=90016810445130668682&way=weixin_mobile&order_id=98e8f8fcc8426678adb01736a82f94e5&item=jx3\";\n" +
-                "                    top.location.href=url;\n" +
-                "\n" +
-                "                    if(redirect_url)\n" +
-                "                    {\n" +
-                "                        setTimeout(";
-
-        if (url.contains("weixin://wap")) {
-            String substring = url.substring(url.indexOf("weixin://wap"), url.indexOf("&sign=") + 38);
-            System.out.println(substring);
+        ExpireQueue<String> queue = new ExpireQueue<>();
+        for (int i = 0; i < 100; i++) {
+            queue.add(i + "");
         }
+
+        System.out.println(queue.size());
+        System.out.println("======================");
+        System.out.println(queue.poll());
+        System.out.println(queue.poll());
+        System.out.println(queue.poll());
+        System.out.println(queue.poll());
+        System.out.println(queue.poll());
+        System.out.println("======================");
+
+        System.out.println(queue.size());
+
+        System.out.println("======================");
+        for (int i = 100; i < 200; i++) {
+            queue.add(i + "");
+        }
+        System.out.println(queue.poll());
+        System.out.println(queue.poll());
+        System.out.println(queue.poll());
+        System.out.println(queue.poll());
+        System.out.println(queue.poll());
+        System.out.println("======================");
+        System.out.println(queue.size());
+
+        System.out.println("===========sleep===========");
+        Thread.sleep(60000);
+        System.out.println(queue.size());
+
+        System.out.println("===========sleep end===========");
+        Thread.sleep(3000);
+        System.out.println(queue.size());
+//        String url = "      if(is_postmsg==\"1\")\n" +
+//                "                {\n" +
+//                "                    parent.postMessage(JSON.stringify({\n" +
+//                "                        action : \"send_deeplink\",\n" +
+//                "                        data : {\n" +
+//                "                            deeplink : \"weixin://wap/pay?prepayid%3Dwx092048332302565f1ed2cc24f9739b0000&package=3170794954&noncestr=1681044546&sign=9c0cab0fc5e04b306c6109d1a8fb0061\"\n" +
+//                "                        }\n" +
+//                "                    }), \"\");\n" +
+//                "                }\n" +
+//                "                else\n" +
+//                "                {\n" +
+//                "                    var url=\"weixin://wap/pay?prepayid%3Dwx092048332302565f1ed2cc24f9739b0000&package=3170794954&noncestr=1681044546&sign=9c0cab0fc5e04b306c6109d1a8fb0061\";\n" +
+//                "                    var redirect_url=\"https://m.xoyo.com/#/order-status?vouch_code=90016810445130668682&way=weixin_mobile&order_id=98e8f8fcc8426678adb01736a82f94e5&item=jx3\";\n" +
+//                "                    top.location.href=url;\n" +
+//                "\n" +
+//                "                    if(redirect_url)\n" +
+//                "                    {\n" +
+//                "                        setTimeout(";
+//
+//        if (url.contains("weixin://wap")) {
+//            String substring = url.substring(url.indexOf("weixin://wap"), url.indexOf("&sign=") + 38);
+//            System.out.println(substring);
+//        }
 
 //        String a = "100.00";
 //        int i = NumberUtil.parseInt(a);
@@ -204,30 +237,32 @@ public class ScriptEngineTest {
 
     /**
      * sign 签名 （参数名按ASCII码从小到大排序（字典序）+key+MD5+转大写签名）
+     *
      * @param map
      * @return
      */
-    public static String encodeSign(SortedMap<String,String> map, String key){
-        if(StringUtil.isEmpty(key)){
+    public static String encodeSign(SortedMap<String, String> map, String key) {
+        if (StringUtil.isEmpty(key)) {
             throw new RuntimeException("签名key不能为空");
         }
         Set<Map.Entry<String, String>> entries = map.entrySet();
         Iterator<Map.Entry<String, String>> iterator = entries.iterator();
         List<String> values = new ArrayList<>();
 
-        while(iterator.hasNext()){
+        while (iterator.hasNext()) {
             Map.Entry<String, String> entry = iterator.next();
             String k = String.valueOf(entry.getKey());
             String v = String.valueOf(entry.getValue());
-            if ((v!=null) && entry.getValue() !=null && !"sign".equals(k) && !"key".equals(k)) {
+            if ((v != null) && entry.getValue() != null && !"sign".equals(k) && !"key".equals(k)) {
                 values.add(k + "=" + v);
             }
         }
-        values.add("key="+ key);
+        values.add("key=" + key);
         String sign = StringUtil.join(values, "&");
         System.out.println(sign);
         return encodeByMD5(sign).toLowerCase();
     }
+
     /**
      * 通过MD5加密
      *
@@ -235,7 +270,7 @@ public class ScriptEngineTest {
      * @return String
      */
     public static String encodeByMD5(String algorithmStr) {
-        if (algorithmStr==null) {
+        if (algorithmStr == null) {
             return null;
         }
         try {

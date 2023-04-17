@@ -24,7 +24,7 @@ public class TestController {
         return Result.ok(s);
     }
 
-    @PostMapping("/code/jx3/cap")
+//    @PostMapping("/code/jx3/cap")
     public ResponseEntity<Result<Object>> ynForPayload(@RequestBody PayInfoParam param) throws Exception {
         Object s = payService.ynForPayload(param);
         return Result.ok(s);

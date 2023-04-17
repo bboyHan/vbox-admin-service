@@ -9,6 +9,7 @@ import com.alibaba.fastjson2.JSONObject;
 import com.vbox.common.constant.CommonConstant;
 import com.vbox.common.util.CommonUtil;
 import com.vbox.common.util.RedisUtil;
+import com.vbox.common.util.SecCodeUtil;
 import com.vbox.config.exception.ServiceException;
 import com.vbox.config.exception.UnSupportException;
 import com.vbox.config.local.ProxyInfoThreadHolder;
@@ -41,6 +42,8 @@ public class Gee4Service {
 
     public static String imgUrl = "https://static.geetest.com/";
 
+    @Autowired
+    private RedisUtil redisUtil;
     //Demo
     /*public Object createOrder() throws Exception {
         JSONObject cap = cap();
@@ -86,11 +89,19 @@ public class Gee4Service {
     }*/
 
     public SecCode capSecCode() throws Exception {
+        SecCode popEle = redisUtil.popSecCode();
+        if (popEle != null) {
+            return popEle;
+        }
         SecCode secCode = verifyGeeCap();
         return secCode;
     }
 
     public SecCode capSecCodeForQuery() throws Exception {
+        SecCode popEle = redisUtil.popSecCode();
+        if (popEle != null) {
+            return popEle;
+        }
         SecCode secCode = verifyGeeCapForQuery();
         return secCode;
     }
@@ -163,9 +174,9 @@ public class Gee4Service {
 //                }
                 analysis = analysis(cap);
                 cptList = analysis.getJSONArray("cptList");
-                log.info("尝试次数 - capRetry : {}", capRetry);
+//                log.info("尝试次数 - capRetry : {}", capRetry);
                 if (cptList.size() != 3) {
-                    log.warn("word analysis error: {}", cptList);
+//                    log.warn("word analysis error: {}", cptList);
                     continue;
                 }
                 if (capRetry > 10) {
@@ -221,9 +232,9 @@ public class Gee4Service {
 //                }
                 analysis = analysis(cap);
                 cptList = analysis.getJSONArray("cptList");
-                log.info("尝试次数 - capRetry : {}", capRetry);
+//                log.info("尝试次数 - capRetry : {}", capRetry);
                 if (cptList.size() != 3) {
-                    log.warn("word analysis error: {}", cptList);
+//                    log.warn("word analysis error: {}", cptList);
                     continue;
                 }
                 if (capRetry > 10) {
@@ -418,7 +429,7 @@ public class Gee4Service {
                 .cookie(ck)
                 .execute().body();
 
-//        log.info("get_info :{}", resp);
+        log.info("get_info :{}", resp);
 
         JSONObject obj = JSONObject.parseObject(resp);
         Integer code = obj.getInteger("code");
@@ -548,7 +559,7 @@ public class Gee4Service {
         JSONObject obj = JSONObject.parseObject(resp);
         List<Object> cptList = obj.getJSONArray("comp");
         long time = System.currentTimeMillis();
-        log.info("time: {}, location: {}", time, cptList);
+//        log.info("time: {}, location: {}", time, cptList);
         JSONObject res = new JSONObject();
         res.put("ll", cptList.size());
         res.put("time", time);
@@ -694,7 +705,7 @@ public class Gee4Service {
 
 
         long time = System.currentTimeMillis();
-        log.info("time: {}, location: {}", time, ll);
+//        log.info("time: {}, location: {}", time, ll);
 
         JSONObject res = new JSONObject();
         res.put("ll", cptList.size());
@@ -739,7 +750,7 @@ public class Gee4Service {
         }
 
         long time = System.currentTimeMillis();
-        log.info("time: {}, location: {}", time, ll);
+//        log.info("time: {}, location: {}", time, ll);
 
         JSONObject res = new JSONObject();
         res.put("ll", locationList);
@@ -793,7 +804,7 @@ public class Gee4Service {
         }
 
         long time = System.currentTimeMillis();
-        log.info("time: {}, location: {}", time, ll);
+//        log.info("time: {}, location: {}", time, ll);
 
         JSONObject res = new JSONObject();
         res.put("ll", locationList);
