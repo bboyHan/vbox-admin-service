@@ -35,7 +35,7 @@ public class Gee4Controller {
 
     @GetMapping("/test/test")
     public ResponseEntity<Result<Object>> test() throws Exception {
-        Object order = gee4Service.capSecCode();
+        Object order = gee4Service.capSecCodeForQuery();
         return Result.ok(order);
     }
 

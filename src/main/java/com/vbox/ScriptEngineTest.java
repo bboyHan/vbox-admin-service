@@ -1,11 +1,14 @@
 package com.vbox;
 
+import cn.hutool.core.util.URLUtil;
 import cn.hutool.http.HttpRequest;
 import cn.hutool.http.HttpResponse;
+import cn.hutool.http.HttpUtil;
 import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.JSONObject;
 import com.vbox.common.ExpireQueue;
 import com.vbox.common.util.CommonUtil;
+import com.vbox.config.local.ProxyInfoThreadHolder;
 import com.vbox.persistent.pojo.param.GeeProdCodeParam;
 import com.vbox.persistent.pojo.param.OrderCreateParam;
 import jdk.nashorn.api.scripting.ScriptObjectMirror;
@@ -23,6 +26,7 @@ import javax.script.ScriptEngine;
 import javax.script.ScriptEngineManager;
 import javax.script.ScriptException;
 import java.io.*;
+import java.net.URL;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -38,7 +42,163 @@ import java.util.regex.Pattern;
  */
 public class ScriptEngineTest {
     public static void main(String[] args) throws Exception {
+//        String ck = "xoyokey_=NHw%2Fwmy-%26q-Ds%3D%2F7u%2Ff77o_o7%26%26EyS11g5%3D%2Fw7%2Fjuw%26%26-yg%3D%2F7ufo%26yS1%3D%2F%2Fum.m7u_%26Sq%3DmjjoougE_-.5jGDfE7_q7%2F%26uoE7u.75j%2F%26-_q4%3D%26%218m";
+//        jx_ht(ck);
+//        jd_h5();
+//        HttpResponse execute = HttpRequest.post("https://wepay.jd.com/jdpay/payIndex?tradeNum=10016819598538488821&orderId=202304201104142018310975998184&key=2d152b72bc98b1739389182db9830ad89a11fd273122bba75c955472535b85646e438a9a82795ce298d0d23ba1b92e5e3962822ef0fec11fda7a7b97f3dcc0ac")
+        HttpResponse execute = HttpRequest.post("https://wepay.jd.com/jdpay/login?key=10016819598538488821_202304201104142018310975998184")
+                .execute();
+        System.out.println(execute);
+    }
 
+    private static void jd_h5() {
+        String jdPay = "https://wepay.jd.com/jdpay/payIndex?tradeNum=10016819571809217184&orderId=202304201019412017180320234167&key=ccac8dd256b18ba75d7dac8ea768e385325c2391f79c08b47a62624460d5f90f0aa5ee605846ffc396e2d08390d85c9ec4bbdef6b8527f746a56f9bd72c66a32";
+        URL urlPay = URLUtil.url(jdPay);
+        Map<String, String> urlPayStringMap = HttpUtil.decodeParamMap(urlPay.getQuery(), StandardCharsets.UTF_8);
+        Map<String, Object> urlPayMap = new HashMap<>(urlPayStringMap);
+        HttpResponse accept = HttpRequest.post("https://wepay.jd.com/jdpay/payIndex")
+                .header("Accept", "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7")
+                .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/112.0.0.0 Safari/537.36")
+                .setFollowRedirects(false)
+                .form(urlPayMap)
+                .execute();
+        String location = accept.header("Location");
+        System.out.println(location);
+
+        jdPay = location;
+        urlPay = URLUtil.url(jdPay);
+        urlPayStringMap = HttpUtil.decodeParamMap(urlPay.getQuery(), StandardCharsets.UTF_8);
+        urlPayMap = new HashMap<>(urlPayStringMap);
+        String qrHtml = HttpRequest.post("https://wepay.jd.com/jdpay/login")
+                .header("Accept", "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7")
+//                        .header("User-Agent", userAgent)
+                .form(urlPayMap)
+                .setFollowRedirects(false)
+                .execute().body();
+        String subBox = qrHtml.substring(qrHtml.indexOf("qrUrl=") + 6);
+        jdPay = subBox.substring(0, subBox.indexOf("\""));
+        System.out.println(jdPay);
+    }
+
+    private static void jx_ht(String ck) {
+        String body = HttpRequest.get("https://ws.xoyo.com/jx3/groupbuying221123/create_order")
+                .form("zone_id", "z05")
+                .form("order_type", "1")
+                .form("zone_name", URLEncoder.encode("双线一区（点卡）"))
+                .form("platform", "pc")
+                .form("callback", "__xfe11")
+                .cookie(ck)
+                .execute().body();
+
+
+        System.out.println(body);
+        String json = parseGeeJson(body);
+        System.out.println("=============================");
+
+        JSONObject jsonObject = JSONObject.parseObject(json);
+        JSONObject data = jsonObject.getJSONObject("data");
+        String orderNo = data.getString("order_no");
+        String payUrl = data.getString("pay_url");
+
+        URL url = URLUtil.url(payUrl);
+        Map<String, String> stringMap = HttpUtil.decodeParamMap(url.getQuery(), StandardCharsets.UTF_8);
+        String dStr = stringMap.get("data");
+        System.out.println(dStr);
+        System.out.println("=============================");
+
+        String body2 = HttpRequest.get("https://pay-pf-api.xoyo.com/pay/store_api/get_order_id")
+                .cookie(ck)                .form("data",dStr)
+
+                .form("callback", "jsonp_13f3a339b089d90")
+                .execute()
+                .body();
+
+        System.out.println(body2);
+        String json2 = parseGeeJson(body2);
+        JSONObject jsonObject2 = JSONObject.parseObject(json2);
+        JSONObject data2 = jsonObject2.getJSONObject("data");
+        System.out.println("=============================");
+
+        String orderId = data2.getString("order_id");
+        System.out.println(orderId);
+        System.out.println("=============================");
+
+        String body3 = HttpRequest.get("https://pay-pf-api.xoyo.com/pay/store_api/recharge_information")
+//                .cookie("xoyokey=%5EQwClfN%3D%26%21WS-%3DC7zCf77lcl7%26%26N5rxxWg_Cw7C7Cllu%265g%3Dzf77%26%26N5rxWfwl.C%26%26rum%3Df.CNWf%21Cp7ClS%267uU7%3DW.%21mCgj587cuEcC_l%26l%3Dl%21m_C; expires=Tue, 18-Apr-2023 13:17:05 GMT; Max-Age=3600; path=/; domain=.xoyo.com; httponly")
+                .form("game", "jx3")
+                .form("channel", "weixin")
+                .form("order_id", URLEncoder.encode(orderId))
+                .form("recharge_source", "12")
+                .form("callback", "jsonp_24853f8c034b6a0")
+                .execute()
+                .body();
+
+        System.out.println(body3);
+        System.out.println("=============================");
+//        String json3 = parseGeeJson(body3);
+//        JSONObject jsonObject3 = JSONObject.parseObject(json3);
+//        JSONObject data3 = jsonObject3.getJSONObject("data");
+//
+//        System.out.println(data3);
+//        System.out.println("=============================");
+
+//        String sec = HttpRequest.get("http://localhost:8080/api/test/test")
+//                .execute().body();
+//        System.out.println(sec);
+////
+//        JSONObject secObj = JSONObject.parseObject(sec);
+//        JSONObject result = secObj.getJSONObject("result");
+        Map<String, String> m = new HashMap<>();
+        m.put("game", "jx3");
+        m.put("channel", "alipay_qr");
+        m.put("recharge_num", "1");
+        m.put("order_id", orderId);
+        m.put("recharge_source", "12");
+//        m.put("captcha_id", "a7c9ab026dc4366066e4aaad573dce02");
+//        m.put("lot_number", "69b75237c8bf4540a6b6149751bc2b8d");
+//        m.put("pass_token", "a9f041fa8bb2ac1b1473e5a93116f0bf588e37ac23088d34ad753ac5bfcc35fa");
+//        m.put("gen_time", "1681825596");
+//        m.put("captcha_output", "662a-teKeUpl5FxeT6YiibfEhw2ENSLfnQMoUl5uCfGLR-JWKspOZSHq_9jyaR54mh0SlYyjWXL9-bUzUamqzpsqfEDlTn3kwGgP7K5PhygKXtzB-fou6KU4h17I19N4sGtFBbR6rbOSn8t1ZF0MPt_t1-px4xqv7FwgZVs1OG_yGYDETi3g85JK5dXhH4UeDLAaNvffc7ahYiZ2M5UNjyUkmnfCig5xchXd9IlRyB-FMwc-OMI4gYNQJPgnD1buHXVpHhdZidlaVWGApMEWZxzwfeyIgJNo8WAIjKW9BIB2A0PqW4Y8O24lOWZy7dl--WtmyNO10lhg05NPnQWj5YtlOCnq1-Ww2dWCjHt3aOndj7hqQv5HoPPWmW_sLj1SfgMRcZ1iyp6_So6BGy3Q2ftBY5gT9PymCpG6A6yxZdvHF0mYtqfEJD1P8kNTkuNyZdYfnbCDvGa9VBt3n16Au0lWAMXFmfNRTPqNiqvLkJYtTq91EoCcjJ-tuLMM7PCACvgZPkzQW7GRlA9XrT9kaZWWkpzwJHlV0kBaFAZvUXMeIbrI1e0zyJh1wpmn8ska3hOvTvW-obfACLESqf71NA%3D%3D");
+        String s = JSON.toJSONString(m);
+        System.out.println(s);
+
+        String resp = HttpRequest.get("https://pay-pf-api.xoyo.com/pay/store_api/create_order")
+                .body(s)
+                .execute().body();
+        System.out.println(resp);
+//        JSONObject j = JSONObject.parseObject(resp);
+//        JSONObject datass = j.getJSONObject("data");
+//        String resource_url = datass.getString("resource_url");
+//        HttpResponse execute = HttpRequest.get(resource_url)
+//                .contentType("application/x-www-form-urlencoded")
+//                .header("X-Requested-With", "com.seasun.gamemgr")
+//                .header("Origin", "https://m.xoyo.com")
+//                .header("Referer", "https://m.xoyo.com")
+//                .header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7")
+//                .timeout(5000)
+//                .execute();
+//        String aliGateway = execute.header("Location");
+//        System.out.println("alipay url 一次修正: "+ aliGateway);
+//        HttpResponse cashierExecute = HttpRequest.get(aliGateway)
+//                .contentType("application/x-www-form-urlencoded")
+//                .header("X-Requested-With", "com.seasun.gamemgr")
+//                .header("Origin", "https://m.xoyo.com")
+//                .header("Referer", "https://m.xoyo.com")
+//                .header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7")
+//                .timeout(5000)
+//                .execute();
+//        String cashier = cashierExecute.header("Location");
+//        System.out.println("alipay url 修正 后 pay url: {}" + cashier);
+    }
+
+    public static String parseGeeJson(String resp) {
+        int startIndex = resp.indexOf("(");
+        int endIndex = resp.lastIndexOf(")");
+        String json = resp.substring(startIndex + 1, endIndex);
+        return json;
+    }
+
+    private static void queueTest() throws InterruptedException {
         ExpireQueue<String> queue = new ExpireQueue<>();
         for (int i = 0; i < 100; i++) {
             queue.add(i + "");

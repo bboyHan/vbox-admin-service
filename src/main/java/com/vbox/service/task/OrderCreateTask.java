@@ -180,7 +180,7 @@ public class OrderCreateTask {
         log.info("handleAsyncCreateOrder.end");
     }
 
-    @Scheduled(cron = "0/1 * * * * ?")   //每 2s 执行一次, 接受订单创建的队列
+//    @Scheduled(cron = "0/1 * * * * ?")   //每 2s 执行一次, 接受订单创建的队列
     @Async("scheduleExecutor")
     public void handleAsyncCreateOrder() throws Exception {
         Object ele = redisUtil.rPop(CommonConstant.ORDER_CREATE_QUEUE);
@@ -558,7 +558,9 @@ public class OrderCreateTask {
             URL url = URLUtil.url(resource_url);
             Map<String, String> stringMap = HttpUtil.decodeParamMap(url.getQuery(), StandardCharsets.UTF_8);
             Map<String, Object> objectObjectSortedMap = new HashMap<>(stringMap);
-            HttpResponse execute = HttpRequest.post("https://wepay.jd.com/jdpay/saveOrder").setFollowRedirects(false).form(objectObjectSortedMap).execute();
+            HttpResponse execute = HttpRequest.post("https://wepay.jd.com/jdpay/saveOrder")
+                    .setHttpProxy(ProxyInfoThreadHolder.getIpAddr(), ProxyInfoThreadHolder.getPort())
+                    .setFollowRedirects(false).form(objectObjectSortedMap).execute();
             String location = execute.header("Location");
             log.info("location: {}", location);
             URL redirect = URLUtil.url("http://127.0.0.1" + location);
@@ -571,6 +573,12 @@ public class OrderCreateTask {
             if (tradeNum == null) {
                 jdPay = "https://wepay.jd.com/jdpay/login?key=" + key;
             }
+            log.info("jdPay url 一次修正: {}", jdPay);
+
+            String qrHtml = HttpRequest.get(jdPay)
+                    .setHttpProxy(ProxyInfoThreadHolder.getIpAddr(), ProxyInfoThreadHolder.getPort())
+                    .execute().body();
+            jdPay = qrHtml.substring(qrHtml.indexOf("qrUrl=") + 6, qrHtml.indexOf("\" alt=\"\""));
 
             log.info(" 修正 后 pay url: {}", jdPay);
             payUrl = jdPay;
@@ -653,6 +661,7 @@ public class OrderCreateTask {
             String randStr = ticketObject.getString("randstr");
 
             HttpResponse execute = HttpRequest.get("https://wx.tenpay.com/cgi-bin/mmpayweb-bin/checkcaptcha?ticket=" + ticket + "&randstr=" + randStr + "&prepayid=" + prepayId + "&package=" + pkg)
+                    .setHttpProxy(ProxyInfoThreadHolder.getIpAddr(), ProxyInfoThreadHolder.getPort())
                     .header("User-Agent", userAgent)
                     .header("Referer", resource_url)
                     .execute();

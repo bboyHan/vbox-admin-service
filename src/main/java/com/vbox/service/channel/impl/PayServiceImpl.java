@@ -20,10 +20,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.vbox.common.ResultOfList;
 import com.vbox.common.constant.CommonConstant;
-import com.vbox.common.enums.ChannelEnum;
-import com.vbox.common.enums.CodeUseStatusEnum;
-import com.vbox.common.enums.OrderCallbackEnum;
-import com.vbox.common.enums.OrderStatusEnum;
+import com.vbox.common.enums.*;
 import com.vbox.common.util.CommonUtil;
 import com.vbox.common.util.ProxyUtil;
 import com.vbox.common.util.RedisUtil;
@@ -742,7 +739,7 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
         return payUrl;
     }
 
-    public Channel paramCheckCreateOrder(OrderCreateParam orderCreateParam) throws IllegalAccessException {
+    public Channel paramCheckCreateOrder(OrderCreateParam orderCreateParam) {
 //        String pa = orderCreateParam.getP_account();
 //        String sign = orderCreateParam.getSign();
 //        PAccount paDB = pAccountMapper.selectOne((new QueryWrapper<PAccount>()).eq("p_account", pa));
@@ -764,6 +761,12 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
                 throw new ValidateException("notify_url不合法，请检验入参");
             } else {
                 String attach = orderCreateParam.getAttach();
+                if (channelId.equals("jx3_ali_gift") || channelId.equals("jx3_wx_gift")){
+                    Integer type = JXHTEnum.type(orderCreateParam.getMoney());
+                    if (type == -1) {
+                        throw new ValidateException("该通道属于固额设置，请检验入参，金额限定为76，156，162，276");
+                    }
+                }
                 if (attach != null && attach.length() > 128) {
                     throw new ValidateException("attach不合法，请检验入参");
                 } else {
@@ -817,7 +820,7 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
         SortedMap<String, String> map = CommonUtil.objToTreeMap(orderCreateExtParam);
         String signDB = CommonUtil.encodeSign(map, pKey);
         if (!signDB.equals(sign)) {
-            throw new ValidateException("入参仅限文档包含字段，请核对");
+            throw new ValidateException("入参仅限文档包含字段，请核对sign值计算规则");
         }
 
         OrderCreateParam orderCreateParam = new OrderCreateParam();

@@ -2,14 +2,15 @@ package com.vbox.service.task;
 
 import cn.hutool.core.codec.Base64;
 import cn.hutool.core.util.IdUtil;
+import cn.hutool.core.util.URLUtil;
 import cn.hutool.http.HttpRequest;
+import cn.hutool.http.HttpUtil;
 import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
-import com.vbox.common.constant.CommonConstant;
+import com.vbox.common.enums.JXGatewayEnum;
 import com.vbox.common.util.CommonUtil;
 import com.vbox.common.util.RedisUtil;
-import com.vbox.common.util.SecCodeUtil;
 import com.vbox.config.exception.ServiceException;
 import com.vbox.config.exception.UnSupportException;
 import com.vbox.config.local.ProxyInfoThreadHolder;
@@ -21,11 +22,8 @@ import com.vbox.persistent.pojo.param.VOrderQueryParam;
 import jdk.nashorn.api.scripting.ScriptObjectMirror;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Service;
-import org.springframework.util.ResourceUtils;
 
-import javax.net.ssl.HostnameVerifier;
 import javax.script.Invocable;
 import javax.script.ScriptEngine;
 import javax.script.ScriptEngineManager;
@@ -33,8 +31,13 @@ import javax.script.ScriptException;
 import java.io.*;
 import java.net.URL;
 import java.net.URLConnection;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @Slf4j
 @Service
@@ -126,6 +129,87 @@ public class Gee4Service {
         prodCodeParam.setEncrypt_method("xoyo_combine");
         JSONObject resp = prodCode(prodCodeParam);
         return resp;
+    }
+
+    public JSONObject createOrderT(String gateway, Integer moneyType, String ck, String cChannel) throws Exception {
+
+        String zoneName = JXGatewayEnum.of(gateway);
+
+        log.info("zone_id: {}, order_type: {}, zone_name: {}, c_channel: {}", gateway, moneyType, zoneName, cChannel);
+
+        String createOrderBody = HttpRequest.get("https://ws.xoyo.com/jx3/groupbuying221123/create_order")
+                .setHttpProxy(ProxyInfoThreadHolder.getIpAddr(), ProxyInfoThreadHolder.getPort())
+                .form("zone_id", gateway)
+                .form("order_type", moneyType)
+                .form("zone_name", URLEncoder.encode(zoneName))
+                .form("platform", "pc")
+                .form("callback", "__xfe11")
+                .cookie(ck)
+                .execute().body();
+
+        log.info("===/groupbuying221123/create_order=== {} ", createOrderBody);
+        String createOrderJson = parseGeeJson(createOrderBody);
+
+        JSONObject createOrderObj = JSONObject.parseObject(createOrderJson);
+        JSONObject createOrderData = createOrderObj.getJSONObject("data");
+        String payUrl = createOrderData.getString("pay_url");
+        log.info("===/groupbuying221123/create_order=== pay url:  {} ", payUrl);
+
+        URL url = URLUtil.url(payUrl);
+        Map<String, String> stringMap = HttpUtil.decodeParamMap(url.getQuery(), StandardCharsets.UTF_8);
+        String dStr = stringMap.get("data");
+        log.info("===store_api/get_order_id===, param : {}", dStr);
+
+        String orderBodyResp = HttpRequest.get("https://pay-pf-api.xoyo.com/pay/store_api/get_order_id")
+                .setHttpProxy(ProxyInfoThreadHolder.getIpAddr(), ProxyInfoThreadHolder.getPort())
+                .cookie(ck)
+                .form("data", dStr)
+                .form("callback", "jsonp_13f3a339b089d90")
+                .execute()
+                .body();
+
+        log.info("===store_api/get_order_id===, resp: {}", orderBodyResp);
+        String orderBodyJson = parseGeeJson(orderBodyResp);
+        JSONObject orderObj = JSONObject.parseObject(orderBodyJson);
+        JSONObject orderData = orderObj.getJSONObject("data");
+
+        String orderId = orderData.getString("order_id");
+        log.info("===store_api/get_order_id===, {}", orderId);
+
+        String rechargeInformationBody = HttpRequest.get("https://pay-pf-api.xoyo.com/pay/store_api/recharge_information")
+                .setHttpProxy(ProxyInfoThreadHolder.getIpAddr(), ProxyInfoThreadHolder.getPort())
+                .form("game", "jx3")
+                .form("channel", cChannel)
+                .form("order_id", URLEncoder.encode(orderId))
+                .form("recharge_source", "12")
+                .form("callback", "jsonp_24853f8c034b6a0")
+                .execute()
+                .body();
+
+        log.info("===/store_api/recharge_information===, resp: {}", rechargeInformationBody);
+//        String rechargeInformationJson = parseGeeJson(rechargeInformationBody);
+//        JSONObject rechargeInformationObj = JSONObject.parseObject(rechargeInformationJson);
+//        JSONObject rechargeInformationData = rechargeInformationObj.getJSONObject("data");
+//
+//        System.out.println(data3);
+//        System.out.println("=============================", rechargeInformationData);
+
+        Map<String, String> m = new HashMap<>();
+        m.put("game", "jx3");
+        m.put("channel", cChannel);
+        m.put("recharge_num", "1");
+        m.put("order_id", orderId);
+        m.put("recharge_source", "12");
+        String s = JSON.toJSONString(m);
+        log.info("===store_api/create_order===,param {}", s);
+
+        String resp = HttpRequest.get("https://pay-pf-api.xoyo.com/pay/store_api/create_order")
+                .setHttpProxy(ProxyInfoThreadHolder.getIpAddr(), ProxyInfoThreadHolder.getPort())
+                .body(s)
+                .execute().body();
+        log.info("===store_api/create_order===,resp {}", resp);
+        JSONObject respJson = JSONObject.parseObject(resp);
+        return respJson;
     }
 
     public JSONObject createOrderWithoutProxy(PayInfo payInfo) throws Exception {
@@ -317,13 +401,50 @@ public class Gee4Service {
     public String getPayload(SecCode secCode, PayInfo payInfo) throws Exception {
         ScriptEngineManager manager = new ScriptEngineManager();
         ScriptEngine engine = manager.getEngineByName("javascript");
-//        File file = ResourceUtils.getFile("classpath:d3.js");
-//        ClassPathResource classPathResource = new ClassPathResource("d3.js");
-//        InputStream is = classPathResource.getInputStream();
         String property = System.getProperty("user.dir");
         String filePath = (property + File.separator + "d3.js");
         File inputFile = new File(filePath);
         InputStream is = new FileInputStream(inputFile);
+        File file = new File("tmp");
+        CommonUtil.inputStreamToFile(is, file);
+        FileReader reader = new FileReader(file);
+        String payload = null;
+
+        try {
+            engine.eval(reader);
+            if (engine instanceof Invocable) {
+                Invocable invoke = (Invocable) engine;
+
+                ScriptObjectMirror sec = (ScriptObjectMirror) invoke.invokeFunction("get_pay_info",
+                        secCode.getCaptcha_id(),
+                        secCode.getLot_number(),
+                        secCode.getPass_token(),
+                        secCode.getGen_time(),
+                        secCode.getCaptcha_output(),
+                        payInfo.getRepeat_passport(),
+                        payInfo.getGateway(),
+                        payInfo.getRecharge_type(),
+                        payInfo.getRecharge_unit(),
+                        payInfo.getGame(),
+                        payInfo.getChannel()
+                );
+
+                payload = (String) invoke.invokeFunction("get_payload", sec);
+                log.debug("{}", "payload = " + payload);
+            }
+        } catch (ScriptException e) {
+            e.printStackTrace();
+        }
+        return payload;
+    }
+
+    public String getPayloadT(SecCode secCode, PayInfo payInfo) throws Exception {
+        ScriptEngineManager manager = new ScriptEngineManager();
+        ScriptEngine engine = manager.getEngineByName("javascript");
+        String property = System.getProperty("user.dir");
+        String filePath = (property + File.separator + "d3_1.js");
+        File inputFile = new File(filePath);
+        InputStream is = Files.newInputStream(inputFile.toPath());
         File file = new File("tmp");
         CommonUtil.inputStreamToFile(is, file);
         FileReader reader = new FileReader(file);
@@ -657,15 +778,15 @@ public class Gee4Service {
             e.printStackTrace();
             return null;
         } finally {
-            if (null != os){
+            if (null != os) {
                 try {
                     os.flush();
                     os.close();
-                }catch (IOException e){
+                } catch (IOException e) {
                     e.printStackTrace();
                 }
             }
-            if (null != is){
+            if (null != is) {
                 try {
                     is.close();
                 } catch (IOException e) {
@@ -684,6 +805,7 @@ public class Gee4Service {
 //            return s;
 //        }
     }
+
     public JSONObject analysisImgWordPy(String sourceImg, List<String> targetImgs) {
         JSONObject data = new JSONObject();
 
@@ -887,6 +1009,25 @@ public class Gee4Service {
     }
 
     public JSONObject prodCode(GeeProdCodeParam param) {
+
+        param.setEncrypt_fields("payload");
+        param.setEncrypt_version("v1");
+        param.setEncrypt_method("xoyo_combine");
+        param.set__ts__("1678538618837");
+        param.setCallback("__xfe5");
+        String jp = JSON.toJSONString(param);
+        String resp = HttpRequest.get("https://pay-pf-api.xoyo.com/pay/recharge_api/create_order")
+                .setHttpProxy(ProxyInfoThreadHolder.getIpAddr(), ProxyInfoThreadHolder.getPort())
+                .body(jp)
+                .cookie(param.getToken())
+                .execute().body();
+        log.info(resp);
+        JSONObject obj = JSONObject.parseObject(resp);
+
+        return obj;
+    }
+
+    public JSONObject prodCodeT(GeeProdCodeParam param) {
 
         param.setEncrypt_fields("payload");
         param.setEncrypt_version("v1");
