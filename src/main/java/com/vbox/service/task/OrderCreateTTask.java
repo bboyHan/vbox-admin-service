@@ -284,6 +284,10 @@ public class OrderCreateTTask {
         payInfo.setRecharge_type(6);
         String acPwd = c.getAcPwd();
         String cookie = "";
+        if ("jx3_weixin".equals(channelId)) {
+            redisUtil.del("account:ck:" + account);
+            log.info("ck new : - del account {}", account);
+        }
         cookie = payService.getCKforQuery(account, Base64.decodeStr(acPwd));
         boolean expire = gee4Service.tokenCheck(cookie, account);
         if (!expire) {
@@ -304,6 +308,18 @@ public class OrderCreateTTask {
             orderResp = gee4Service.createOrderT(cgi.getCGateway(), JXHTEnum.type(reqMoney), payInfo.getCk(), cgi.getCChannel());
         }else {
             orderResp = gee4Service.createOrder(payInfo);
+//            orderResp = gee4Service.createOrderForQuery(payInfo);
+            for (int i = 0; i < 10; i++) {
+                if (orderResp != null) {
+                    String os = orderResp.toString();
+                    if (os.contains("验证码")) {
+                        log.warn("验证码不正确，重试 {} 次 : ", i + 1);
+                        orderResp = gee4Service.createOrder(payInfo);
+                    }else {
+                        break;
+                    }
+                }
+            }
         }
 
         // --- 入库
@@ -311,7 +327,12 @@ public class OrderCreateTTask {
 
         if (orderResp != null && orderResp.get("data") != null) {
             if (orderResp.getInteger("code") != 1) {
-                throw new ServiceException(orderResp.toString());
+                String os = orderResp.toString();
+                if (os.contains("冻结")) {
+                    log.warn("冻结关号: channel_account : {}", c);
+                    cAccountMapper.stopByCaId("账号冻结，请及时查看" ,c.getId());
+                }
+                throw new ServiceException(os);
             } else {
                 JSONObject data = orderResp.getJSONObject("data");
                 String platform_oid = data.getString("vouch_code");
@@ -526,6 +547,11 @@ public class OrderCreateTTask {
 
     private String handelPayUrl(JSONObject data, String resource_url, String userAgent) throws UnsupportedEncodingException {
         String payUrl = "";
+        if ("weixin".equalsIgnoreCase(data.getString("channel"))) {
+            payUrl = resource_url;
+            log.info(" weixin - pay url: {}", payUrl);
+            return payUrl;
+        }
         if ("wyzxpoto".equalsIgnoreCase(data.getString("channel"))) {
             URL url = URLUtil.url(resource_url);
             Map<String, String> stringMap = HttpUtil.decodeParamMap(url.getQuery(), StandardCharsets.UTF_8);
@@ -623,7 +649,7 @@ public class OrderCreateTTask {
         if ("alipay_mobile".equalsIgnoreCase(data.getString("channel")) || "alipay_qr".equalsIgnoreCase(data.getString("channel"))) {
             log.info("alipay url 初始: {}", resource_url);
             HttpResponse execute = HttpRequest.get(resource_url)
-                    .setHttpProxy(ProxyInfoThreadHolder.getIpAddr(), ProxyInfoThreadHolder.getPort())
+//                    .setHttpProxy(ProxyInfoThreadHolder.getIpAddr(), ProxyInfoThreadHolder.getPort())
 //                                .form(objectObjectSortedMap)
                     .contentType("application/x-www-form-urlencoded")
                     .header("X-Requested-With", "com.seasun.gamemgr")
@@ -636,7 +662,7 @@ public class OrderCreateTTask {
             String aliGateway = execute.header("Location");
             log.info("alipay url 一次修正: {}", aliGateway);
             HttpResponse cashierExecute = HttpRequest.get(aliGateway)
-                    .setHttpProxy(ProxyInfoThreadHolder.getIpAddr(), ProxyInfoThreadHolder.getPort())
+//                    .setHttpProxy(ProxyInfoThreadHolder.getIpAddr(), ProxyInfoThreadHolder.getPort())
 //                                .form(objectObjectSortedMap)
                     .contentType("application/x-www-form-urlencoded")
                     .header("X-Requested-With", "com.seasun.gamemgr")

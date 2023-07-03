@@ -39,14 +39,10 @@ public interface CommonConstant {
 
     String ACCOUNT_CK = "account:ck:";
 
-
-//    String ENV_HOST = "http://47.94.207.53:9099";
-//    String ENV_HOST = "http://47.97.200.110";
-//    String ENV_HOST = "http://116.62.103.195";
-//    String ENV_HOST = "http://59.110.141.171";
-    String ENV_HOST = "http://116.62.24.139:10717";
-//    String ENV_HOST = "http://mng.vboxjjjxxx.info";
-    String ENV_HOST_PAY_URL = "http://116.62.24.139:10717/#/code/pay?orderId=";
+    String ENV_HOST = "http://101.42.16.241:10717";
+//    String ENV_HOST = "http://127.0.0.1:3100";
+//    String ENV_HOST_PAY_URL = "http://127.0.0.1:3100/#/code/pay?orderId=";
+    String ENV_HOST_PAY_URL = "http://101.42.16.241:10717/#/code/pay?orderId=";
 //    String ENV_HOST_PAY_URL = "http://59.110.141.171/#/code/pay?orderId=";
 //    String ENV_HOST_PAY_URL = "http://mng.vboxjjjxxx.info/#/code/pay?orderId=";
 //    String ENV_HOST = "http://47.94.207.53";

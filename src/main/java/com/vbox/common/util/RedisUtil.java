@@ -82,7 +82,7 @@ public class RedisUtil {
                 return secCode;
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            log.warn("redis sec code 没元素");
             return null;
         }
     }

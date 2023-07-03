@@ -110,7 +110,8 @@ public class Gee4Service {
     }
 
     public JSONObject createOrder(PayInfo payInfo) throws Exception {
-        SecCode secCode = verifyGeeCap();
+//        SecCode secCode = verifyGeeCap();
+        SecCode secCode = capSecCode();
 
 //        payInfo.setChannel("weixin");
 //        payInfo.setGateway("z01");
@@ -128,6 +129,28 @@ public class Gee4Service {
         prodCodeParam.setEncrypt_version("v1");
         prodCodeParam.setEncrypt_method("xoyo_combine");
         JSONObject resp = prodCode(prodCodeParam);
+        return resp;
+    }
+
+    public JSONObject createOrderForQuery(PayInfo payInfo) throws Exception {
+        SecCode secCode = verifyGeeCapForQuery();
+
+//        payInfo.setChannel("weixin");
+//        payInfo.setGateway("z01");
+//        payInfo.setRecharge_type(6); //通宝type
+//        payInfo.setRecharge_unit(15);
+//        payInfo.setRepeat_passport("chenzhj11");
+//        payInfo.setGame("jx3");
+
+        String payload = getPayload(secCode, payInfo);
+
+        GeeProdCodeParam prodCodeParam = new GeeProdCodeParam();
+        prodCodeParam.setToken(payInfo.getCk());
+        prodCodeParam.setPayload(payload);
+        prodCodeParam.setEncrypt_fields("payload");
+        prodCodeParam.setEncrypt_version("v1");
+        prodCodeParam.setEncrypt_method("xoyo_combine");
+        JSONObject resp = prodCodeForQuery(prodCodeParam);
         return resp;
     }
 
@@ -235,63 +258,75 @@ public class Gee4Service {
     }
 
     public SecCode verifyGeeCap() throws Exception {
-        String captchaId = null;
-        JSONObject pow_detail;
-        String datetime = null;
-        String lot_number = null;
-        JSONObject analysis;
-        JSONObject cap = null;
-        JSONArray cptList = null;
-
-        int capRetry = 0;
-        for (int i = 0; i < 10; i++) {
-            try {
-                capRetry++;
-                cap = cap();
-                captchaId = cap.getString("captcha_id");
-                pow_detail = cap.getJSONObject("pow_detail");
-                datetime = pow_detail.getString("datetime");
-                lot_number = cap.getString("lot_number");
-//                String captcha_type = cap.getString("captcha_type");
-//                if (!captcha_type.equalsIgnoreCase("word")) {
-//                    continue;
-//                }
-                analysis = analysis(cap);
-                cptList = analysis.getJSONArray("cptList");
-//                log.info("尝试次数 - capRetry : {}", capRetry);
-                if (cptList.size() != 3) {
-//                    log.warn("word analysis error: {}", cptList);
-                    continue;
-                }
-                if (capRetry > 10) {
-                    throw new ServiceException("平台验证未通过（请尝试重试请求）");
-                }
-                break;
-            } catch (UnSupportException e) {
-                if (capRetry > 10) {
-                    throw new ServiceException("平台验证未通过（请尝试重试请求）");
-                }
-            }
-        }
-        if (lot_number == null || cptList == null || datetime == null)
-            throw new ServiceException("平台验证未通过（请尝试重试请求）");
-
-        String w = getW(lot_number, cptList, datetime);
-        GeeVerifyParam verifyParam = new GeeVerifyParam();
-        verifyParam.setW(w);
-        verifyParam.setPayload(cap.getString("payload"));
-        verifyParam.setProcess_token(cap.getString("process_token"));
-        verifyParam.setCallback("geetest_" + System.currentTimeMillis());
-        verifyParam.setLot_number(lot_number);
-        verifyParam.setCaptcha_id(captchaId);
-        JSONObject verify = verify(verifyParam);
-
-        JSONObject verifyData = verify.getJSONObject("data");
-        SecCode secCode = verifyData.getObject("seccode", SecCode.class);
-        secCode.setCaptcha_id(captchaId);
-        return secCode;
+        return verifyGeeCapForQuery();
     }
+//    public SecCode verifyGeeCap() throws Exception {
+//        String captchaId = null;
+//        JSONObject pow_detail;
+//        String datetime = null;
+//        String lot_number = null;
+//        JSONObject analysis;
+//        JSONObject cap = null;
+//        JSONArray cptList = null;
+//
+//        int capRetry = 0;
+//        for (int i = 0; i < 20; i++) {
+//            try {
+//                capRetry++;
+//                cap = cap();
+//                captchaId = cap.getString("captcha_id");
+//                pow_detail = cap.getJSONObject("pow_detail");
+//                datetime = pow_detail.getString("datetime");
+//                lot_number = cap.getString("lot_number");
+//                String captcha_type = cap.getString("captcha_type");
+////                if (captcha_type.equalsIgnoreCase("word") || captcha_type.equalsIgnoreCase("nine")) {
+//                if (captcha_type.equalsIgnoreCase("nine")) {
+//                    analysis = analysis(cap);
+//                    cptList = analysis.getJSONArray("cptList");
+////                log.info("尝试次数 - capRetry : {}", capRetry);
+//                    if (cptList.size() != 3) {
+////                    log.warn("word analysis error: {}", cptList);
+//                        continue;
+//                    }
+//                    if (capRetry > 10) {
+//                        throw new ServiceException("平台验证未通过（请尝试重试请求）");
+//                    }
+//                    break;
+//                }
+//            } catch (UnSupportException e) {
+//                if (capRetry > 10) {
+//                    throw new ServiceException("平台验证未通过（请尝试重试请求）");
+//                }
+//            }
+//        }
+//        if (lot_number == null || cptList == null || datetime == null)
+//            throw new ServiceException("平台验证未通过（请尝试重试请求）");
+//
+//        String w = getW(lot_number, cptList, datetime);
+//        GeeVerifyParam verifyParam = new GeeVerifyParam();
+//        verifyParam.setW(w);
+//        verifyParam.setPayload(cap.getString("payload"));
+//        verifyParam.setProcess_token(cap.getString("process_token"));
+//        verifyParam.setCallback("geetest_" + System.currentTimeMillis());
+//        verifyParam.setLot_number(lot_number);
+//        verifyParam.setCaptcha_id(captchaId);
+//        JSONObject verify = verify(verifyParam);
+//
+//        JSONObject verifyData = verify.getJSONObject("data");
+//        SecCode secCode = verifyData.getObject("seccode", SecCode.class);
+//        secCode.setCaptcha_id(captchaId);
+//        return secCode;
+//    }
 
+//    public SecCode verifyGeeCapForQuery() throws Exception {
+//        String body = HttpRequest.get("http://127.0.0.1:9877/enc/xoyo")
+//                .execute().body();
+//        JSONObject jsonObject = JSONObject.parseObject(body);
+//        log.info("r - {}",jsonObject);
+//        SecCode secCode = jsonObject.getObject("seccode", SecCode.class);
+//        log.info("x - {}", secCode);
+//        return secCode;
+//    }
     public SecCode verifyGeeCapForQuery() throws Exception {
         String captchaId = null;
         JSONObject pow_detail;
@@ -310,21 +345,24 @@ public class Gee4Service {
                 pow_detail = cap.getJSONObject("pow_detail");
                 datetime = pow_detail.getString("datetime");
                 lot_number = cap.getString("lot_number");
-//                String captcha_type = cap.getString("captcha_type");
-//                if (!captcha_type.equalsIgnoreCase("word")) {
-//                    continue;
-//                }
-                analysis = analysis(cap);
-                cptList = analysis.getJSONArray("cptList");
+                String captcha_type = cap.getString("captcha_type");
+//                if (captcha_type.equalsIgnoreCase("word") || captcha_type.equalsIgnoreCase("nine")) {
+                if (captcha_type.equalsIgnoreCase("icon")
+                        || captcha_type.equalsIgnoreCase("nine")
+                        || captcha_type.equalsIgnoreCase("word")
+                ) {
+                    analysis = analysis(cap);
+                    cptList = analysis.getJSONArray("cptList");
 //                log.info("尝试次数 - capRetry : {}", capRetry);
-                if (cptList.size() != 3) {
+                    if (cptList.size() != 3) {
 //                    log.warn("word analysis error: {}", cptList);
-                    continue;
+                        continue;
+                    }
+                    if (capRetry > 10) {
+                        throw new ServiceException("平台验证未通过（请尝试重试请求）");
+                    }
+                    break;
                 }
-                if (capRetry > 10) {
-                    throw new ServiceException("平台验证未通过（请尝试重试请求）");
-                }
-                break;
             } catch (UnSupportException e) {
                 if (capRetry > 10) {
                     throw new ServiceException("平台验证未通过（请尝试重试请求）");
@@ -517,7 +555,7 @@ public class Gee4Service {
     public String pre_auth(String jsonp) {
         //https://pf-api.xoyo.com/passport/user_api/get_info?callback=jsonp_e99e7f8206ba80
 
-        String resp = HttpRequest.get("https://pf-api.xoyo.com/passport/common_api/pre_auth?version=v4&api=pay%2Frecharge_api%2Fcreate_order&data%5Brecharge_source%5D=9&data%5Bchannel%5D=weixin_mobile&callback=jsonp_" + jsonp)
+        String resp = HttpRequest.get("https://pf-api.xoyo.com/passport/common_api/pre_auth?version=v5&api=pay%2Frecharge_api%2Fcreate_order&data%5Brecharge_source%5D=9&data%5Bchannel%5D=weixin_mobile&callback=jsonp_" + jsonp)
                 .setHttpProxy(ProxyInfoThreadHolder.getIpAddr(), ProxyInfoThreadHolder.getPort())
                 .execute().body();
 //        log.info(resp);
@@ -533,7 +571,7 @@ public class Gee4Service {
     // 1. pre auth
     public String pre_authForQuery(String jsonp) {
 
-        String resp = HttpRequest.get("https://pf-api.xoyo.com/passport/common_api/pre_auth?version=v4&api=pay%2Frecharge_api%2Fcreate_order&data%5Brecharge_source%5D=9&data%5Bchannel%5D=weixin_mobile&callback=jsonp_" + jsonp)
+        String resp = HttpRequest.get("https://pf-api.xoyo.com/passport/common_api/pre_auth?version=v5&api=pay%2Frecharge_api%2Fcreate_order&data%5Brecharge_source%5D=9&data%5Bchannel%5D=weixin_mobile&callback=jsonp_" + jsonp)
                 .execute().body();
         String json = parseGeeJson(resp);
 
@@ -564,7 +602,7 @@ public class Gee4Service {
         String last3 = uid.substring(uid.length() - 3);
 
         if (account.contains(pre3) || account.contains(last3)) {
-//            log.info("ck is ok, account: {}, uid: {}, resp: {}", account, uid, resp);
+            log.info("ck is ok, account: {}, uid: {}, resp: {}", account, uid, resp);
             return true;
         }
 
@@ -632,7 +670,7 @@ public class Gee4Service {
         //windows
 //        File sourceFile = downloadFile(sourceImg, "D:/image/" + captcha_type + "/source/");
         //linux
-        File sourceFile = downloadFile(sourceImg, "/root/image/" + captcha_type + "/source/");
+        File sourceFile = downloadFile(sourceImg, "image/" + captcha_type + "/source/");
         JSONArray ques = data.getJSONArray("ques");//https://static.geetest.com/nerualpic/v4_pic/nine_prompt/bd5f4b0419caa97dd2f9b4d3238ff92f.png
 
         if (captcha_type.equalsIgnoreCase("word")) {
@@ -641,9 +679,12 @@ public class Gee4Service {
                 String targetImg = que.toString();
 //                File file = downloadFile(targetImg, "D:/image/" + captcha_type + "/target/");
 //                target.add(Base64.encode(file)); //analysisImgWord
-                target.add(targetImg.substring(targetImg.lastIndexOf("/") + 1)); //analysisImgWordPy
+//                target.add(targetImg.substring(targetImg.lastIndexOf("/") + 1)); //analysisImgWordPy
+                String queStr = targetImg.substring(targetImg.lastIndexOf("/") + 1);
+                String b = queStr.split("\\.")[0];
+                target.add(Base64.encode(b));
             }
-            log.debug(" -- captcha_type:{}\n lot_number:{}\n sourceImg:{}\n" +
+            log.warn(" -- captcha_type:{}\n lot_number:{}\n sourceImg:{}\n" +
                             " ques: {}\n payload: {}\n process_token: {}\n "
                     , captcha_type, lot_number, sourceImg, ques, payload, process_token);
 
@@ -658,7 +699,9 @@ public class Gee4Service {
             for (Object que : ques) {
                 String targetImg = que.toString();
 //                File targetFile = downloadFile(targetImg, "D:/image/" + captcha_type + "/target/");
-                target.add(targetImg.substring(targetImg.lastIndexOf("/") + 1));
+                String queStr = targetImg.substring(targetImg.lastIndexOf("/") + 1);
+                String b = queStr.split("\\.")[0];
+                target.add(Base64.encode(b));
             }
             log.debug(" -- captcha_type:{}\n lot_number:{}\n sourceImg:{}\n" +
                             " ques: {}\n payload: {}\n process_token: {}\n "
@@ -668,17 +711,53 @@ public class Gee4Service {
             return nineResp;
         }
 
+        if (captcha_type.equalsIgnoreCase("icon")) {
+//            throw new UnSupportException("nine type is not support");
+            List<String> target = new ArrayList<>();
+            for (Object que : ques) {
+                String targetImg = que.toString();
+                File targetFile = downloadFile(targetImg, "image/" + captcha_type + "/target/");
+                target.add(Base64.encode(targetFile));
+            }
+            log.debug(" -- captcha_type:{}\n lot_number:{}\n sourceImg:{}\n" +
+                            " ques: {}\n payload: {}\n process_token: {}\n "
+                    , captcha_type, lot_number, sourceImg, ques, payload, process_token);
+
+            JSONObject iconResp = analysisImgIconPy(Base64.encode(sourceFile), target);
+            return iconResp;
+        }
+
         return null;
     }
 
     private JSONObject analysisImgNinePy(String sourceImg, List<String> targetImgs) {
         JSONObject data = new JSONObject();
-        data.put("imgs", sourceImg);
-        data.put("ques", targetImgs);
+//        data.put("imgs", sourceImg);
+//        data.put("ques", targetImgs);
+        data.put("b_img", sourceImg);
+        data.put("t_img", targetImgs);
         String body = data.toString();
-        String resp = HttpRequest.post("http://localhost:9899/captcha/b64").body(body).execute().body();
+//        String resp = HttpRequest.post("http://localhost:9899/captcha/b64").body(body).execute().body();
+        String resp = HttpRequest.post("http://localhost:9877/api/cmp/200005/b64/json").body(body).execute().body();
         JSONObject obj = JSONObject.parseObject(resp);
-        List<Object> cptList = obj.getJSONArray("comp");
+        List<Object> cptList = obj.getJSONArray("result");
+        long time = System.currentTimeMillis();
+//        log.info("time: {}, location: {}", time, cptList);
+        JSONObject res = new JSONObject();
+        res.put("ll", cptList.size());
+        res.put("time", time);
+        res.put("cptList", cptList);
+        return res;
+    }
+
+    private JSONObject analysisImgIconPy(String sourceImg, List<String> targetImgs) {
+        JSONObject data = new JSONObject();
+        data.put("b_img", sourceImg);
+        data.put("t_img", targetImgs);
+        String body = data.toString();
+        String resp = HttpRequest.post("http://localhost:9877/api/cmp/200001/b64/json").body(body).execute().body();
+        JSONObject obj = JSONObject.parseObject(resp);
+        List<Object> cptList = obj.getJSONArray("result");
         long time = System.currentTimeMillis();
 //        log.info("time: {}, location: {}", time, cptList);
         JSONObject res = new JSONObject();
@@ -809,22 +888,25 @@ public class Gee4Service {
     public JSONObject analysisImgWordPy(String sourceImg, List<String> targetImgs) {
         JSONObject data = new JSONObject();
 
-        data.put("imgs", sourceImg);
-        data.put("ques", targetImgs);
+//        data.put("imgs", sourceImg);
+//        data.put("ques", targetImgs);
+//
+//        String body = data.toString();
+//        log.info("WordPy- api json param: --------- {} \n", body);
+//        String resp = HttpRequest.post("http://localhost:9898/captcha/b64")
+//                .body(body)
+//                .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36")
+//                .execute().body();
 
+        data.put("b_img", sourceImg);
+        data.put("t_img", targetImgs);
         String body = data.toString();
-//        System.out.println("api json: -----------\n" + body);
-        String resp = HttpRequest.post("http://localhost:9898/captcha/b64")
-                .body(body)
-                .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36")
-                .execute().body();
+        String resp = HttpRequest.post("http://localhost:9877/api/cmp/200006/b64/json").body(body).execute().body();
 
-//        log.info("F-\n" + resp);
+        log.info("WordPy-\n" + resp);
 
         JSONObject obj = JSONObject.parseObject(resp);
-        List<Object> cptList = obj.getList("comp", Object.class);
-        List<Object> ll = obj.getList("ll", Object.class);
-
+        List<Object> cptList = obj.getJSONArray("result");
 
         long time = System.currentTimeMillis();
 //        log.info("time: {}, location: {}", time, ll);
@@ -834,106 +916,6 @@ public class Gee4Service {
         res.put("time", time);
         res.put("cptList", cptList);
         return res;
-    }
-
-    //4. analysis img
-    public JSONObject analysisImgWord(String sourceImg, List<String> targetImgs) {
-        JSONObject data = new JSONObject();
-
-        data.put("image", sourceImg);
-        data.put("project_name", "geetest4_zh_sim");
-        data.put("title", targetImgs);
-
-        String body = data.toString();
-//        System.out.println("api json: -----------\n" + body);
-        String resp = HttpRequest.post("http://kerlomz-ax88u.asuscomm.com:19196/runtime/text/invoke")
-                .body(body)
-                .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36")
-                .execute().body();
-
-        log.debug("api resp: -----------\n" + resp);
-
-        JSONObject obj = JSONObject.parseObject(resp);
-        String[] locationList = obj.getString("data").split("\\|");
-        String[] ll = new String[locationList.length];
-        int[][] cptList = new int[locationList.length][2];
-
-        //[[1,1],[1,1]]
-        for (int i = 0; i < locationList.length; i++) {
-            String xy = locationList[i];
-            ll[i] = xy;
-
-            String[] split = xy.split(",");
-            String x = split[0];
-            String y = split[1];
-            int xi = Integer.parseInt(x) * 10000 / 300;
-            int yi = Integer.parseInt(y) * 10000 / 200;
-            cptList[i] = new int[]{xi, yi};
-        }
-
-        long time = System.currentTimeMillis();
-//        log.info("time: {}, location: {}", time, ll);
-
-        JSONObject res = new JSONObject();
-        res.put("ll", locationList);
-        res.put("time", time);
-        res.put("cptList", cptList);
-        return res;
-    }
-
-    //4. analysis img
-    public JSONObject analysisImgNine(byte[] sourceImg, byte[] targetImg) {
-        JSONObject data = new JSONObject();
-
-        data.put("project_name", "geetest4_grid");
-        data.put("image", Base64.encode(sourceImg));
-        data.put("title", Base64.encode(targetImg));
-
-        String body = data.toString();
-//        System.out.println("api json: -----------\n" + body);
-        String resp = HttpRequest.post("http://kerlomz-ax88u.asuscomm.com:19196/runtime/text/invoke")
-                .body(body)
-                .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36")
-                .execute().body();
-
-        log.debug("api resp: -----------\n" + resp);
-
-        JSONObject obj = JSONObject.parseObject(resp);
-        String[] locationList = obj.getString("data").split("\\|");
-        String[] ll = new String[locationList.length];
-        int[][] cptList = new int[3][2];
-
-        //[[1,1,1]]
-        String x = locationList[0];
-        ll[0] = x;
-
-        JSONArray array = JSONArray.parseArray(x);
-        for (int i = 0; i < array.size(); i++) {
-            Integer xy = array.getInteger(i);
-            if (xy < 3) {
-                int xi = 1;
-                int yi = xy + 1;
-                cptList[i] = new int[]{xi, yi};
-            } else if (xy < 6) {
-                int xi = 2;
-                int yi = xy - 2;
-                cptList[i] = new int[]{xi, yi};
-            } else {
-                int xi = 3;
-                int yi = xy - 5;
-                cptList[i] = new int[]{xi, yi};
-            }
-        }
-
-        long time = System.currentTimeMillis();
-//        log.info("time: {}, location: {}", time, ll);
-
-        JSONObject res = new JSONObject();
-        res.put("ll", locationList);
-        res.put("cptList", cptList);
-        res.put("time", time);
-        return res;
-
     }
 
     //5. verify
@@ -1027,6 +1009,24 @@ public class Gee4Service {
         return obj;
     }
 
+    public JSONObject prodCodeForQuery(GeeProdCodeParam param) {
+
+        param.setEncrypt_fields("payload");
+        param.setEncrypt_version("v1");
+        param.setEncrypt_method("xoyo_combine");
+        param.set__ts__("1678538618837");
+        param.setCallback("__xfe5");
+        String jp = JSON.toJSONString(param);
+        String resp = HttpRequest.get("https://pay-pf-api.xoyo.com/pay/recharge_api/create_order")
+                .body(jp)
+                .cookie(param.getToken())
+                .execute().body();
+        log.info(resp);
+        JSONObject obj = JSONObject.parseObject(resp);
+
+        return obj;
+    }
+
     public JSONObject prodCodeT(GeeProdCodeParam param) {
 
         param.setEncrypt_fields("payload");
@@ -1037,24 +1037,6 @@ public class Gee4Service {
         String jp = JSON.toJSONString(param);
         String resp = HttpRequest.get("https://pay-pf-api.xoyo.com/pay/recharge_api/create_order")
                 .setHttpProxy(ProxyInfoThreadHolder.getIpAddr(), ProxyInfoThreadHolder.getPort())
-                .body(jp)
-                .cookie(param.getToken())
-                .execute().body();
-        log.info(resp);
-        JSONObject obj = JSONObject.parseObject(resp);
-
-        return obj;
-    }
-
-    public JSONObject prodCodeForQuery(GeeProdCodeParam param) {
-
-        param.setEncrypt_fields("payload");
-        param.setEncrypt_version("v1");
-        param.setEncrypt_method("xoyo_combine");
-        param.set__ts__("1678538618837");
-        param.setCallback("__xfe5");
-        String jp = JSON.toJSONString(param);
-        String resp = HttpRequest.get("https://pay-pf-api.xoyo.com/pay/recharge_api/create_order")
                 .body(jp)
                 .cookie(param.getToken())
                 .execute().body();

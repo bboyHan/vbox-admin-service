@@ -127,7 +127,7 @@ public class Pay2ServiceImpl implements Pay2Service {
                         throw new ValidateException("attach不合法，请检验入参");
                     } else {
                         String orderId = orderCreateParam.getP_order_id();
-                        if (orderId != null && orderId.length() <= 32 && orderId.length() >= 16) {
+                        if (orderId != null && orderId.length() <= 32 && orderId.length() >= 12) {
                             PayOrder poDB = pOrderMapper.getPOrderByOid(orderId);
                             if (poDB != null) {
                                 throw new DuplicateKeyException("该订单已创建，请勿重复操作，order id: " + orderId);

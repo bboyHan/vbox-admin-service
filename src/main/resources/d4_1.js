@@ -16,9 +16,9 @@ var publicKey =
   '-----END PUBLIC KEY-----\n';
 
 function test(ppp) {
-  'use strict';
+'use strict';
 
-  var BI_RM = '0123456789abcdefghijklmnopqrstuvwxyz';
+  var BI_RM = "0123456789abcdefghijklmnopqrstuvwxyz";
 
   function int2char(n) {
     return BI_RM.charAt(n);
@@ -84,13 +84,13 @@ function test(ppp) {
   }
   //#endregion BIT_OPERATIONS
 
-  var b64map = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
-  var b64pad = '=';
+  var b64map = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+  var b64pad = "=";
 
   function hex2b64(h) {
     var i;
     var c;
-    var ret = '';
+    var ret = "";
     for (i = 0; i + 3 <= h.length; i += 3) {
       c = parseInt(h.substring(i, i + 3), 16);
       ret += b64map.charAt(c >> 6) + b64map.charAt(c & 63);
@@ -110,7 +110,7 @@ function test(ppp) {
   // convert a base64 string to hex
 
   function b64tohex(s) {
-    var ret = '';
+    var ret = "";
     var i;
     var k = 0; // b64 state, 0-3
     var slop = 0;
@@ -164,15 +164,13 @@ and limitations under the License.
   /* global Reflect, Promise */
 
   var extendStatics = function (d, b) {
-    extendStatics =
-      Object.setPrototypeOf ||
+    extendStatics = Object.setPrototypeOf ||
       ({
-        __proto__: [],
-      } instanceof Array &&
-        function (d, b) {
+          __proto__: []
+        }
+        instanceof Array && function (d, b) {
           d.__proto__ = b;
-        }) ||
-      function (d, b) {
+        }) || function (d, b) {
         for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p];
       };
     return extendStatics(d, b);
@@ -184,7 +182,7 @@ and limitations under the License.
     function __() {
       this.constructor = d;
     }
-    d.prototype = b === null ? Object.create(b) : ((__.prototype = b.prototype), new __());
+    d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
   }
 
   // Hex JavaScript decoder
@@ -206,8 +204,8 @@ and limitations under the License.
     decode: function (a) {
       var i;
       if (decoder === undefined) {
-        var hex = '0123456789ABCDEF';
-        var ignore = ' \f\n\r\t\u00A0\u2028\u2029';
+        var hex = "0123456789ABCDEF";
+        var ignore = " \f\n\r\t\u00A0\u2028\u2029";
         decoder = {};
         for (i = 0; i < 16; ++i) {
           decoder[hex.charAt(i)] = i;
@@ -225,7 +223,7 @@ and limitations under the License.
       var char_count = 0;
       for (i = 0; i < a.length; ++i) {
         var c = a.charAt(i);
-        if (c == '=') {
+        if (c == "=") {
           break;
         }
         c = decoder[c];
@@ -233,7 +231,7 @@ and limitations under the License.
           continue;
         }
         if (c === undefined) {
-          throw new Error('Illegal character at offset ' + i);
+          throw new Error("Illegal character at offset " + i);
         }
         bits |= c;
         if (++char_count >= 2) {
@@ -245,10 +243,10 @@ and limitations under the License.
         }
       }
       if (char_count) {
-        throw new Error('Hex encoding incomplete: 4 bits missing');
+        throw new Error("Hex encoding incomplete: 4 bits missing");
       }
       return out;
-    },
+    }
   };
 
   // Base64 JavaScript decoder
@@ -270,8 +268,8 @@ and limitations under the License.
     decode: function (a) {
       var i;
       if (decoder$1 === undefined) {
-        var b64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
-        var ignore = '= \f\n\r\t\u00A0\u2028\u2029';
+        var b64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+        var ignore = "= \f\n\r\t\u00A0\u2028\u2029";
         decoder$1 = Object.create(null);
         for (i = 0; i < 64; ++i) {
           decoder$1[b64.charAt(i)] = i;
@@ -285,7 +283,7 @@ and limitations under the License.
       var char_count = 0;
       for (i = 0; i < a.length; ++i) {
         var c = a.charAt(i);
-        if (c == '=') {
+        if (c == "=") {
           break;
         }
         c = decoder$1[c];
@@ -293,13 +291,13 @@ and limitations under the License.
           continue;
         }
         if (c === undefined) {
-          throw new Error('Illegal character at offset ' + i);
+          throw new Error("Illegal character at offset " + i);
         }
         bits |= c;
         if (++char_count >= 4) {
-          out[out.length] = bits >> 16;
-          out[out.length] = (bits >> 8) & 0xff;
-          out[out.length] = bits & 0xff;
+          out[out.length] = (bits >> 16);
+          out[out.length] = (bits >> 8) & 0xFF;
+          out[out.length] = bits & 0xFF;
           bits = 0;
           char_count = 0;
         } else {
@@ -308,13 +306,13 @@ and limitations under the License.
       }
       switch (char_count) {
         case 1:
-          throw new Error('Base64 encoding incomplete: at least 2 bits missing');
+          throw new Error("Base64 encoding incomplete: at least 2 bits missing");
         case 2:
-          out[out.length] = bits >> 10;
+          out[out.length] = (bits >> 10);
           break;
         case 3:
-          out[out.length] = bits >> 16;
-          out[out.length] = (bits >> 8) & 0xff;
+          out[out.length] = (bits >> 16);
+          out[out.length] = (bits >> 8) & 0xFF;
           break;
       }
       return out;
@@ -328,11 +326,11 @@ and limitations under the License.
         } else if (m[2]) {
           a = m[2];
         } else {
-          throw new Error('RegExp out of sync');
+          throw new Error("RegExp out of sync");
         }
       }
       return Base64.decode(a);
-    },
+    }
   };
 
   // Big integer base-10 printing library
@@ -396,7 +394,7 @@ and limitations under the License.
     };
     Int10.prototype.toString = function (base) {
       if ((base || 10) != 10) {
-        throw new Error('only base 10 is supported');
+        throw new Error("only base 10 is supported");
       }
       var b = this.buf;
       var s = b[b.length - 1].toString();
@@ -415,13 +413,13 @@ and limitations under the License.
     };
     Int10.prototype.simplify = function () {
       var b = this.buf;
-      return b.length == 1 ? b[0] : this;
+      return (b.length == 1) ? b[0] : this;
     };
     return Int10;
-  })();
+  }());
 
   // ASN.1 JavaScript decoder
-  var ellipsis = '\u2026';
+  var ellipsis = "\u2026";
   var reTimeS =
     /^(\d\d)(0[1-9]|1[0-2])(0[1-9]|[12]\d|3[01])([01]\d|2[0-3])(?:([0-5]\d)(?:([0-5]\d)(?:[.,](\d{1,3}))?)?)?(Z|[-+](?:[0]\d|1[0-2])([0-5]\d)?)?$/;
   var reTimeL =
@@ -435,7 +433,7 @@ and limitations under the License.
   }
   var Stream = /** @class */ (function () {
     function Stream(enc, pos) {
-      this.hexDigits = '0123456789ABCDEF';
+      this.hexDigits = "0123456789ABCDEF";
       if (enc instanceof Stream) {
         this.enc = enc.enc;
         this.pos = enc.pos;
@@ -450,29 +448,27 @@ and limitations under the License.
         pos = this.pos++;
       }
       if (pos >= this.enc.length) {
-        throw new Error(
-          'Requesting byte offset ' + pos + ' on a stream of length ' + this.enc.length
-        );
+        throw new Error("Requesting byte offset " + pos + " on a stream of length " + this.enc.length);
       }
-      return 'string' === typeof this.enc ? this.enc.charCodeAt(pos) : this.enc[pos];
+      return ("string" === typeof this.enc) ? this.enc.charCodeAt(pos) : this.enc[pos];
     };
     Stream.prototype.hexByte = function (b) {
-      return this.hexDigits.charAt((b >> 4) & 0xf) + this.hexDigits.charAt(b & 0xf);
+      return this.hexDigits.charAt((b >> 4) & 0xF) + this.hexDigits.charAt(b & 0xF);
     };
     Stream.prototype.hexDump = function (start, end, raw) {
-      var s = '';
+      var s = "";
       for (var i = start; i < end; ++i) {
         s += this.hexByte(this.get(i));
         if (raw !== true) {
-          switch (i & 0xf) {
+          switch (i & 0xF) {
             case 0x7:
-              s += '  ';
+              s += "  ";
               break;
-            case 0xf:
-              s += '\n';
+            case 0xF:
+              s += "\n";
               break;
             default:
-              s += ' ';
+              s += " ";
           }
         }
       }
@@ -488,33 +484,31 @@ and limitations under the License.
       return true;
     };
     Stream.prototype.parseStringISO = function (start, end) {
-      var s = '';
+      var s = "";
       for (var i = start; i < end; ++i) {
         s += String.fromCharCode(this.get(i));
       }
       return s;
     };
     Stream.prototype.parseStringUTF = function (start, end) {
-      var s = '';
-      for (var i = start; i < end; ) {
+      var s = "";
+      for (var i = start; i < end;) {
         var c = this.get(i++);
         if (c < 128) {
           s += String.fromCharCode(c);
-        } else if (c > 191 && c < 224) {
-          s += String.fromCharCode(((c & 0x1f) << 6) | (this.get(i++) & 0x3f));
+        } else if ((c > 191) && (c < 224)) {
+          s += String.fromCharCode(((c & 0x1F) << 6) | (this.get(i++) & 0x3F));
         } else {
-          s += String.fromCharCode(
-            ((c & 0x0f) << 12) | ((this.get(i++) & 0x3f) << 6) | (this.get(i++) & 0x3f)
-          );
+          s += String.fromCharCode(((c & 0x0F) << 12) | ((this.get(i++) & 0x3F) << 6) | (this.get(i++) & 0x3F));
         }
       }
       return s;
     };
     Stream.prototype.parseStringBMP = function (start, end) {
-      var str = '';
+      var str = "";
       var hi;
       var lo;
-      for (var i = start; i < end; ) {
+      for (var i = start; i < end;) {
         hi = this.get(i++);
         lo = this.get(i++);
         str += String.fromCharCode((hi << 8) | lo);
@@ -525,30 +519,30 @@ and limitations under the License.
       var s = this.parseStringISO(start, end);
       var m = (shortYear ? reTimeS : reTimeL).exec(s);
       if (!m) {
-        return 'Unrecognized time: ' + s;
+        return "Unrecognized time: " + s;
       }
       if (shortYear) {
         // to avoid querying the timer, use the fixed range [1970, 2069]
         // it will conform with ITU X.400 [-10, +40] sliding window until 2030
         m[1] = +m[1];
-        m[1] += +m[1] < 70 ? 2000 : 1900;
+        m[1] += (+m[1] < 70) ? 2000 : 1900;
       }
-      s = m[1] + '-' + m[2] + '-' + m[3] + ' ' + m[4];
+      s = m[1] + "-" + m[2] + "-" + m[3] + " " + m[4];
       if (m[5]) {
-        s += ':' + m[5];
+        s += ":" + m[5];
         if (m[6]) {
-          s += ':' + m[6];
+          s += ":" + m[6];
           if (m[7]) {
-            s += '.' + m[7];
+            s += "." + m[7];
           }
         }
       }
       if (m[8]) {
-        s += ' UTC';
-        if (m[8] != 'Z') {
+        s += " UTC";
+        if (m[8] != "Z") {
           s += m[8];
           if (m[9]) {
-            s += ':' + m[9];
+            s += ":" + m[9];
           }
         }
       }
@@ -556,10 +550,10 @@ and limitations under the License.
     };
     Stream.prototype.parseInteger = function (start, end) {
       var v = this.get(start);
-      var neg = v > 127;
+      var neg = (v > 127);
       var pad = neg ? 255 : 0;
       var len;
-      var s = '';
+      var s = "";
       // skip unuseful bits (not allowed in DER)
       while (v == pad && ++start < end) {
         v = this.get(start);
@@ -576,7 +570,7 @@ and limitations under the License.
           s = +s << 1;
           --len;
         }
-        s = '(' + len + ' bit)\n';
+        s = "(" + len + " bit)\n";
       }
       // decode the integer
       if (neg) {
@@ -591,13 +585,13 @@ and limitations under the License.
     Stream.prototype.parseBitString = function (start, end, maxLength) {
       var unusedBit = this.get(start);
       var lenBit = ((end - start - 1) << 3) - unusedBit;
-      var intro = '(' + lenBit + ' bit)\n';
-      var s = '';
+      var intro = "(" + lenBit + " bit)\n";
+      var s = "";
       for (var i = start + 1; i < end; ++i) {
         var b = this.get(i);
-        var skip = i == end - 1 ? unusedBit : 0;
+        var skip = (i == end - 1) ? unusedBit : 0;
         for (var j = 7; j >= skip; --j) {
-          s += (b >> j) & 1 ? '1' : '0';
+          s += (b >> j) & 1 ? "1" : "0";
         }
         if (s.length > maxLength) {
           return intro + stringCut(s, maxLength);
@@ -610,7 +604,7 @@ and limitations under the License.
         return stringCut(this.parseStringISO(start, end), maxLength);
       }
       var len = end - start;
-      var s = '(' + len + ' byte)\n';
+      var s = "(" + len + " byte)\n";
       maxLength /= 2; // we work in bytes
       if (len > maxLength) {
         end = start + maxLength;
@@ -624,26 +618,25 @@ and limitations under the License.
       return s;
     };
     Stream.prototype.parseOID = function (start, end, maxLength) {
-      var s = '';
+      var s = "";
       var n = new Int10();
       var bits = 0;
       for (var i = start; i < end; ++i) {
         var v = this.get(i);
-        n.mulAdd(128, v & 0x7f);
+        n.mulAdd(128, v & 0x7F);
         bits += 7;
-        if (!(v & 0x80)) {
-          // finished
-          if (s === '') {
+        if (!(v & 0x80)) { // finished
+          if (s === "") {
             n = n.simplify();
             if (n instanceof Int10) {
               n.sub(80);
-              s = '2.' + n.toString();
+              s = "2." + n.toString();
             } else {
-              var m = n < 80 ? (n < 40 ? 0 : 1) : 2;
-              s = m + '.' + (n - m * 40);
+              var m = n < 80 ? n < 40 ? 0 : 1 : 2;
+              s = m + "." + (n - m * 40);
             }
           } else {
-            s += '.' + n.toString();
+            s += "." + n.toString();
           }
           if (s.length > maxLength) {
             return stringCut(s, maxLength);
@@ -653,16 +646,16 @@ and limitations under the License.
         }
       }
       if (bits > 0) {
-        s += '.incomplete';
+        s += ".incomplete";
       }
       return s;
     };
     return Stream;
-  })();
+  }());
   var ASN1 = /** @class */ (function () {
     function ASN1(stream, header, length, tag, sub) {
       if (!(tag instanceof ASN1Tag)) {
-        throw new Error('Invalid tag value.');
+        throw new Error("Invalid tag value.");
       }
       this.stream = stream;
       this.header = header;
@@ -676,67 +669,67 @@ and limitations under the License.
           // universal
           switch (this.tag.tagNumber) {
             case 0x00:
-              return 'EOC';
+              return "EOC";
             case 0x01:
-              return 'BOOLEAN';
+              return "BOOLEAN";
             case 0x02:
-              return 'INTEGER';
+              return "INTEGER";
             case 0x03:
-              return 'BIT_STRING';
+              return "BIT_STRING";
             case 0x04:
-              return 'OCTET_STRING';
+              return "OCTET_STRING";
             case 0x05:
-              return 'NULL';
+              return "NULL";
             case 0x06:
-              return 'OBJECT_IDENTIFIER';
+              return "OBJECT_IDENTIFIER";
             case 0x07:
-              return 'ObjectDescriptor';
+              return "ObjectDescriptor";
             case 0x08:
-              return 'EXTERNAL';
+              return "EXTERNAL";
             case 0x09:
-              return 'REAL';
-            case 0x0a:
-              return 'ENUMERATED';
-            case 0x0b:
-              return 'EMBEDDED_PDV';
-            case 0x0c:
-              return 'UTF8String';
+              return "REAL";
+            case 0x0A:
+              return "ENUMERATED";
+            case 0x0B:
+              return "EMBEDDED_PDV";
+            case 0x0C:
+              return "UTF8String";
             case 0x10:
-              return 'SEQUENCE';
+              return "SEQUENCE";
             case 0x11:
-              return 'SET';
+              return "SET";
             case 0x12:
-              return 'NumericString';
+              return "NumericString";
             case 0x13:
-              return 'PrintableString'; // ASCII subset
+              return "PrintableString"; // ASCII subset
             case 0x14:
-              return 'TeletexString'; // aka T61String
+              return "TeletexString"; // aka T61String
             case 0x15:
-              return 'VideotexString';
+              return "VideotexString";
             case 0x16:
-              return 'IA5String'; // ASCII
+              return "IA5String"; // ASCII
             case 0x17:
-              return 'UTCTime';
+              return "UTCTime";
             case 0x18:
-              return 'GeneralizedTime';
+              return "GeneralizedTime";
             case 0x19:
-              return 'GraphicString';
-            case 0x1a:
-              return 'VisibleString'; // ASCII subset
-            case 0x1b:
-              return 'GeneralString';
-            case 0x1c:
-              return 'UniversalString';
-            case 0x1e:
-              return 'BMPString';
+              return "GraphicString";
+            case 0x1A:
+              return "VisibleString"; // ASCII subset
+            case 0x1B:
+              return "GeneralString";
+            case 0x1C:
+              return "UniversalString";
+            case 0x1E:
+              return "BMPString";
           }
-          return 'Universal_' + this.tag.tagNumber.toString();
+          return "Universal_" + this.tag.tagNumber.toString();
         case 1:
-          return 'Application_' + this.tag.tagNumber.toString();
+          return "Application_" + this.tag.tagNumber.toString();
         case 2:
-          return '[' + this.tag.tagNumber.toString() + ']'; // Context
+          return "[" + this.tag.tagNumber.toString() + "]"; // Context
         case 3:
-          return 'Private_' + this.tag.tagNumber.toString();
+          return "Private_" + this.tag.tagNumber.toString();
       }
     };
     ASN1.prototype.content = function (maxLength) {
@@ -750,27 +743,25 @@ and limitations under the License.
       var len = Math.abs(this.length);
       if (!this.tag.isUniversal()) {
         if (this.sub !== null) {
-          return '(' + this.sub.length + ' elem)';
+          return "(" + this.sub.length + " elem)";
         }
         return this.stream.parseOctetString(content, content + len, maxLength);
       }
       switch (this.tag.tagNumber) {
         case 0x01:
           // BOOLEAN
-          return this.stream.get(content) === 0 ? 'false' : 'true';
+          return (this.stream.get(content) === 0) ? "false" : "true";
         case 0x02:
           // INTEGER
           return this.stream.parseInteger(content, content + len);
         case 0x03:
           // BIT_STRING
-          return this.sub
-            ? '(' + this.sub.length + ' elem)'
-            : this.stream.parseBitString(content, content + len, maxLength);
+          return this.sub ? "(" + this.sub.length + " elem)" :
+            this.stream.parseBitString(content, content + len, maxLength);
         case 0x04:
           // OCTET_STRING
-          return this.sub
-            ? '(' + this.sub.length + ' elem)'
-            : this.stream.parseOctetString(content, content + len, maxLength);
+          return this.sub ? "(" + this.sub.length + " elem)" :
+            this.stream.parseOctetString(content, content + len, maxLength);
         // case 0x05: // NULL
         case 0x06:
           // OBJECT_IDENTIFIER
@@ -785,11 +776,11 @@ and limitations under the License.
         case 0x11:
           // SET
           if (this.sub !== null) {
-            return '(' + this.sub.length + ' elem)';
+            return "(" + this.sub.length + " elem)";
           } else {
-            return '(no elem)';
+            return "(no elem)";
           }
-        case 0x0c:
+        case 0x0C:
           // UTF8String
           return stringCut(this.stream.parseStringUTF(content, content + len), maxLength);
         case 0x12:
@@ -803,57 +794,44 @@ and limitations under the License.
         case 0x16:
         // IA5String
         // case 0x19: // GraphicString
-        case 0x1a:
+        case 0x1A:
           // VisibleString
           // case 0x1B: // GeneralString
           // case 0x1C: // UniversalString
           return stringCut(this.stream.parseStringISO(content, content + len), maxLength);
-        case 0x1e:
+        case 0x1E:
           // BMPString
           return stringCut(this.stream.parseStringBMP(content, content + len), maxLength);
         case 0x17:
         // UTCTime
         case 0x18:
           // GeneralizedTime
-          return this.stream.parseTime(content, content + len, this.tag.tagNumber == 0x17);
+          return this.stream.parseTime(content, content + len, (this.tag.tagNumber == 0x17));
       }
       return null;
     };
     ASN1.prototype.toString = function () {
-      return (
-        this.typeName() +
-        '@' +
-        this.stream.pos +
-        '[header:' +
-        this.header +
-        ',length:' +
-        this.length +
-        ',sub:' +
-        (this.sub === null ? 'null' : this.sub.length) +
-        ']'
-      );
+      return this.typeName() + "@" + this.stream.pos + "[header:" + this.header + ",length:" + this.length +
+        ",sub:" + ((this.sub === null) ? "null" : this.sub.length) + "]";
     };
     ASN1.prototype.toPrettyString = function (indent) {
       if (indent === undefined) {
-        indent = '';
+        indent = "";
       }
-      var s = indent + this.typeName() + ' @' + this.stream.pos;
+      var s = indent + this.typeName() + " @" + this.stream.pos;
       if (this.length >= 0) {
-        s += '+';
+        s += "+";
       }
       s += this.length;
       if (this.tag.tagConstructed) {
-        s += ' (constructed)';
-      } else if (
-        this.tag.isUniversal() &&
-        (this.tag.tagNumber == 0x03 || this.tag.tagNumber == 0x04) &&
-        this.sub !== null
-      ) {
-        s += ' (encapsulates)';
+        s += " (constructed)";
+      } else if ((this.tag.isUniversal() && ((this.tag.tagNumber == 0x03) || (this.tag.tagNumber == 0x04))) && (
+          this.sub !== null)) {
+        s += " (encapsulates)";
       }
-      s += '\n';
+      s += "\n";
       if (this.sub !== null) {
-        indent += '  ';
+        indent += "  ";
         for (var i = 0, max = this.sub.length; i < max; ++i) {
           s += this.sub[i].toPrettyString(indent);
         }
@@ -874,20 +852,20 @@ and limitations under the License.
     };
     ASN1.decodeLength = function (stream) {
       var buf = stream.get();
-      var len = buf & 0x7f;
+      var len = buf & 0x7F;
       if (len == buf) {
         return len;
       }
       // no reason to use Int10, as it would be a huge buffer anyways
       if (len > 6) {
-        throw new Error('Length over 48 bits not supported at position ' + (stream.pos - 1));
+        throw new Error("Length over 48 bits not supported at position " + (stream.pos - 1));
       }
       if (len === 0) {
         return null;
       } // undefined
       buf = 0;
       for (var i = 0; i < len; ++i) {
-        buf = buf * 256 + stream.get();
+        buf = (buf * 256) + stream.get();
       }
       return buf;
     };
@@ -924,9 +902,7 @@ and limitations under the License.
             ret[ret.length] = ASN1.decode(stream);
           }
           if (stream.pos != end) {
-            throw new Error(
-              'Content size is not correct for container starting at offset ' + start
-            );
+            throw new Error("Content size is not correct for container starting at offset " + start);
           }
         } else {
           // undefined length
@@ -940,7 +916,7 @@ and limitations under the License.
             }
             len = start - stream.pos; // undefined lengths are represented as negative values
           } catch (e) {
-            throw new Error('Exception while decoding undefined length content: ' + e);
+            throw new Error("Exception while decoding undefined length content: " + e);
           }
         }
         return ret;
@@ -948,18 +924,18 @@ and limitations under the License.
       if (tag.tagConstructed) {
         // must have valid content
         sub = getSub();
-      } else if (tag.isUniversal() && (tag.tagNumber == 0x03 || tag.tagNumber == 0x04)) {
+      } else if (tag.isUniversal() && ((tag.tagNumber == 0x03) || (tag.tagNumber == 0x04))) {
         // sometimes BitString and OctetString are used to encapsulate ASN.1
         try {
           if (tag.tagNumber == 0x03) {
             if (stream.get() != 0) {
-              throw new Error('BIT STRINGs with unused bits cannot encapsulate.');
+              throw new Error("BIT STRINGs with unused bits cannot encapsulate.");
             }
           }
           sub = getSub();
           for (var i = 0; i < sub.length; ++i) {
             if (sub[i].tag.isEOC()) {
-              throw new Error('EOC is not supposed to be actual content.');
+              throw new Error("EOC is not supposed to be actual content.");
             }
           }
         } catch (e) {
@@ -969,28 +945,25 @@ and limitations under the License.
       }
       if (sub === null) {
         if (len === null) {
-          throw new Error(
-            "We can't skip over an invalid tag with undefined length at offset " + start
-          );
+          throw new Error("We can't skip over an invalid tag with undefined length at offset " + start);
         }
         stream.pos = start + Math.abs(len);
       }
       return new ASN1(streamStart, header, len, tag, sub);
     };
     return ASN1;
-  })();
+  }());
   var ASN1Tag = /** @class */ (function () {
     function ASN1Tag(stream) {
       var buf = stream.get();
       this.tagClass = buf >> 6;
-      this.tagConstructed = (buf & 0x20) !== 0;
-      this.tagNumber = buf & 0x1f;
-      if (this.tagNumber == 0x1f) {
-        // long tag
+      this.tagConstructed = ((buf & 0x20) !== 0);
+      this.tagNumber = buf & 0x1F;
+      if (this.tagNumber == 0x1F) { // long tag
         var n = new Int10();
         do {
           buf = stream.get();
-          n.mulAdd(128, buf & 0x7f);
+          n.mulAdd(128, buf & 0x7F);
         } while (buf & 0x80);
         this.tagNumber = n.simplify();
       }
@@ -1002,35 +975,32 @@ and limitations under the License.
       return this.tagClass === 0x00 && this.tagNumber === 0x00;
     };
     return ASN1Tag;
-  })();
+  }());
 
   // Copyright (c) 2005  Tom Wu
   // Bits per digit
   var dbits;
   // JavaScript engine analysis
   var canary = 0xdeadbeefcafe;
-  var j_lm = (canary & 0xffffff) == 0xefcafe;
+  var j_lm = ((canary & 0xffffff) == 0xefcafe);
   //#region
-  var lowprimes = [
-    2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71, 73, 79, 83, 89, 97,
-    101, 103, 107, 109, 113, 127, 131, 137, 139, 149, 151, 157, 163, 167, 173, 179, 181, 191, 193,
-    197, 199, 211, 223, 227, 229, 233, 239, 241, 251, 257, 263, 269, 271, 277, 281, 283, 293, 307,
-    311, 313, 317, 331, 337, 347, 349, 353, 359, 367, 373, 379, 383, 389, 397, 401, 409, 419, 421,
-    431, 433, 439, 443, 449, 457, 461, 463, 467, 479, 487, 491, 499, 503, 509, 521, 523, 541, 547,
-    557, 563, 569, 571, 577, 587, 593, 599, 601, 607, 613, 617, 619, 631, 641, 643, 647, 653, 659,
-    661, 673, 677, 683, 691, 701, 709, 719, 727, 733, 739, 743, 751, 757, 761, 769, 773, 787, 797,
-    809, 811, 821, 823, 827, 829, 839, 853, 857, 859, 863, 877, 881, 883, 887, 907, 911, 919, 929,
-    937, 941, 947, 953, 967, 971, 977, 983, 991, 997,
-  ];
+  var lowprimes = [2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71, 73, 79, 83, 89, 97,
+    101, 103, 107, 109, 113, 127, 131, 137, 139, 149, 151, 157, 163, 167, 173, 179, 181, 191, 193, 197, 199,
+    211, 223, 227, 229, 233, 239, 241, 251, 257, 263, 269, 271, 277, 281, 283, 293, 307, 311, 313, 317, 331,
+    337, 347, 349, 353, 359, 367, 373, 379, 383, 389, 397, 401, 409, 419, 421, 431, 433, 439, 443, 449, 457,
+    461, 463, 467, 479, 487, 491, 499, 503, 509, 521, 523, 541, 547, 557, 563, 569, 571, 577, 587, 593, 599,
+    601, 607, 613, 617, 619, 631, 641, 643, 647, 653, 659, 661, 673, 677, 683, 691, 701, 709, 719, 727, 733,
+    739, 743, 751, 757, 761, 769, 773, 787, 797, 809, 811, 821, 823, 827, 829, 839, 853, 857, 859, 863, 877,
+    881, 883, 887, 907, 911, 919, 929, 937, 941, 947, 953, 967, 971, 977, 983, 991, 997];
   var lplim = (1 << 26) / lowprimes[lowprimes.length - 1];
   //#endregion
   // (public) Constructor
   var BigInteger = /** @class */ (function () {
     function BigInteger(a, b, c) {
       if (a != null) {
-        if ('number' == typeof a) {
+        if ("number" == typeof a) {
           this.fromNumber(a, b, c);
-        } else if (b == null && 'string' != typeof a) {
+        } else if (b == null && "string" != typeof a) {
           this.fromString(a, 256);
         } else {
           this.fromString(a, b);
@@ -1042,7 +1012,7 @@ and limitations under the License.
     // (public) return string representation in given radix
     BigInteger.prototype.toString = function (b) {
       if (this.s < 0) {
-        return '-' + this.negate().toString(b);
+        return "-" + this.negate().toString(b);
       }
       var k;
       if (b == 16) {
@@ -1061,9 +1031,9 @@ and limitations under the License.
       var km = (1 << k) - 1;
       var d;
       var m = false;
-      var r = '';
+      var r = "";
       var i = this.t;
-      var p = this.DB - ((i * this.DB) % k);
+      var p = this.DB - (i * this.DB) % k;
       if (i-- > 0) {
         if (p < this.DB && (d = this[i] >> p) > 0) {
           m = true;
@@ -1088,7 +1058,7 @@ and limitations under the License.
           }
         }
       }
-      return m ? r : '0';
+      return m ? r : "0";
     };
     // BigInteger.prototype.negate = bnNegate;
     // (public) -this
@@ -1100,7 +1070,7 @@ and limitations under the License.
     // BigInteger.prototype.abs = bnAbs;
     // (public) |this|
     BigInteger.prototype.abs = function () {
-      return this.s < 0 ? this.negate() : this;
+      return (this.s < 0) ? this.negate() : this;
     };
     // BigInteger.prototype.compareTo = bnCompareTo;
     // (public) return + if this > a, - if this < a, 0 if equal
@@ -1112,7 +1082,7 @@ and limitations under the License.
       var i = this.t;
       r = i - a.t;
       if (r != 0) {
-        return this.s < 0 ? -r : r;
+        return (this.s < 0) ? -r : r;
       }
       while (--i >= 0) {
         if ((r = this[i] - a[i]) != 0) {
@@ -1177,12 +1147,12 @@ and limitations under the License.
     // BigInteger.prototype.byteValue = bnByteValue;
     // (public) return value as byte
     BigInteger.prototype.byteValue = function () {
-      return this.t == 0 ? this.s : (this[0] << 24) >> 24;
+      return (this.t == 0) ? this.s : (this[0] << 24) >> 24;
     };
     // BigInteger.prototype.shortValue = bnShortValue;
     // (public) return value as short (assumes DB>=16)
     BigInteger.prototype.shortValue = function () {
-      return this.t == 0 ? this.s : (this[0] << 16) >> 16;
+      return (this.t == 0) ? this.s : (this[0] << 16) >> 16;
     };
     // BigInteger.prototype.signum = bnSigNum;
     // (public) 0 if this == 0, 1 if this > 0
@@ -1201,7 +1171,7 @@ and limitations under the License.
       var i = this.t;
       var r = [];
       r[0] = this.s;
-      var p = this.DB - ((i * this.DB) % 8);
+      var p = this.DB - (i * this.DB) % 8;
       var d;
       var k = 0;
       if (i-- > 0) {
@@ -1234,15 +1204,15 @@ and limitations under the License.
     };
     // BigInteger.prototype.equals = bnEquals;
     BigInteger.prototype.equals = function (a) {
-      return this.compareTo(a) == 0;
+      return (this.compareTo(a) == 0);
     };
     // BigInteger.prototype.min = bnMin;
     BigInteger.prototype.min = function (a) {
-      return this.compareTo(a) < 0 ? this : a;
+      return (this.compareTo(a) < 0) ? this : a;
     };
     // BigInteger.prototype.max = bnMax;
     BigInteger.prototype.max = function (a) {
-      return this.compareTo(a) > 0 ? this : a;
+      return (this.compareTo(a) > 0) ? this : a;
     };
     // BigInteger.prototype.and = bnAnd;
     BigInteger.prototype.and = function (a) {
@@ -1329,9 +1299,9 @@ and limitations under the License.
     BigInteger.prototype.testBit = function (n) {
       var j = Math.floor(n / this.DB);
       if (j >= this.t) {
-        return this.s != 0;
+        return (this.s != 0);
       }
-      return (this[j] & (1 << n % this.DB)) != 0;
+      return ((this[j] & (1 << (n % this.DB))) != 0);
     };
     // BigInteger.prototype.setBit = bnSetBit;
     // (public) this | (1<<n)
@@ -1457,8 +1427,7 @@ and limitations under the License.
           i += this.DB;
           --j;
         }
-        if (is1) {
-          // ret == 1, don't bother squaring or multiplying it
+        if (is1) { // ret == 1, don't bother squaring or multiplying it
           g[w].copyTo(r);
           is1 = false;
         } else {
@@ -1568,8 +1537,8 @@ and limitations under the License.
     // BigInteger.prototype.gcd = bnGCD;
     // (public) gcd(this,a) (HAC 14.54)
     BigInteger.prototype.gcd = function (a) {
-      var x = this.s < 0 ? this.negate() : this.clone();
-      var y = a.s < 0 ? a.negate() : a.clone();
+      var x = (this.s < 0) ? this.negate() : this.clone();
+      var y = (a.s < 0) ? a.negate() : a.clone();
       if (x.compareTo(y) < 0) {
         var t = x;
         x = y;
@@ -1654,7 +1623,7 @@ and limitations under the License.
     // (protected) set from integer value x, -DV <= x < DV
     BigInteger.prototype.fromInt = function (x) {
       this.t = 1;
-      this.s = x < 0 ? -1 : 0;
+      this.s = (x < 0) ? -1 : 0;
       if (x > 0) {
         this[0] = x;
       } else if (x < -1) {
@@ -1690,9 +1659,9 @@ and limitations under the License.
       var mi = false;
       var sh = 0;
       while (--i >= 0) {
-        var x = k == 8 ? +s[i] & 0xff : intAt(s, i);
+        var x = (k == 8) ? (+s[i]) & 0xff : intAt(s, i);
         if (x < 0) {
-          if (s.charAt(i) == '-') {
+          if (s.charAt(i) == "-") {
             mi = true;
           }
           continue;
@@ -1702,7 +1671,7 @@ and limitations under the License.
           this[this.t++] = x;
         } else if (sh + k > this.DB) {
           this[this.t - 1] |= (x & ((1 << (this.DB - sh)) - 1)) << sh;
-          this[this.t++] = x >> (this.DB - sh);
+          this[this.t++] = (x >> (this.DB - sh));
         } else {
           this[this.t - 1] |= x << sh;
         }
@@ -1711,7 +1680,7 @@ and limitations under the License.
           sh -= this.DB;
         }
       }
-      if (k == 8 && (+s[0] & 0x80) != 0) {
+      if (k == 8 && ((+s[0]) & 0x80) != 0) {
         this.s = -1;
         if (sh > 0) {
           this[this.t - 1] |= ((1 << (this.DB - sh)) - 1) << sh;
@@ -1823,7 +1792,7 @@ and limitations under the License.
         }
         c -= a.s;
       }
-      r.s = c < 0 ? -1 : 0;
+      r.s = (c < 0) ? -1 : 0;
       if (c < -1) {
         r[i++] = this.DV + c;
       } else if (c > 0) {
@@ -1856,7 +1825,7 @@ and limitations under the License.
     // (protected) r = this^2, r != this (HAC 14.16)
     BigInteger.prototype.squareTo = function (r) {
       var x = this.abs();
-      var i = (r.t = 2 * x.t);
+      var i = r.t = 2 * x.t;
       while (--i >= 0) {
         r[i] = 0;
       }
@@ -1910,13 +1879,13 @@ and limitations under the License.
       if (y0 == 0) {
         return;
       }
-      var yt = y0 * (1 << this.F1) + (ys > 1 ? y[ys - 2] >> this.F2 : 0);
+      var yt = y0 * (1 << this.F1) + ((ys > 1) ? y[ys - 2] >> this.F2 : 0);
       var d1 = this.FV / yt;
       var d2 = (1 << this.F1) / yt;
       var e = 1 << this.F2;
       var i = r.t;
       var j = i - ys;
-      var t = q == null ? nbi() : q;
+      var t = (q == null) ? nbi() : q;
       y.dlShiftTo(j, t);
       if (r.compareTo(t) >= 0) {
         r[r.t++] = 1;
@@ -1929,9 +1898,8 @@ and limitations under the License.
       }
       while (--j >= 0) {
         // Estimate quotient digit
-        var qd = r[--i] == y0 ? this.DM : Math.floor(r[i] * d1 + (r[i - 1] + e) * d2);
-        if ((r[i] += y.am(0, qd, r, j, 0, ys)) < qd) {
-          // Try it out
+        var qd = (r[--i] == y0) ? this.DM : Math.floor(r[i] * d1 + (r[i - 1] + e) * d2);
+        if ((r[i] += y.am(0, qd, r, j, 0, ys)) < qd) { // Try it out
           y.dlShiftTo(j, t);
           r.subTo(t, r);
           while (r[i] < --qd) {
@@ -1979,14 +1947,14 @@ and limitations under the License.
       y = (y * (2 - (((x & 0xffff) * y) & 0xffff))) & 0xffff; // y == 1/x mod 2^16
       // last step - calculate inverse mod DV directly;
       // assumes 16 < DB <= 32 and assumes ability to handle 48-bit ints
-      y = (y * (2 - ((x * y) % this.DV))) % this.DV; // y == 1/x mod 2^dbits
+      y = (y * (2 - x * y % this.DV)) % this.DV; // y == 1/x mod 2^dbits
       // we really want the negative inverse, and -DV < y < DV
-      return y > 0 ? this.DV - y : -y;
+      return (y > 0) ? this.DV - y : -y;
     };
     // BigInteger.prototype.isEven = bnpIsEven;
     // (protected) true iff this is even
     BigInteger.prototype.isEven = function () {
-      return (this.t > 0 ? this[0] & 1 : this.s) == 0;
+      return ((this.t > 0) ? (this[0] & 1) : this.s) == 0;
     };
     // BigInteger.prototype.exp = bnpExp;
     // (protected) this^e, e < 2^32, doing sqr and mul with "r" (HAC 14.79)
@@ -2014,7 +1982,7 @@ and limitations under the License.
     // BigInteger.prototype.chunkSize = bnpChunkSize;
     // (protected) return x s.t. r^x < DV
     BigInteger.prototype.chunkSize = function (r) {
-      return Math.floor((Math.LN2 * this.DB) / Math.log(r));
+      return Math.floor(Math.LN2 * this.DB / Math.log(r));
     };
     // BigInteger.prototype.toRadix = bnpToRadix;
     // (protected) convert to radix string
@@ -2023,14 +1991,14 @@ and limitations under the License.
         b = 10;
       }
       if (this.signum() == 0 || b < 2 || b > 36) {
-        return '0';
+        return "0";
       }
       var cs = this.chunkSize(b);
       var a = Math.pow(b, cs);
       var d = nbv(a);
       var y = nbi();
       var z = nbi();
-      var r = '';
+      var r = "";
       this.divRemTo(d, y, z);
       while (y.signum() > 0) {
         r = (a + z.intValue()).toString(b).substr(1) + r;
@@ -2053,7 +2021,7 @@ and limitations under the License.
       for (var i = 0; i < s.length; ++i) {
         var x = intAt(s, i);
         if (x < 0) {
-          if (s.charAt(i) == '-' && this.signum() == 0) {
+          if (s.charAt(i) == "-" && this.signum() == 0) {
             mi = true;
           }
           continue;
@@ -2077,7 +2045,7 @@ and limitations under the License.
     // BigInteger.prototype.fromNumber = bnpFromNumber;
     // (protected) alternate constructor
     BigInteger.prototype.fromNumber = function (a, b, c) {
-      if ('number' == typeof b) {
+      if ("number" == typeof b) {
         // new BigInteger(int,int,RNG)
         if (a < 2) {
           this.fromInt(1);
@@ -2104,7 +2072,7 @@ and limitations under the License.
         x.length = (a >> 3) + 1;
         b.nextBytes(x);
         if (t > 0) {
-          x[0] &= (1 << t) - 1;
+          x[0] &= ((1 << t) - 1);
         } else {
           x[0] = 0;
         }
@@ -2171,7 +2139,7 @@ and limitations under the License.
         }
         c += a.s;
       }
-      r.s = c < 0 ? -1 : 0;
+      r.s = (c < 0) ? -1 : 0;
       if (c > 0) {
         r[i++] = c;
       } else if (c < -1) {
@@ -2228,7 +2196,7 @@ and limitations under the License.
     // "this" should be the larger one if appropriate.
     BigInteger.prototype.multiplyUpperTo = function (a, n, r) {
       --n;
-      var i = (r.t = this.t + a.t - n);
+      var i = r.t = this.t + a.t - n;
       r.s = 0; // assumes a,this >= 0
       while (--i >= 0) {
         r[i] = 0;
@@ -2246,7 +2214,7 @@ and limitations under the License.
         return 0;
       }
       var d = this.DV % n;
-      var r = this.s < 0 ? n - 1 : 0;
+      var r = (this.s < 0) ? n - 1 : 0;
       if (this.t > 0) {
         if (d == 0) {
           r = this[0] % n;
@@ -2301,8 +2269,8 @@ and limitations under the License.
     //#region ASYNC
     // Public API method
     BigInteger.prototype.gcda = function (a, callback) {
-      var x = this.s < 0 ? this.negate() : this.clone();
-      var y = a.s < 0 ? a.negate() : a.clone();
+      var x = (this.s < 0) ? this.negate() : this.clone();
+      var y = (a.s < 0) ? a.negate() : a.clone();
       if (x.compareTo(y) < 0) {
         var t = x;
         x = y;
@@ -2351,7 +2319,7 @@ and limitations under the License.
     };
     // (protected) alternate constructor
     BigInteger.prototype.fromNumberAsync = function (a, b, c, callback) {
-      if ('number' == typeof b) {
+      if ("number" == typeof b) {
         if (a < 2) {
           this.fromInt(1);
         } else {
@@ -2384,7 +2352,7 @@ and limitations under the License.
         x.length = (a >> 3) + 1;
         b.nextBytes(x);
         if (t > 0) {
-          x[0] &= (1 << t) - 1;
+          x[0] &= ((1 << t) - 1);
         } else {
           x[0] = 0;
         }
@@ -2392,7 +2360,7 @@ and limitations under the License.
       }
     };
     return BigInteger;
-  })();
+  }());
   //#region REDUCERS
   //#region NullExp
   var NullExp = /** @class */ (function () {
@@ -2414,7 +2382,7 @@ and limitations under the License.
       x.squareTo(r);
     };
     return NullExp;
-  })();
+  }());
   // Modular reduction using "classic" algorithm
   var Classic = /** @class */ (function () {
     function Classic(m) {
@@ -2447,7 +2415,7 @@ and limitations under the License.
       this.reduce(r);
     };
     return Classic;
-  })();
+  }());
   //#endregion
   //#region Montgomery
   // Montgomery reduction
@@ -2489,8 +2457,7 @@ and limitations under the License.
       for (var i = 0; i < this.m.t; ++i) {
         // faster way of calculating u0 = x[i]*mp mod DV
         var j = x[i] & 0x7fff;
-        var u0 =
-          (j * this.mpl + (((j * this.mph + (x[i] >> 15) * this.mpl) & this.um) << 15)) & x.DM;
+        var u0 = (j * this.mpl + (((j * this.mph + (x[i] >> 15) * this.mpl) & this.um) << 15)) & x.DM;
         // use am to combine the multiply-shift-add into one call
         j = i + this.m.t;
         x[j] += this.m.am(0, u0, x, i, 0, this.m.t);
@@ -2519,7 +2486,7 @@ and limitations under the License.
       this.reduce(r);
     };
     return Montgomery;
-  })();
+  }());
   //#endregion Montgomery
   //#region Barrett
   // Barrett modular reduction
@@ -2580,7 +2547,7 @@ and limitations under the License.
       this.reduce(r);
     };
     return Barrett;
-  })();
+  }());
   //#endregion
   //#endregion REDUCERS
   // return new, unset BigInteger
@@ -2641,20 +2608,19 @@ and limitations under the License.
     }
     return c;
   }
-  if (j_lm && navigator.appName == 'Microsoft Internet Explorer') {
+  if (j_lm && (navigator.appName == "Microsoft Internet Explorer")) {
     BigInteger.prototype.am = am2;
     dbits = 30;
-  } else if (j_lm && navigator.appName != 'Netscape') {
+  } else if (j_lm && (navigator.appName != "Netscape")) {
     BigInteger.prototype.am = am1;
     dbits = 26;
-  } else {
-    // Mozilla/Netscape seems to prefer am3
+  } else { // Mozilla/Netscape seems to prefer am3
     BigInteger.prototype.am = am3;
     dbits = 28;
   }
   BigInteger.prototype.DB = dbits;
-  BigInteger.prototype.DM = (1 << dbits) - 1;
-  BigInteger.prototype.DV = 1 << dbits;
+  BigInteger.prototype.DM = ((1 << dbits) - 1);
+  BigInteger.prototype.DV = (1 << dbits);
   var BI_FP = 52;
   BigInteger.prototype.FV = Math.pow(2, BI_FP);
   BigInteger.prototype.F1 = BI_FP - dbits;
@@ -2663,22 +2629,22 @@ and limitations under the License.
   var BI_RC = [];
   var rr;
   var vv;
-  rr = '0'.charCodeAt(0);
+  rr = "0".charCodeAt(0);
   for (vv = 0; vv <= 9; ++vv) {
     BI_RC[rr++] = vv;
   }
-  rr = 'a'.charCodeAt(0);
+  rr = "a".charCodeAt(0);
   for (vv = 10; vv < 36; ++vv) {
     BI_RC[rr++] = vv;
   }
-  rr = 'A'.charCodeAt(0);
+  rr = "A".charCodeAt(0);
   for (vv = 10; vv < 36; ++vv) {
     BI_RC[rr++] = vv;
   }
 
   function intAt(s, i) {
     var c = BI_RC[s.charCodeAt(i)];
-    return c == null ? -1 : c;
+    return (c == null) ? -1 : c;
   }
   // return bigint initialized to value
 
@@ -2755,7 +2721,7 @@ and limitations under the License.
       return this.S[(t + this.S[this.i]) & 255];
     };
     return Arcfour;
-  })();
+  }());
   // Plug in your RNG constructor here
 
   function prng_newstate() {
@@ -2788,9 +2754,9 @@ and limitations under the License.
       this.count = this.count || 0;
       if (this.count >= 256 || rng_pptr >= rng_psize) {
         if (window.removeEventListener) {
-          window.removeEventListener('mousemove', onMouseMoveListener_1, false);
+          window.removeEventListener("mousemove", onMouseMoveListener_1, false);
         } else if (window.detachEvent) {
-          window.detachEvent('onmousemove', onMouseMoveListener_1);
+          window.detachEvent("onmousemove", onMouseMoveListener_1);
         }
         return;
       }
@@ -2803,9 +2769,9 @@ and limitations under the License.
       }
     };
     if (window.addEventListener) {
-      window.addEventListener('mousemove', onMouseMoveListener_1, false);
+      window.addEventListener("mousemove", onMouseMoveListener_1, false);
     } else if (window.attachEvent) {
-      window.attachEvent('onmousemove', onMouseMoveListener_1);
+      window.attachEvent("onmousemove", onMouseMoveListener_1);
     }
   }
 
@@ -2834,7 +2800,7 @@ and limitations under the License.
       }
     };
     return SecureRandom;
-  })();
+  }());
 
   // Depends on jsbn.js and rng.js
   // function linebrk(s,n) {
@@ -2855,33 +2821,31 @@ and limitations under the License.
 
   function pkcs1pad1(s, n) {
     if (n < s.length + 22) {
-      console.error('Message too long for RSA');
+      console.error("Message too long for RSA");
       return null;
     }
     var len = n - s.length - 6;
-    var filler = '';
+    var filler = "";
     for (var f = 0; f < len; f += 2) {
-      filler += 'ff';
+      filler += "ff";
     }
-    var m = '0001' + filler + '00' + s;
+    var m = "0001" + filler + "00" + s;
     return parseBigInt(m, 16);
   }
   // PKCS#1 (type 2, random) pad input string s to n bytes, and return a bigint
 
   function pkcs1pad2(s, n) {
-    if (n < s.length + 11) {
-      // TODO: fix for utf-8
-      console.error('Message too long for RSA');
+    if (n < s.length + 11) { // TODO: fix for utf-8
+      console.error("Message too long for RSA");
       return null;
     }
     var ba = [];
     var i = s.length - 1;
     while (i >= 0 && n > 0) {
       var c = s.charCodeAt(i--);
-      if (c < 128) {
-        // encode using utf-8
+      if (c < 128) { // encode using utf-8
         ba[--n] = c;
-      } else if (c > 127 && c < 2048) {
+      } else if ((c > 127) && (c < 2048)) {
         ba[--n] = (c & 63) | 128;
         ba[--n] = (c >> 6) | 192;
       } else {
@@ -2893,8 +2857,7 @@ and limitations under the License.
     ba[--n] = 0;
     var rng = new SecureRandom();
     var x = [];
-    while (n > 2) {
-      // random non-zero pad
+    while (n > 2) { // random non-zero pad
       x[0] = 0;
       while (x[0] == 0) {
         rng.nextBytes(x);
@@ -2947,15 +2910,15 @@ and limitations under the License.
         this.n = parseBigInt(N, 16);
         this.e = parseInt(E, 16);
       } else {
-        console.error('Invalid RSA public key');
+        console.error("Invalid RSA public key");
       }
     };
     // RSAKey.prototype.encrypt = RSAEncrypt;
     // Return the PKCS#1 RSA encryption of "text" as an even-length hex string
     RSAKey.prototype.encrypt = function (text) {
       var jsKey = new JSEncryptRSAKey(publicKey);
-      this.n = jsKey.n;
-      this.e = jsKey.e;
+          this.n = jsKey.n;
+          this.e = jsKey.e;
       var m = pkcs1pad2(text, (this.n.bitLength() + 7) >> 3);
       if (m == null) {
         return null;
@@ -2968,7 +2931,7 @@ and limitations under the License.
       if ((h.length & 1) == 0) {
         return h;
       } else {
-        return '0' + h;
+        return "0" + h;
       }
     };
     // RSAKey.prototype.setPrivate = RSASetPrivate;
@@ -2979,7 +2942,7 @@ and limitations under the License.
         this.e = parseInt(E, 16);
         this.d = parseBigInt(D, 16);
       } else {
-        console.error('Invalid RSA private key');
+        console.error("Invalid RSA private key");
       }
     };
     // RSAKey.prototype.setPrivateEx = RSASetPrivateEx;
@@ -2995,7 +2958,7 @@ and limitations under the License.
         this.dmq1 = parseBigInt(DQ, 16);
         this.coeff = parseBigInt(C, 16);
       } else {
-        console.error('Invalid RSA private key');
+        console.error("Invalid RSA private key");
       }
     };
     // RSAKey.prototype.generate = RSAGenerate;
@@ -3008,19 +2971,15 @@ and limitations under the License.
       for (;;) {
         for (;;) {
           this.p = new BigInteger(B - qs, 1, rng);
-          if (
-            this.p.subtract(BigInteger.ONE).gcd(ee).compareTo(BigInteger.ONE) == 0 &&
-            this.p.isProbablePrime(10)
-          ) {
+          if (this.p.subtract(BigInteger.ONE).gcd(ee).compareTo(BigInteger.ONE) == 0 && this.p.isProbablePrime(
+              10)) {
             break;
           }
         }
         for (;;) {
           this.q = new BigInteger(qs, 1, rng);
-          if (
-            this.q.subtract(BigInteger.ONE).gcd(ee).compareTo(BigInteger.ONE) == 0 &&
-            this.q.isProbablePrime(10)
-          ) {
+          if (this.q.subtract(BigInteger.ONE).gcd(ee).compareTo(BigInteger.ONE) == 0 && this.q.isProbablePrime(
+              10)) {
             break;
           }
         }
@@ -3128,7 +3087,7 @@ and limitations under the License.
       if ((h.length & 1) == 0) {
         return h;
       } else {
-        return '0' + h;
+        return "0" + h;
       }
     };
     RSAKey.prototype.verify = function (text, signature, digestMethod) {
@@ -3137,12 +3096,12 @@ and limitations under the License.
       if (m == null) {
         return null;
       }
-      var unpadded = m.toString(16).replace(/^1f+00/, '');
+      var unpadded = m.toString(16).replace(/^1f+00/, "");
       var digest = removeDigestHeader(unpadded);
       return digest == digestMethod(text).toString();
     };
     return RSAKey;
-  })();
+  }());
   // Undo PKCS#1 (type 2, random) padding and, if valid, return the plaintext
 
   function pkcs1unpad2(d, n) {
@@ -3160,13 +3119,12 @@ and limitations under the License.
         return null;
       }
     }
-    var ret = '';
+    var ret = "";
     while (++i < b.length) {
       var c = b[i] & 255;
-      if (c < 128) {
-        // utf-8 decode
+      if (c < 128) { // utf-8 decode
         ret += String.fromCharCode(c);
-      } else if (c > 191 && c < 224) {
+      } else if ((c > 191) && (c < 224)) {
         ret += String.fromCharCode(((c & 31) << 6) | (b[i + 1] & 63));
         ++i;
       } else {
@@ -3178,18 +3136,18 @@ and limitations under the License.
   }
   // https://tools.ietf.org/html/rfc3447#page-43
   var DIGEST_HEADERS = {
-    md2: '3020300c06082a864886f70d020205000410',
-    md5: '3020300c06082a864886f70d020505000410',
-    sha1: '3021300906052b0e03021a05000414',
-    sha224: '302d300d06096086480165030402040500041c',
-    sha256: '3031300d060960864801650304020105000420',
-    sha384: '3041300d060960864801650304020205000430',
-    sha512: '3051300d060960864801650304020305000440',
-    ripemd160: '3021300906052b2403020105000414',
+    md2: "3020300c06082a864886f70d020205000410",
+    md5: "3020300c06082a864886f70d020505000410",
+    sha1: "3021300906052b0e03021a05000414",
+    sha224: "302d300d06096086480165030402040500041c",
+    sha256: "3031300d060960864801650304020105000420",
+    sha384: "3041300d060960864801650304020205000430",
+    sha512: "3051300d060960864801650304020305000440",
+    ripemd160: "3021300906052b2403020105000414",
   };
 
   function getDigestHeader(name) {
-    return DIGEST_HEADERS[name] || '';
+    return DIGEST_HEADERS[name] || "";
   }
 
   function removeDigestHeader(str) {
@@ -3236,9 +3194,8 @@ version: 2.9.0
      */
     extend: function (subc, superc, overrides) {
       if (!superc || !subc) {
-        throw new Error(
-          'YAHOO.lang.extend failed, please check that ' + 'all dependencies are included.'
-        );
+        throw new Error("YAHOO.lang.extend failed, please check that " +
+          "all dependencies are included.");
       }
 
       var F = function () {};
@@ -3258,17 +3215,17 @@ version: 2.9.0
         }
 
         /*
-         * IE will not enumerate native functions in a derived object even if the
-         * function was overridden.  This is a workaround for specific functions
-         * we care about on the Object prototype.
-         * @property _IEEnumFix
-         * @param {Function} r  the object to receive the augmentation
-         * @param {Function} s  the object that supplies the properties to augment
-         * @static
-         * @private
-         */
+                 * IE will not enumerate native functions in a derived object even if the
+                 * function was overridden.  This is a workaround for specific functions
+                 * we care about on the Object prototype.
+                 * @property _IEEnumFix
+                 * @param {Function} r  the object to receive the augmentation
+                 * @param {Function} s  the object that supplies the properties to augment
+                 * @static
+                 * @private
+                 */
         var _IEEnumFix = function () {},
-          ADD = ['toString', 'valueOf'];
+          ADD = ["toString", "valueOf"];
         try {
           if (/MSIE/.test(navigator.userAgent)) {
             _IEEnumFix = function (r, s) {
@@ -3284,11 +3241,11 @@ version: 2.9.0
         } catch (ex) {}
         _IEEnumFix(subc.prototype, overrides);
       }
-    },
+    }
   };
 
   /* asn1-1.0.13.js (c) 2013-2017 Kenji Urushima | kjur.github.com/jsrsasign/license
-   */
+     */
 
   /**
    * @fileOverview
@@ -3365,7 +3322,7 @@ version: 2.9.0
    * @name KJUR.asn1
    * @namespace
    */
-  if (typeof KJUR.asn1 == 'undefined' || !KJUR.asn1) KJUR.asn1 = {};
+  if (typeof KJUR.asn1 == "undefined" || !KJUR.asn1) KJUR.asn1 = {};
 
   /**
    * ASN1 utilities class
@@ -3373,10 +3330,10 @@ version: 2.9.0
    * @class ASN1 utilities class
    * @since asn1 1.0.2
    */
-  KJUR.asn1.ASN1Util = new (function () {
+  KJUR.asn1.ASN1Util = new function () {
     this.integerToByteHex = function (i) {
       var h = i.toString(16);
-      if (h.length % 2 == 1) h = '0' + h;
+      if ((h.length % 2) == 1) h = '0' + h;
       return h;
     };
     this.bigIntToMinTwosComplementsHex = function (bigIntegerValue) {
@@ -3471,15 +3428,15 @@ version: 2.9.0
      * newObject({'seq': [{'int': 3}, {'prnstr': 'aaa'}]})
      * // ASN.1 Tagged Object
      * newObject({'tag': {'tag': 'a1',
-     *                    'explicit': true,
-     *                    'obj': {'seq': [{'int': 3}, {'prnstr': 'aaa'}]}}});
+         *                    'explicit': true,
+         *                    'obj': {'seq': [{'int': 3}, {'prnstr': 'aaa'}]}}});
      * // more simple representation of ASN.1 Tagged Object
      * newObject({'tag': ['a1',
-     *                    true,
-     *                    {'seq': [
-     *                      {'int': 3},
-     *                      {'prnstr': 'aaa'}]}
-     *                   ]});
+         *                    true,
+         *                    {'seq': [
+         *                      {'int': 3},
+         *                      {'prnstr': 'aaa'}]}
+         *                   ]});
      */
     this.newObject = function (param) {
       var _KJUR = KJUR,
@@ -3504,32 +3461,31 @@ version: 2.9.0
         _newObject = _KJUR_asn1.ASN1Util.newObject;
 
       var keys = Object.keys(param);
-      if (keys.length != 1) throw 'key of param shall be only one.';
+      if (keys.length != 1)
+        throw "key of param shall be only one.";
       var key = keys[0];
 
       if (
-        ':bool:int:bitstr:octstr:null:oid:enum:utf8str:numstr:prnstr:telstr:ia5str:utctime:gentime:seq:set:tag:'.indexOf(
-          ':' + key + ':'
-        ) == -1
-      )
-        throw 'undefined key: ' + key;
+        ":bool:int:bitstr:octstr:null:oid:enum:utf8str:numstr:prnstr:telstr:ia5str:utctime:gentime:seq:set:tag:"
+          .indexOf(":" + key + ":") == -1)
+        throw "undefined key: " + key;
 
-      if (key == 'bool') return new _DERBoolean(param[key]);
-      if (key == 'int') return new _DERInteger(param[key]);
-      if (key == 'bitstr') return new _DERBitString(param[key]);
-      if (key == 'octstr') return new _DEROctetString(param[key]);
-      if (key == 'null') return new _DERNull(param[key]);
-      if (key == 'oid') return new _DERObjectIdentifier(param[key]);
-      if (key == 'enum') return new _DEREnumerated(param[key]);
-      if (key == 'utf8str') return new _DERUTF8String(param[key]);
-      if (key == 'numstr') return new _DERNumericString(param[key]);
-      if (key == 'prnstr') return new _DERPrintableString(param[key]);
-      if (key == 'telstr') return new _DERTeletexString(param[key]);
-      if (key == 'ia5str') return new _DERIA5String(param[key]);
-      if (key == 'utctime') return new _DERUTCTime(param[key]);
-      if (key == 'gentime') return new _DERGeneralizedTime(param[key]);
+      if (key == "bool") return new _DERBoolean(param[key]);
+      if (key == "int") return new _DERInteger(param[key]);
+      if (key == "bitstr") return new _DERBitString(param[key]);
+      if (key == "octstr") return new _DEROctetString(param[key]);
+      if (key == "null") return new _DERNull(param[key]);
+      if (key == "oid") return new _DERObjectIdentifier(param[key]);
+      if (key == "enum") return new _DEREnumerated(param[key]);
+      if (key == "utf8str") return new _DERUTF8String(param[key]);
+      if (key == "numstr") return new _DERNumericString(param[key]);
+      if (key == "prnstr") return new _DERPrintableString(param[key]);
+      if (key == "telstr") return new _DERTeletexString(param[key]);
+      if (key == "ia5str") return new _DERIA5String(param[key]);
+      if (key == "utctime") return new _DERUTCTime(param[key]);
+      if (key == "gentime") return new _DERGeneralizedTime(param[key]);
 
-      if (key == 'seq') {
+      if (key == "seq") {
         var paramList = param[key];
         var a = [];
         for (var i = 0; i < paramList.length; i++) {
@@ -3537,11 +3493,11 @@ version: 2.9.0
           a.push(asn1Obj);
         }
         return new _DERSequence({
-          array: a,
+          'array': a
         });
       }
 
-      if (key == 'set') {
+      if (key == "set") {
         var paramList = param[key];
         var a = [];
         for (var i = 0; i < paramList.length; i++) {
@@ -3549,24 +3505,28 @@ version: 2.9.0
           a.push(asn1Obj);
         }
         return new _DERSet({
-          array: a,
+          'array': a
         });
       }
 
-      if (key == 'tag') {
+      if (key == "tag") {
         var tagParam = param[key];
-        if (Object.prototype.toString.call(tagParam) === '[object Array]' && tagParam.length == 3) {
+        if (Object.prototype.toString.call(tagParam) === '[object Array]' &&
+          tagParam.length == 3) {
           var obj = _newObject(tagParam[2]);
           return new _DERTaggedObject({
             tag: tagParam[0],
             explicit: tagParam[1],
-            obj: obj,
+            obj: obj
           });
         } else {
           var newParam = {};
-          if (tagParam.explicit !== undefined) newParam.explicit = tagParam.explicit;
-          if (tagParam.tag !== undefined) newParam.tag = tagParam.tag;
-          if (tagParam.obj === undefined) throw "obj shall be specified for 'tag'.";
+          if (tagParam.explicit !== undefined)
+            newParam.explicit = tagParam.explicit;
+          if (tagParam.tag !== undefined)
+            newParam.tag = tagParam.tag;
+          if (tagParam.obj === undefined)
+            throw "obj shall be specified for 'tag'.";
           newParam.obj = _newObject(tagParam.obj);
           return new _DERTaggedObject(newParam);
         }
@@ -3591,7 +3551,7 @@ version: 2.9.0
       var asn1Obj = this.newObject(param);
       return asn1Obj.getEncodedHex();
     };
-  })();
+  };
 
   /**
    * get dot noted oid number string from hexadecimal value of OID
@@ -3608,21 +3568,21 @@ version: 2.9.0
    * KJUR.asn1.ASN1Util.oidHexToInt('550406') → "2.5.4.6"
    */
   KJUR.asn1.ASN1Util.oidHexToInt = function (hex) {
-    var s = '';
+    var s = "";
     var i01 = parseInt(hex.substr(0, 2), 16);
     var i0 = Math.floor(i01 / 40);
     var i1 = i01 % 40;
-    var s = i0 + '.' + i1;
+    var s = i0 + "." + i1;
 
-    var binbuf = '';
+    var binbuf = "";
     for (var i = 2; i < hex.length; i += 2) {
       var value = parseInt(hex.substr(i, 2), 16);
-      var bin = ('00000000' + value.toString(2)).slice(-8);
+      var bin = ("00000000" + value.toString(2)).slice(-8);
       binbuf = binbuf + bin.substr(1, 7);
-      if (bin.substr(0, 1) == '0') {
+      if (bin.substr(0, 1) == "0") {
         var bi = new BigInteger(binbuf, 2);
-        s = s + '.' + bi.toString(10);
-        binbuf = '';
+        s = s + "." + bi.toString(10);
+        binbuf = "";
       }
     }
     return s;
@@ -3653,7 +3613,7 @@ version: 2.9.0
       var h = '';
       var bi = new BigInteger(roid, 10);
       var b = bi.toString(2);
-      var padLen = 7 - (b.length % 7);
+      var padLen = 7 - b.length % 7;
       if (padLen == 7) padLen = 0;
       var bPad = '';
       for (var i = 0; i < padLen; i++) bPad += '0';
@@ -3667,7 +3627,7 @@ version: 2.9.0
     };
 
     if (!oidString.match(/^[0-9.]+$/)) {
-      throw 'malformed oid string: ' + oidString;
+      throw "malformed oid string: " + oidString;
     }
     var h = '';
     var a = oidString.split('.');
@@ -3679,6 +3639,7 @@ version: 2.9.0
     }
     return h;
   };
+
 
   // ********************************************************************
   //  Abstract ASN.1 Classes
@@ -3708,23 +3669,23 @@ version: 2.9.0
      * @return {String} hexadecimal string of ASN.1 TLV length(L)
      */
     this.getLengthHexFromValue = function () {
-      if (typeof this.hV == 'undefined' || this.hV == null) {
-        throw 'this.hV is null or undefined.';
+      if (typeof this.hV == "undefined" || this.hV == null) {
+        throw "this.hV is null or undefined.";
       }
       if (this.hV.length % 2 == 1) {
-        throw 'value hex must be even length: n=' + hV.length + ',v=' + this.hV;
+        throw "value hex must be even length: n=" + hV.length + ",v=" + this.hV;
       }
       var n = this.hV.length / 2;
       var hN = n.toString(16);
       if (hN.length % 2 == 1) {
-        hN = '0' + hN;
+        hN = "0" + hN;
       }
       if (n < 128) {
         return hN;
       } else {
         var hNlen = hN.length / 2;
         if (hNlen > 15) {
-          throw 'ASN.1 length too long to represent by 8x: n = ' + n.toString(16);
+          throw "ASN.1 length too long to represent by 8x: n = " + n.toString(16);
         }
         var head = 128 + hNlen;
         return head.toString(16) + hN;
@@ -3830,12 +3791,12 @@ version: 2.9.0
       return this.hV;
     };
 
-    if (typeof params != 'undefined') {
-      if (typeof params == 'string') {
+    if (typeof params != "undefined") {
+      if (typeof params == "string") {
         this.setString(params);
-      } else if (typeof params['str'] != 'undefined') {
+      } else if (typeof params['str'] != "undefined") {
         this.setString(params['str']);
-      } else if (typeof params['hex'] != 'undefined') {
+      } else if (typeof params['hex'] != "undefined") {
         this.setStringHex(params['hex']);
       }
     }
@@ -3858,21 +3819,21 @@ version: 2.9.0
 
     // --- PRIVATE METHODS --------------------
     this.localDateToUTC = function (d) {
-      utc = d.getTime() + d.getTimezoneOffset() * 60000;
+      utc = d.getTime() + (d.getTimezoneOffset() * 60000);
       var utcDate = new Date(utc);
       return utcDate;
     };
 
     /*
-     * format date string by Data object
-     * @name formatDate
-     * @memberOf KJUR.asn1.AbstractTime;
-     * @param {Date} dateObject
-     * @param {string} type 'utc' or 'gen'
-     * @param {boolean} withMillis flag for with millisections or not
-     * @description
-     * 'withMillis' flag is supported from asn1 1.0.6.
-     */
+         * format date string by Data object
+         * @name formatDate
+         * @memberOf KJUR.asn1.AbstractTime;
+         * @param {Date} dateObject
+         * @param {string} type 'utc' or 'gen'
+         * @param {boolean} withMillis flag for with millisections or not
+         * @description
+         * 'withMillis' flag is supported from asn1 1.0.6.
+         */
     this.formatDate = function (dateObject, type, withMillis) {
       var pad = this.zeroPadding;
       var d = this.localDateToUTC(dateObject);
@@ -3888,11 +3849,11 @@ version: 2.9.0
         var millis = d.getMilliseconds();
         if (millis != 0) {
           var sMillis = pad(String(millis), 3);
-          sMillis = sMillis.replace(/[0]+$/, '');
-          s = s + '.' + sMillis;
+          sMillis = sMillis.replace(/[0]+$/, "");
+          s = s + "." + sMillis;
         }
       }
-      return s + 'Z';
+      return s + "Z";
     };
 
     this.zeroPadding = function (s, len) {
@@ -3989,14 +3950,15 @@ version: 2.9.0
       this.asn1Array.push(asn1Object);
     };
 
-    this.asn1Array = [];
-    if (typeof params != 'undefined') {
-      if (typeof params['array'] != 'undefined') {
+    this.asn1Array = new Array();
+    if (typeof params != "undefined") {
+      if (typeof params['array'] != "undefined") {
         this.asn1Array = params['array'];
       }
     }
   };
   YAHOO.lang.extend(KJUR.asn1.DERAbstractStructured, KJUR.asn1.ASN1Object);
+
 
   // ********************************************************************
   //  ASN.1 Object Classes
@@ -4013,8 +3975,8 @@ version: 2.9.0
    */
   KJUR.asn1.DERBoolean = function () {
     KJUR.asn1.DERBoolean.superclass.constructor.call(this);
-    this.hT = '01';
-    this.hTLV = '0101ff';
+    this.hT = "01";
+    this.hTLV = "0101ff";
   };
   YAHOO.lang.extend(KJUR.asn1.DERBoolean, KJUR.asn1.ASN1Object);
 
@@ -4037,7 +3999,7 @@ version: 2.9.0
    */
   KJUR.asn1.DERInteger = function (params) {
     KJUR.asn1.DERInteger.superclass.constructor.call(this);
-    this.hT = '02';
+    this.hT = "02";
 
     /**
      * set value by Tom Wu's BigInteger object
@@ -4087,14 +4049,14 @@ version: 2.9.0
       return this.hV;
     };
 
-    if (typeof params != 'undefined') {
-      if (typeof params['bigint'] != 'undefined') {
+    if (typeof params != "undefined") {
+      if (typeof params['bigint'] != "undefined") {
         this.setByBigInteger(params['bigint']);
-      } else if (typeof params['int'] != 'undefined') {
+      } else if (typeof params['int'] != "undefined") {
         this.setByInteger(params['int']);
-      } else if (typeof params == 'number') {
+      } else if (typeof params == "number") {
         this.setByInteger(params);
-      } else if (typeof params['hex'] != 'undefined') {
+      } else if (typeof params['hex'] != "undefined") {
         this.setValueHex(params['hex']);
       }
     }
@@ -4134,19 +4096,19 @@ version: 2.9.0
    * o = new KJUR.asn1.DERBitString({obj: {seq: [{int: 3}, {prnstr: 'aaa'}]}});
    * // above generates a ASN.1 data like this:
    * // BIT STRING, encapsulates {
-   * //   SEQUENCE {
-   * //     INTEGER 3
-   * //     PrintableString 'aaa'
-   * //     }
-   * //   }
+     * //   SEQUENCE {
+     * //     INTEGER 3
+     * //     PrintableString 'aaa'
+     * //     }
+     * //   }
    */
   KJUR.asn1.DERBitString = function (params) {
-    if (params !== undefined && typeof params.obj !== 'undefined') {
+    if (params !== undefined && typeof params.obj !== "undefined") {
       var o = KJUR.asn1.ASN1Util.newObject(params.obj);
-      params.hex = '00' + o.getEncodedHex();
+      params.hex = "00" + o.getEncodedHex();
     }
     KJUR.asn1.DERBitString.superclass.constructor.call(this);
-    this.hT = '03';
+    this.hT = "03";
 
     /**
      * set ASN.1 value(V) by a hexadecimal string including unused bits
@@ -4171,9 +4133,9 @@ version: 2.9.0
      */
     this.setUnusedBitsAndHexValue = function (unusedBits, hValue) {
       if (unusedBits < 0 || 7 < unusedBits) {
-        throw 'unused bits shall be from 0 to 7: u = ' + unusedBits;
+        throw "unused bits shall be from 0 to 7: u = " + unusedBits;
       }
-      var hUnusedBits = '0' + unusedBits;
+      var hUnusedBits = "0" + unusedBits;
       this.hTLV = null;
       this.isModified = true;
       this.hV = hUnusedBits + hValue;
@@ -4195,7 +4157,7 @@ version: 2.9.0
      */
     this.setByBinaryString = function (binaryString) {
       binaryString = binaryString.replace(/0+$/, '');
-      var unusedBits = 8 - (binaryString.length % 8);
+      var unusedBits = 8 - binaryString.length % 8;
       if (unusedBits == 8) unusedBits = 0;
       for (var i = 0; i <= unusedBits; i++) {
         binaryString += '0';
@@ -4261,14 +4223,14 @@ version: 2.9.0
       return this.hV;
     };
 
-    if (typeof params != 'undefined') {
-      if (typeof params == 'string' && params.toLowerCase().match(/^[0-9a-f]+$/)) {
+    if (typeof params != "undefined") {
+      if (typeof params == "string" && params.toLowerCase().match(/^[0-9a-f]+$/)) {
         this.setHexValueIncludingUnusedBits(params);
-      } else if (typeof params['hex'] != 'undefined') {
+      } else if (typeof params['hex'] != "undefined") {
         this.setHexValueIncludingUnusedBits(params['hex']);
-      } else if (typeof params['bin'] != 'undefined') {
+      } else if (typeof params['bin'] != "undefined") {
         this.setByBinaryString(params['bin']);
-      } else if (typeof params['array'] != 'undefined') {
+      } else if (typeof params['array'] != "undefined") {
         this.setByBooleanArray(params['array']);
       }
     }
@@ -4306,19 +4268,19 @@ version: 2.9.0
    * o = new KJUR.asn1.DEROctetString({obj: {seq: [{int: 3}, {prnstr: 'aaa'}]}});
    * // above generates a ASN.1 data like this:
    * // OCTET STRING, encapsulates {
-   * //   SEQUENCE {
-   * //     INTEGER 3
-   * //     PrintableString 'aaa'
-   * //     }
-   * //   }
+     * //   SEQUENCE {
+     * //     INTEGER 3
+     * //     PrintableString 'aaa'
+     * //     }
+     * //   }
    */
   KJUR.asn1.DEROctetString = function (params) {
-    if (params !== undefined && typeof params.obj !== 'undefined') {
+    if (params !== undefined && typeof params.obj !== "undefined") {
       var o = KJUR.asn1.ASN1Util.newObject(params.obj);
       params.hex = o.getEncodedHex();
     }
     KJUR.asn1.DEROctetString.superclass.constructor.call(this, params);
-    this.hT = '04';
+    this.hT = "04";
   };
   YAHOO.lang.extend(KJUR.asn1.DEROctetString, KJUR.asn1.DERAbstractString);
 
@@ -4333,8 +4295,8 @@ version: 2.9.0
    */
   KJUR.asn1.DERNull = function () {
     KJUR.asn1.DERNull.superclass.constructor.call(this);
-    this.hT = '05';
-    this.hTLV = '0500';
+    this.hT = "05";
+    this.hTLV = "0500";
   };
   YAHOO.lang.extend(KJUR.asn1.DERNull, KJUR.asn1.ASN1Object);
 
@@ -4365,7 +4327,7 @@ version: 2.9.0
       var h = '';
       var bi = new BigInteger(roid, 10);
       var b = bi.toString(2);
-      var padLen = 7 - (b.length % 7);
+      var padLen = 7 - b.length % 7;
       if (padLen == 7) padLen = 0;
       var bPad = '';
       for (var i = 0; i < padLen; i++) bPad += '0';
@@ -4379,7 +4341,7 @@ version: 2.9.0
     };
 
     KJUR.asn1.DERObjectIdentifier.superclass.constructor.call(this);
-    this.hT = '06';
+    this.hT = "06";
 
     /**
      * set value by a hexadecimal string
@@ -4407,7 +4369,7 @@ version: 2.9.0
      */
     this.setValueOidString = function (oidString) {
       if (!oidString.match(/^[0-9.]+$/)) {
-        throw 'malformed oid string: ' + oidString;
+        throw "malformed oid string: " + oidString;
       }
       var h = '';
       var a = oidString.split('.');
@@ -4442,7 +4404,7 @@ version: 2.9.0
       if (oid !== '') {
         this.setValueOidString(oid);
       } else {
-        throw 'DERObjectIdentifier oidName undefined: ' + oidName;
+        throw "DERObjectIdentifier oidName undefined: " + oidName;
       }
     };
 
@@ -4451,7 +4413,7 @@ version: 2.9.0
     };
 
     if (params !== undefined) {
-      if (typeof params === 'string') {
+      if (typeof params === "string") {
         if (params.match(/^[0-2].[0-9.]+$/)) {
           this.setValueOidString(params);
         } else {
@@ -4490,7 +4452,7 @@ version: 2.9.0
    */
   KJUR.asn1.DEREnumerated = function (params) {
     KJUR.asn1.DEREnumerated.superclass.constructor.call(this);
-    this.hT = '0a';
+    this.hT = "0a";
 
     /**
      * set value by Tom Wu's BigInteger object
@@ -4536,12 +4498,12 @@ version: 2.9.0
       return this.hV;
     };
 
-    if (typeof params != 'undefined') {
-      if (typeof params['int'] != 'undefined') {
+    if (typeof params != "undefined") {
+      if (typeof params['int'] != "undefined") {
         this.setByInteger(params['int']);
-      } else if (typeof params == 'number') {
+      } else if (typeof params == "number") {
         this.setByInteger(params);
-      } else if (typeof params['hex'] != 'undefined') {
+      } else if (typeof params['hex'] != "undefined") {
         this.setValueHex(params['hex']);
       }
     }
@@ -4560,7 +4522,7 @@ version: 2.9.0
    */
   KJUR.asn1.DERUTF8String = function (params) {
     KJUR.asn1.DERUTF8String.superclass.constructor.call(this, params);
-    this.hT = '0c';
+    this.hT = "0c";
   };
   YAHOO.lang.extend(KJUR.asn1.DERUTF8String, KJUR.asn1.DERAbstractString);
 
@@ -4576,7 +4538,7 @@ version: 2.9.0
    */
   KJUR.asn1.DERNumericString = function (params) {
     KJUR.asn1.DERNumericString.superclass.constructor.call(this, params);
-    this.hT = '12';
+    this.hT = "12";
   };
   YAHOO.lang.extend(KJUR.asn1.DERNumericString, KJUR.asn1.DERAbstractString);
 
@@ -4592,7 +4554,7 @@ version: 2.9.0
    */
   KJUR.asn1.DERPrintableString = function (params) {
     KJUR.asn1.DERPrintableString.superclass.constructor.call(this, params);
-    this.hT = '13';
+    this.hT = "13";
   };
   YAHOO.lang.extend(KJUR.asn1.DERPrintableString, KJUR.asn1.DERAbstractString);
 
@@ -4608,7 +4570,7 @@ version: 2.9.0
    */
   KJUR.asn1.DERTeletexString = function (params) {
     KJUR.asn1.DERTeletexString.superclass.constructor.call(this, params);
-    this.hT = '14';
+    this.hT = "14";
   };
   YAHOO.lang.extend(KJUR.asn1.DERTeletexString, KJUR.asn1.DERAbstractString);
 
@@ -4624,7 +4586,7 @@ version: 2.9.0
    */
   KJUR.asn1.DERIA5String = function (params) {
     KJUR.asn1.DERIA5String.superclass.constructor.call(this, params);
-    this.hT = '16';
+    this.hT = "16";
   };
   YAHOO.lang.extend(KJUR.asn1.DERIA5String, KJUR.asn1.DERAbstractString);
 
@@ -4656,7 +4618,7 @@ version: 2.9.0
    */
   KJUR.asn1.DERUTCTime = function (params) {
     KJUR.asn1.DERUTCTime.superclass.constructor.call(this, params);
-    this.hT = '17';
+    this.hT = "17";
 
     /**
      * set value by a Date object<br/>
@@ -4677,7 +4639,7 @@ version: 2.9.0
     };
 
     this.getFreshValueHex = function () {
-      if (typeof this.date == 'undefined' && typeof this.s == 'undefined') {
+      if (typeof this.date == "undefined" && typeof this.s == "undefined") {
         this.date = new Date();
         this.s = this.formatDate(this.date, 'utc');
         this.hV = stohex(this.s);
@@ -4688,7 +4650,7 @@ version: 2.9.0
     if (params !== undefined) {
       if (params.str !== undefined) {
         this.setString(params.str);
-      } else if (typeof params == 'string' && params.match(/^[0-9]{12}Z$/)) {
+      } else if (typeof params == "string" && params.match(/^[0-9]{12}Z$/)) {
         this.setString(params);
       } else if (params.hex !== undefined) {
         this.setStringHex(params.hex);
@@ -4722,7 +4684,7 @@ version: 2.9.0
    */
   KJUR.asn1.DERGeneralizedTime = function (params) {
     KJUR.asn1.DERGeneralizedTime.superclass.constructor.call(this, params);
-    this.hT = '18';
+    this.hT = "18";
     this.withMillis = false;
 
     /**
@@ -4758,7 +4720,7 @@ version: 2.9.0
     if (params !== undefined) {
       if (params.str !== undefined) {
         this.setString(params.str);
-      } else if (typeof params == 'string' && params.match(/^[0-9]{14}Z$/)) {
+      } else if (typeof params == "string" && params.match(/^[0-9]{14}Z$/)) {
         this.setString(params);
       } else if (params.hex !== undefined) {
         this.setStringHex(params.hex);
@@ -4789,7 +4751,7 @@ version: 2.9.0
    */
   KJUR.asn1.DERSequence = function (params) {
     KJUR.asn1.DERSequence.superclass.constructor.call(this, params);
-    this.hT = '30';
+    this.hT = "30";
     this.getFreshValueHex = function () {
       var h = '';
       for (var i = 0; i < this.asn1Array.length; i++) {
@@ -4821,10 +4783,10 @@ version: 2.9.0
    */
   KJUR.asn1.DERSet = function (params) {
     KJUR.asn1.DERSet.superclass.constructor.call(this, params);
-    this.hT = '31';
+    this.hT = "31";
     this.sortFlag = true; // item shall be sorted only in ASN.1 DER
     this.getFreshValueHex = function () {
-      var a = [];
+      var a = new Array();
       for (var i = 0; i < this.asn1Array.length; i++) {
         var asn1Obj = this.asn1Array[i];
         a.push(asn1Obj.getEncodedHex());
@@ -4834,8 +4796,10 @@ version: 2.9.0
       return this.hV;
     };
 
-    if (typeof params != 'undefined') {
-      if (typeof params.sortflag != 'undefined' && params.sortflag == false) this.sortFlag = false;
+    if (typeof params != "undefined") {
+      if (typeof params.sortflag != "undefined" &&
+        params.sortflag == false)
+        this.sortFlag = false;
     }
   };
   YAHOO.lang.extend(KJUR.asn1.DERSet, KJUR.asn1.DERAbstractStructured);
@@ -4867,7 +4831,7 @@ version: 2.9.0
    */
   KJUR.asn1.DERTaggedObject = function (params) {
     KJUR.asn1.DERTaggedObject.superclass.constructor.call(this);
-    this.hT = 'a0';
+    this.hT = "a0";
     this.hV = '';
     this.isExplicit = true;
     this.asn1Object = null;
@@ -4901,14 +4865,14 @@ version: 2.9.0
       return this.hV;
     };
 
-    if (typeof params != 'undefined') {
-      if (typeof params['tag'] != 'undefined') {
+    if (typeof params != "undefined") {
+      if (typeof params['tag'] != "undefined") {
         this.hT = params['tag'];
       }
-      if (typeof params['explicit'] != 'undefined') {
+      if (typeof params['explicit'] != "undefined") {
         this.isExplicit = params['explicit'];
       }
-      if (typeof params['obj'] != 'undefined') {
+      if (typeof params['obj'] != "undefined") {
         this.asn1Object = params['obj'];
         this.setASN1Object(this.isExplicit, this.hT, this.asn1Object);
       }
@@ -4933,12 +4897,10 @@ version: 2.9.0
       // If a key key was provided.
       if (key) {
         // If this is a string...
-        if (typeof key === 'string') {
+        if (typeof key === "string") {
           _this.parseKey(key);
-        } else if (
-          JSEncryptRSAKey.hasPrivateKeyProperty(key) ||
-          JSEncryptRSAKey.hasPublicKeyProperty(key)
-        ) {
+        } else if (JSEncryptRSAKey.hasPrivateKeyProperty(key) ||
+          JSEncryptRSAKey.hasPublicKeyProperty(key)) {
           // Set the values for the key.
           _this.parsePropertiesFrom(key);
         }
@@ -4955,19 +4917,19 @@ version: 2.9.0
      *
      * The format is defined as:
      * PublicKeyInfo ::= SEQUENCE {
-     *   algorithm       AlgorithmIdentifier,
-     *   PublicKey       BIT STRING
-     * }
+         *   algorithm       AlgorithmIdentifier,
+         *   PublicKey       BIT STRING
+         * }
      * Where AlgorithmIdentifier is:
      * AlgorithmIdentifier ::= SEQUENCE {
-     *   algorithm       OBJECT IDENTIFIER,     the OID of the enc algorithm
-     *   parameters      ANY DEFINED BY algorithm OPTIONAL (NULL for PKCS #1)
-     * }
+         *   algorithm       OBJECT IDENTIFIER,     the OID of the enc algorithm
+         *   parameters      ANY DEFINED BY algorithm OPTIONAL (NULL for PKCS #1)
+         * }
      * and PublicKey is a SEQUENCE encapsulated in a BIT STRING
      * RSAPublicKey ::= SEQUENCE {
-     *   modulus           INTEGER,  -- n
-     *   publicExponent    INTEGER   -- e
-     * }
+         *   modulus           INTEGER,  -- n
+         *   publicExponent    INTEGER   -- e
+         * }
      * it's possible to examine the structure of the keys obtained from openssl using
      * an asn.1 dumper as the one used here to parse the components: http://lapo.it/asn1js/
      * @argument {string} pem the pem encoded string, can include the BEGIN/END header/footer
@@ -5023,16 +4985,16 @@ version: 2.9.0
      *
      * The translation follow the ASN.1 notation :
      * RSAPrivateKey ::= SEQUENCE {
-     *   version           Version,
-     *   modulus           INTEGER,  -- n
-     *   publicExponent    INTEGER,  -- e
-     *   privateExponent   INTEGER,  -- d
-     *   prime1            INTEGER,  -- p
-     *   prime2            INTEGER,  -- q
-     *   exponent1         INTEGER,  -- d mod (p1)
-     *   exponent2         INTEGER,  -- d mod (q-1)
-     *   coefficient       INTEGER,  -- (inverse of q) mod p
-     * }
+         *   version           Version,
+         *   modulus           INTEGER,  -- n
+         *   publicExponent    INTEGER,  -- e
+         *   privateExponent   INTEGER,  -- d
+         *   prime1            INTEGER,  -- p
+         *   prime2            INTEGER,  -- q
+         *   exponent1         INTEGER,  -- d mod (p1)
+         *   exponent2         INTEGER,  -- d mod (q-1)
+         *   coefficient       INTEGER,  -- (inverse of q) mod p
+         * }
      * @returns {string}  DER Encoded String representing the rsa private key
      * @private
      */
@@ -5040,33 +5002,33 @@ version: 2.9.0
       var options = {
         array: [
           new KJUR.asn1.DERInteger({
-            int: 0,
+            int: 0
           }),
           new KJUR.asn1.DERInteger({
-            bigint: this.n,
+            bigint: this.n
           }),
           new KJUR.asn1.DERInteger({
-            int: this.e,
+            int: this.e
           }),
           new KJUR.asn1.DERInteger({
-            bigint: this.d,
+            bigint: this.d
           }),
           new KJUR.asn1.DERInteger({
-            bigint: this.p,
+            bigint: this.p
           }),
           new KJUR.asn1.DERInteger({
-            bigint: this.q,
+            bigint: this.q
           }),
           new KJUR.asn1.DERInteger({
-            bigint: this.dmp1,
+            bigint: this.dmp1
           }),
           new KJUR.asn1.DERInteger({
-            bigint: this.dmq1,
+            bigint: this.dmq1
           }),
           new KJUR.asn1.DERInteger({
-            bigint: this.coeff,
-          }),
-        ],
+            bigint: this.coeff
+          })
+        ]
       };
       var seq = new KJUR.asn1.DERSequence(options);
       return seq.getEncodedHex();
@@ -5083,19 +5045,19 @@ version: 2.9.0
      * Translate rsa parameters in a hex encoded string representing the rsa public key.
      * The representation follow the ASN.1 notation :
      * PublicKeyInfo ::= SEQUENCE {
-     *   algorithm       AlgorithmIdentifier,
-     *   PublicKey       BIT STRING
-     * }
+         *   algorithm       AlgorithmIdentifier,
+         *   PublicKey       BIT STRING
+         * }
      * Where AlgorithmIdentifier is:
      * AlgorithmIdentifier ::= SEQUENCE {
-     *   algorithm       OBJECT IDENTIFIER,     the OID of the enc algorithm
-     *   parameters      ANY DEFINED BY algorithm OPTIONAL (NULL for PKCS #1)
-     * }
+         *   algorithm       OBJECT IDENTIFIER,     the OID of the enc algorithm
+         *   parameters      ANY DEFINED BY algorithm OPTIONAL (NULL for PKCS #1)
+         * }
      * and PublicKey is a SEQUENCE encapsulated in a BIT STRING
      * RSAPublicKey ::= SEQUENCE {
-     *   modulus           INTEGER,  -- n
-     *   publicExponent    INTEGER   -- e
-     * }
+         *   modulus           INTEGER,  -- n
+         *   publicExponent    INTEGER   -- e
+         * }
      * @returns {string} DER Encoded String representing the rsa public key
      * @private
      */
@@ -5103,26 +5065,29 @@ version: 2.9.0
       var first_sequence = new KJUR.asn1.DERSequence({
         array: [
           new KJUR.asn1.DERObjectIdentifier({
-            oid: '1.2.840.113549.1.1.1',
+            oid: "1.2.840.113549.1.1.1"
           }),
-          new KJUR.asn1.DERNull(),
-        ],
+          new KJUR.asn1.DERNull()
+        ]
       });
       var second_sequence = new KJUR.asn1.DERSequence({
         array: [
           new KJUR.asn1.DERInteger({
-            bigint: this.n,
+            bigint: this.n
           }),
           new KJUR.asn1.DERInteger({
-            int: this.e,
-          }),
-        ],
+            int: this.e
+          })
+        ]
       });
       var bit_string = new KJUR.asn1.DERBitString({
-        hex: '00' + second_sequence.getEncodedHex(),
+        hex: "00" + second_sequence.getEncodedHex()
       });
       var seq = new KJUR.asn1.DERSequence({
-        array: [first_sequence, bit_string],
+        array: [
+          first_sequence,
+          bit_string
+        ]
       });
       return seq.getEncodedHex();
     };
@@ -5147,8 +5112,8 @@ version: 2.9.0
       if (!str) {
         return str;
       }
-      var regex = '(.{1,' + width + '})( +|$\n?)|(.{1,' + width + '})';
-      return str.match(RegExp(regex, 'g')).join('\n');
+      var regex = "(.{1," + width + "})( +|$\n?)|(.{1," + width + "})";
+      return str.match(RegExp(regex, "g")).join("\n");
     };
     /**
      * Retrieve the pem encoded private key
@@ -5156,9 +5121,9 @@ version: 2.9.0
      * @public
      */
     JSEncryptRSAKey.prototype.getPrivateKey = function () {
-      var key = '-----BEGIN RSA PRIVATE KEY-----\n';
-      key += JSEncryptRSAKey.wordwrap(this.getPrivateBaseKeyB64()) + '\n';
-      key += '-----END RSA PRIVATE KEY-----';
+      var key = "-----BEGIN RSA PRIVATE KEY-----\n";
+      key += JSEncryptRSAKey.wordwrap(this.getPrivateBaseKeyB64()) + "\n";
+      key += "-----END RSA PRIVATE KEY-----";
       return key;
     };
     /**
@@ -5167,9 +5132,9 @@ version: 2.9.0
      * @public
      */
     JSEncryptRSAKey.prototype.getPublicKey = function () {
-      var key = '-----BEGIN PUBLIC KEY-----\n';
-      key += JSEncryptRSAKey.wordwrap(this.getPublicBaseKeyB64()) + '\n';
-      key += '-----END PUBLIC KEY-----';
+      var key = "-----BEGIN PUBLIC KEY-----\n";
+      key += JSEncryptRSAKey.wordwrap(this.getPublicBaseKeyB64()) + "\n";
+      key += "-----END PUBLIC KEY-----";
       return key;
     };
     /**
@@ -5185,7 +5150,8 @@ version: 2.9.0
      */
     JSEncryptRSAKey.hasPublicKeyProperty = function (obj) {
       obj = obj || {};
-      return obj.hasOwnProperty('n') && obj.hasOwnProperty('e');
+      return (obj.hasOwnProperty("n") &&
+        obj.hasOwnProperty("e"));
     };
     /**
      * Check if the object contains ALL the parameters of an RSA key.
@@ -5198,16 +5164,14 @@ version: 2.9.0
      */
     JSEncryptRSAKey.hasPrivateKeyProperty = function (obj) {
       obj = obj || {};
-      return (
-        obj.hasOwnProperty('n') &&
-        obj.hasOwnProperty('e') &&
-        obj.hasOwnProperty('d') &&
-        obj.hasOwnProperty('p') &&
-        obj.hasOwnProperty('q') &&
-        obj.hasOwnProperty('dmp1') &&
-        obj.hasOwnProperty('dmq1') &&
-        obj.hasOwnProperty('coeff')
-      );
+      return (obj.hasOwnProperty("n") &&
+        obj.hasOwnProperty("e") &&
+        obj.hasOwnProperty("d") &&
+        obj.hasOwnProperty("p") &&
+        obj.hasOwnProperty("q") &&
+        obj.hasOwnProperty("dmp1") &&
+        obj.hasOwnProperty("dmq1") &&
+        obj.hasOwnProperty("coeff"));
     };
     /**
      * Parse the properties of obj in the current rsa object. Obj should AT LEAST
@@ -5218,7 +5182,7 @@ version: 2.9.0
     JSEncryptRSAKey.prototype.parsePropertiesFrom = function (obj) {
       this.n = obj.n;
       this.e = obj.e;
-      if (obj.hasOwnProperty('d')) {
+      if (obj.hasOwnProperty("d")) {
         this.d = obj.d;
         this.p = obj.p;
         this.q = obj.q;
@@ -5228,7 +5192,7 @@ version: 2.9.0
       }
     };
     return JSEncryptRSAKey;
-  })(RSAKey);
+  }(RSAKey));
 
   /**
    *
@@ -5243,11 +5207,10 @@ version: 2.9.0
     function JSEncrypt(options) {
       options = options || {};
       this.default_key_size = parseInt(options.default_key_size, 10) || 1024;
-      this.default_public_exponent = options.default_public_exponent || '010001'; // 65537 default openssl public exponent for rsa key type
+      this.default_public_exponent = options.default_public_exponent || "010001"; // 65537 default openssl public exponent for rsa key type
       this.log = options.log || false;
       // The private and public key.
-      // this.key = null;
-      this.key = new JSEncryptRSAKey(publicKey);
+      this.key = null;
     }
     /**
      * Method to set the rsa key parameter (one method is enough to set both the public
@@ -5258,7 +5221,7 @@ version: 2.9.0
      */
     JSEncrypt.prototype.setKey = function (key) {
       if (this.log && this.key) {
-        console.warn('A key was already set, overriding existing.');
+        console.warn("A key was already set, overriding existing.");
       }
       this.key = new JSEncryptRSAKey(key);
     };
@@ -5357,7 +5320,7 @@ version: 2.9.0
       if (!this.key) {
         // Get a new private key.
         this.key = new JSEncryptRSAKey();
-        if (cb && {}.toString.call(cb) === '[object Function]') {
+        if (cb && {}.toString.call(cb) === "[object Function]") {
           this.key.generateAsync(this.default_key_size, this.default_public_exponent, cb);
           return;
         }
@@ -5406,22 +5369,22 @@ version: 2.9.0
       // Return the private representation of this key.
       return this.getKey().getPublicBaseKeyB64();
     };
-    JSEncrypt.version = '3.0.0-rc.1';
+    JSEncrypt.version = "3.0.0-rc.1";
     return JSEncrypt;
   })();
 
   window.JSEncrypt = JSEncrypt;
 
-  // exports.JSEncrypt = JSEncrypt;
-  // exports.default = JSEncrypt;
+    // exports.JSEncrypt = JSEncrypt;
+    // exports.default = JSEncrypt;
 
-  //  Object.defineProperty(exports, '__esModule', {
-  //    value: true,
-  //  });
+    //  Object.defineProperty(exports, '__esModule', {
+    //    value: true,
+    //  });
 
-  // console.log(new JSEncrypt());
-  // console.log(new JSEncryptRSAKey(publicKey));
-  var message = RSAKey.prototype.encrypt(ppp);
+    // console.log(new JSEncrypt());
+    // console.log(new JSEncryptRSAKey(publicKey));
+    var message = RSAKey.prototype.encrypt(ppp);
 
-  return hex2b64(message);
+    return hex2b64(message);
 }

@@ -771,7 +771,7 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
                     throw new ValidateException("attach不合法，请检验入参");
                 } else {
                     String orderId = orderCreateParam.getP_order_id();
-                    if (orderId != null && orderId.length() <= 32 && orderId.length() >= 16) {
+                    if (orderId != null && orderId.length() <= 32 && orderId.length() >= 12) {
                         PayOrder poDB = pOrderMapper.getPOrderByOid(orderId);
                         if (poDB != null) {
                             throw new DuplicateKeyException("该订单已创建，请勿重复操作，order id: " + orderId);
@@ -1696,7 +1696,7 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
                         .form("lot_number", secCode.getLot_number())
                         .form("pass_token", secCode.getPass_token())
                         .form("gen_time", secCode.getGen_time())
-                        .form("captcha_output", secCode.getCaptcha_output())
+                        .form("captcha_output", URLEncoder.encode(secCode.getCaptcha_output(), "UTF-8"))
                         .form("password", encode)
 //                                .form("callback", "jsonp_ef2891abd4b000")
                         .form("callback", "jsonp_" + RandomUtil.randomNumbers(14))
@@ -1772,10 +1772,16 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
                 String jsonResp = Gee4Service.parseGeeJson(resp.body());
 //                log.info(JSONObject.toJSONString(resp.headers()));
 //                log.info(JSONObject.toJSONString(resp.body()));
-                cookie = resp.headerList("Set-Cookie").get(0);
+                List<String> ckList = resp.headerList("Set-Cookie");
+                for (String ckTarget : ckList) {
+                    if (ckTarget.contains("xoyokey")) {
+                        cookie = ckTarget;
+                    }
+                }
 
                 JSONObject obj = JSONObject.parseObject(jsonResp);
                 log.info("login 取出ck ---- obj: {}", obj);
+                log.info("login 取出ck ---- ck: {}", cookie);
 //                System.out.println(obj);
 //                System.out.println(data);
             }

@@ -42,13 +42,20 @@ import java.util.regex.Pattern;
  */
 public class ScriptEngineTest {
     public static void main(String[] args) throws Exception {
-//        String ck = "xoyokey_=NHw%2Fwmy-%26q-Ds%3D%2F7u%2Ff77o_o7%26%26EyS11g5%3D%2Fw7%2Fjuw%26%26-yg%3D%2F7ufo%26yS1%3D%2F%2Fum.m7u_%26Sq%3DmjjoougE_-.5jGDfE7_q7%2F%26uoE7u.75j%2F%26-_q4%3D%26%218m";
-//        jx_ht(ck);
-//        jd_h5();
-//        HttpResponse execute = HttpRequest.post("https://wepay.jd.com/jdpay/payIndex?tradeNum=10016819598538488821&orderId=202304201104142018310975998184&key=2d152b72bc98b1739389182db9830ad89a11fd273122bba75c955472535b85646e438a9a82795ce298d0d23ba1b92e5e3962822ef0fec11fda7a7b97f3dcc0ac")
-        HttpResponse execute = HttpRequest.post("https://wepay.jd.com/jdpay/login?key=10016819598538488821_202304201104142018310975998184")
-                .execute();
-        System.out.println(execute);
+//        String ck = "xoyokey=DdG6mzDsGH3gkZ%3D%26%26NkcjaQ%3D%26%26c8_au%3D%26%26jrW%3DGm1GHmm3sm%26_n8c6sGg%26%26u7_cGmGmm%26naG.1Hg1zD%26p%3Dma%3D3rG.sa%261m3ojkHozs.%26onujsG3Hm8%3Dua%26_63DGG3jHN%3D; expires=Mon, 08-May-2023 12:07:38 GMT; path=/; domain=.xoyo.com; httponly";
+//
+//
+////        jx_ht(ck);
+////        jd_h5();
+////        HttpResponse execute = HttpRequest.post("https://wepay.jd.com/jdpay/payIndex?tradeNum=10016819598538488821&orderId=202304201104142018310975998184&key=2d152b72bc98b1739389182db9830ad89a11fd273122bba75c955472535b85646e438a9a82795ce298d0d23ba1b92e5e3962822ef0fec11fda7a7b97f3dcc0ac")
+////        HttpResponse execute = HttpRequest.post("https://wepay.jd.com/jdpay/login?key=10016819598538488821_202304201104142018310975998184")
+////                .execute();
+//
+//        String resp = HttpRequest.get("https://pf-api.xoyo.com/passport/user_api/get_info")
+//                .cookie(ck)
+//                .execute().body();
+//        System.out.println(resp);
+        test5();
     }
 
     private static void jd_h5() {
@@ -480,22 +487,27 @@ public class ScriptEngineTest {
                 String encode = URLEncoder.encode(payload, "UTF-8");
                 System.out.println("pwd = " + encode);
 
+                String output = "aAUwkM5lynrJX5PBGNYPjTvyf_A3p_uxHrlc1B12sWnqTNb9SB6oRBAAk_GAAmjMNRV3Zhk5bgr5xCprg47rKBsI9I9OJiOk5WQzBikSchQvjim9bt7h_mO5erpZj7sDedF0N2DK4ME_mGMrx_eyZd46De_X4tSQPuJjyTDQGPt2uJNvr7S7HYRAQq462WgOHZwngZHl707pJ0TMX0RLc9vJMBRmCe-NNnmknTvqVyhjlnNZw81tbGTmJpd3BTEqd-t94PyF-sFtpL47pULctqQLEDz2u4tjBy40yg601J0=";
+                String captcha_output = URLEncoder.encode(output, "UTF-8");
+
                 HttpResponse resp = HttpRequest.get("https://pf-api.xoyo.com/passport/common_api/login")
                         .form("account", "18210889498")
                         .form("encrypt_method", "rsa")
                         .form("captcha_id", "a7c9ab026dc4366066e4aaad573dce02")
-                        .form("lot_number", "a3731d67d8c9459ab05114e195ec8b6d")
-                        .form("pass_token", "d6d7a94f1fdf1edaeabac9c9f34b2963a6c67b31ba3517dba9ac33788cb157b0")
-                        .form("gen_time", "1676726917")
-                        .form("captcha_output", "662a-teKeUpl5FxeT6YiiSbVmvtYPCxaHv_f8xvivNeivBvOUS5AiH1KD9M__RiIiXOdQ60fi7U3CFngJzHoAnyFbzhWYZE5LULy3LIskypH1aaGHLRuaLm-6U9eyiNt14Nnv0YzI9AMn9yvORwWNtyZpK_igE-ckrSOoCCaiheTb0xNm0TOu_rwRrxY6XgpCG9ryAwx4XB5Mn-NSRMm0o5uaXvzPOtDFhaOAXXmj_KHfQaId-aY2DEPEV4i7l2KNRrJjoaCFC646MykNSrCEg==")
+                        .form("lot_number", "98ead2fcd6cb463b9c27ecd111c55b91")
+                        .form("pass_token", "c5e635d58f5d8e8f6c4e93c5488e898a59d461a342e4553214bacf3d7176d3ce")
+                        .form("gen_time", "1687955434")
+                        .form("captcha_output", captcha_output)
                         .form("password", encode)
                         .form("callback", "jsonp_ef2891abd4b000")
                         .execute();
 
-                JSONObject obj = JSONObject.parseObject(resp.body());
-                JSONObject data = obj.getJSONObject("data");
-                System.out.println(obj);
-                System.out.println(data);
+                System.out.println(resp.body());
+
+//                JSONObject obj = JSONObject.parseObject(resp.body());
+//                JSONObject data = obj.getJSONObject("data");
+//                System.out.println(obj);
+//                System.out.println(data);
             }
         } catch (ScriptException e) {
             e.printStackTrace();
