@@ -43,7 +43,7 @@ public class ChannelController {
     }
 
     @PostMapping("/channel/CAccount")
-    public ResponseEntity<Result<Integer>> createSub(@RequestBody CAccountParam caParam) {
+    public ResponseEntity<Result<Integer>> createChannelAccount(@RequestBody CAccountParam caParam) {
         int rl = channelService.createChannelAccount(caParam);
         return Result.ok(rl);
     }

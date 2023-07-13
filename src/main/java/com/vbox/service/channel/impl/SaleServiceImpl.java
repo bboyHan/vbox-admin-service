@@ -4,15 +4,18 @@ import cn.hutool.core.codec.Base32;
 import cn.hutool.core.codec.Base64;
 import cn.hutool.core.util.DesensitizedUtil;
 import cn.hutool.crypto.SecureUtil;
+import cn.hutool.crypto.digest.MD5;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.vbox.common.ResultOfList;
 import com.vbox.common.enums.LoginEnum;
 import com.vbox.common.util.RandomNameUtil;
+import com.vbox.config.exception.ServiceException;
 import com.vbox.config.local.TokenInfoThreadHolder;
 import com.vbox.persistent.entity.*;
 import com.vbox.persistent.pojo.dto.CGatewayInfo;
 import com.vbox.persistent.pojo.param.UserSubCreateOrUpdParam;
 import com.vbox.persistent.pojo.vo.CAccountVO;
+import com.vbox.persistent.pojo.vo.MngSaleVO;
 import com.vbox.persistent.pojo.vo.SaleVO;
 import com.vbox.persistent.pojo.vo.TotalVO;
 import com.vbox.persistent.repo.*;
@@ -21,6 +24,7 @@ import com.vbox.service.system.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
 import java.security.KeyPair;
 import java.time.LocalDateTime;
 import java.util.*;
@@ -55,6 +59,8 @@ public class SaleServiceImpl implements SaleService {
     private CGatewayMapper cGatewayMapper;
     @Autowired
     private VboxUserWalletMapper vboxUserWalletMapper;
+    @Autowired
+    private POrderMapper pOrderMapper;
 
     @Override
     public TotalVO totalOverView() {
@@ -77,8 +83,6 @@ public class SaleServiceImpl implements SaleService {
         }
     }
 
-    @Autowired
-    private POrderMapper pOrderMapper;
 
     @Override
     public ResultOfList listSaleCAOverviewToday() {
@@ -99,17 +103,107 @@ public class SaleServiceImpl implements SaleService {
     }
 
     @Override
+    public MngSaleVO getMngSaleRecharge() {
+        Integer uid = TokenInfoThreadHolder.getToken().getId();
+//        List<Integer> sidList = usMapper.listSidByUid(uid);
+
+        //自己的消费
+        Integer selfCost = vboxUserWalletMapper.getTotalCostByUid(uid);
+        //自己的充值
+        Integer selfRecharge = vboxUserWalletMapper.getTotalRechargeByUid(uid);
+
+//        //所有子账户的消费
+//        Integer subUserCost = 0;
+//        //所有子账户的充值
+//        Integer subRecharge = 0;
+//
+//        for (Integer sid : sidList) {
+//            subUserCost += vboxUserWalletMapper.getTotalCostByUid(sid);
+//            subRecharge += vboxUserWalletMapper.getTotalRechargeByUid(sid);
+//        }
+
+        //自己的余额
+        Integer balance = selfRecharge - selfCost;
+
+        MngSaleVO mngSaleVO = new MngSaleVO();
+        mngSaleVO.setAccount(TokenInfoThreadHolder.getToken().getUsername());
+        mngSaleVO.setBalance(balance);
+        return mngSaleVO;
+    }
+
+    @Override
+    public int mngSaleTransferSub(Integer recharge) {
+        Integer uid = TokenInfoThreadHolder.getToken().getId();
+        //自己的消费
+        Integer selfCost = vboxUserWalletMapper.getTotalCostByUid(uid);
+        //自己的充值
+        Integer selfRecharge = vboxUserWalletMapper.getTotalRechargeByUid(uid);
+
+
+        return 0;
+    }
+
+    @Override
+    public Object addSaleRecharge(Integer sid, Integer recharge) {
+        Integer uid = TokenInfoThreadHolder.getToken().getId();
+        User subUser = userMapper.selectById(sid);
+        String username = TokenInfoThreadHolder.getToken().getUsername();
+        //自己的消费
+        Integer selfCost = vboxUserWalletMapper.getTotalCostByUid(uid);
+        //自己的充值
+        Integer selfRecharge = vboxUserWalletMapper.getTotalRechargeByUid(uid);
+
+        selfCost = selfCost == null ? 0 : selfCost;
+        selfRecharge = selfRecharge == null ? 0 : selfRecharge;
+        int balance = selfRecharge - selfCost;
+        if (balance < 100) {
+            throw new ServiceException("积分余额不足100，不允许分配");
+        }
+        if (recharge % 100 !=0) {
+            throw new ServiceException("分配积分为100的倍数，不允许其它数额");
+        }
+        if (balance < recharge) {
+            throw new ServiceException("分配积分小于当前余额，不得分配");
+        }
+        List<Integer> sidList = usMapper.listSidByUid(uid);
+        if (!sidList.contains(sid)) {
+            throw new ServiceException("当前核销归属权限有误，请核对");
+        }
+
+        VboxUserWallet vwCost = new VboxUserWallet();
+        LocalDateTime now = LocalDateTime.now();
+        vwCost.setUid(uid);
+        vwCost.setAccount(username);
+        vwCost.setRecharge(-recharge);
+        vwCost.setTariff(new BigDecimal(1));
+        vwCost.setCreateTime(now);
+        vwCost.setRemark("划转至" + subUser.getAccount() + ", 积分：" + recharge);
+
+        VboxUserWallet vwAdd = new VboxUserWallet();
+        vwAdd.setUid(sid);
+        vwAdd.setAccount(subUser.getAccount());
+        vwAdd.setRecharge(recharge);
+        vwAdd.setTariff(new BigDecimal(1));
+        vwAdd.setCreateTime(now);
+
+        int rowCost = vboxUserWalletMapper.insert(vwCost);
+        int rowAdd = vboxUserWalletMapper.insert(vwAdd);
+
+        return rowCost + rowAdd;
+    }
+
+    @Override
     public List<SaleVO> listSaleOverView() {
         Integer uid = TokenInfoThreadHolder.getToken().getId();
-        List<Integer> sidList = this.usMapper.listSidByUid(uid);
+        List<Integer> sidList = usMapper.listSidByUid(uid);
         if (sidList != null && sidList.size() != 0) {
-            List<User> userList = this.userMapper.selectBatchIds(sidList);
+            List<User> userList = userMapper.selectBatchIds(sidList);
             List<SaleVO> saleVOList = new ArrayList<>();
 
             for (User user : userList) {
                 Integer sid = user.getId();
-                Integer totalCost = this.vboxUserWalletMapper.getTotalCostByUid(sid);
-                Integer totalCostNum = this.vboxUserWalletMapper.getTotalCostNumByUid(sid);
+                Integer totalCost = vboxUserWalletMapper.getTotalCostByUid(sid);
+                Integer totalCostNum = vboxUserWalletMapper.getTotalCostNumByUid(sid);
                 Integer totalProdOrderNum = this.vboxUserWalletMapper.getTotalProdOrderNum(sid);
 
                 Integer todayProdOrderNum = this.vboxUserWalletMapper.getTodayProdOrderNum(sid);
@@ -156,58 +250,79 @@ public class SaleServiceImpl implements SaleService {
     @Override
     public List<SaleVO> listSaleInfo() {
         Integer uid = TokenInfoThreadHolder.getToken().getId();
-        List<Integer> sidList = this.usMapper.listSidByUid(uid);
+        List<Integer> sidList = usMapper.listSidByUid(uid);
         sidList.add(uid);
-        if (sidList != null && sidList.size() != 0) {
-            List<User> userList = this.userMapper.selectBatchIds(sidList);
-            List<SaleVO> saleVOList = new ArrayList<>();
+        List<User> userList = userMapper.selectBatchIds(sidList);
+        List<SaleVO> saleVOList = new ArrayList<>();
 
-            for (User user : userList) {
-                Integer sid = user.getId();
-                Integer totalCost = this.vboxUserWalletMapper.getTotalCostByUid(sid);
-                Integer totalCostNum = this.vboxUserWalletMapper.getTotalCostNumByUid(sid);
-                Integer totalProdOrderNum = this.vboxUserWalletMapper.getTotalProdOrderNum(sid);
+        for (User user : userList) {
+            Integer sid = user.getId();
+            Integer totalCost = this.vboxUserWalletMapper.getTotalCostByUid(sid);
+            Integer totalCostNum = this.vboxUserWalletMapper.getTotalCostNumByUid(sid);
+            Integer totalProdOrderNum = this.vboxUserWalletMapper.getTotalProdOrderNum(sid);
 
-                Integer todayProdOrderNum = this.vboxUserWalletMapper.getTodayProdOrderNum(sid);
-                Integer todayOrderNum = this.vboxUserWalletMapper.getTodayOrderNum(sid);
-                Integer todayOrderSum = this.vboxUserWalletMapper.getTodayOrderSum(sid);
+            Integer todayProdOrderNum = this.vboxUserWalletMapper.getTodayProdOrderNum(sid);
+            Integer todayOrderNum = this.vboxUserWalletMapper.getTodayOrderNum(sid);
+            Integer todayOrderSum = this.vboxUserWalletMapper.getTodayOrderSum(sid);
 
-                Integer yesterdayProdNum = this.vboxUserWalletMapper.getYesterdayProdOrderNum(sid);
-                Integer yesterdayNum = this.vboxUserWalletMapper.getYesterdayOrderNum(sid);
-                Integer yesterdayOrderSum = this.vboxUserWalletMapper.getYesterdayOrderSum(sid);
+            Integer yesterdayProdNum = this.vboxUserWalletMapper.getYesterdayProdOrderNum(sid);
+            Integer yesterdayNum = this.vboxUserWalletMapper.getYesterdayOrderNum(sid);
+            Integer yesterdayOrderSum = this.vboxUserWalletMapper.getYesterdayOrderSum(sid);
 
-                Integer countCA = this.cAccountMapper.countByUid(sid);
-                Integer countEnableCA = this.cAccountMapper.countACEnableByUid(sid);
-                Integer totalRecharge = this.vboxUserWalletMapper.getTotalRechargeByUid(sid);
-                SaleVO saleVO = new SaleVO();
-                saleVO.setId(sid);
-                saleVO.setAccount(user.getAccount());
-                saleVO.setNickname(user.getNickname());
-                totalCost = totalCost == null ? 0 : totalCost;
-                totalRecharge = totalRecharge == null ? 0 : totalRecharge;
+            Integer countCA = this.cAccountMapper.countByUid(sid);
+            Integer countEnableCA = this.cAccountMapper.countACEnableByUid(sid);
+            Integer totalRecharge = this.vboxUserWalletMapper.getTotalRechargeByUid(sid);
+            SaleVO saleVO = new SaleVO();
+            saleVO.setId(sid);
+            saleVO.setAccount(user.getAccount());
+            saleVO.setNickname(user.getNickname());
+            totalCost = totalCost == null ? 0 : totalCost;
+            totalRecharge = totalRecharge == null ? 0 : totalRecharge;
 
-                saleVO.setTotalCost(totalCost);
-                saleVO.setTotalCostNum(totalCostNum == null ? 0 : totalCostNum);
-                saleVO.setTotalNum(totalProdOrderNum == null ? 0 : totalProdOrderNum);
+            saleVO.setTotalCost(totalCost);
+            saleVO.setTotalCostNum(totalCostNum == null ? 0 : totalCostNum);
+            saleVO.setTotalNum(totalProdOrderNum == null ? 0 : totalProdOrderNum);
 
-                saleVO.setTodayProdOrderNum(todayProdOrderNum == null ? 0 : todayProdOrderNum);
-                saleVO.setTodayOrderNum(todayOrderNum == null ? 0 : todayOrderNum);
-                saleVO.setTodayOrderSum(todayOrderSum == null ? 0 : todayOrderSum);
+            saleVO.setTodayProdOrderNum(todayProdOrderNum == null ? 0 : todayProdOrderNum);
+            saleVO.setTodayOrderNum(todayOrderNum == null ? 0 : todayOrderNum);
+            saleVO.setTodayOrderSum(todayOrderSum == null ? 0 : todayOrderSum);
 
-                saleVO.setYesterdayProdOrderNum(yesterdayProdNum == null ? 0 : yesterdayProdNum);
-                saleVO.setYesterdayOrderNum(yesterdayNum == null ? 0 : yesterdayNum);
-                saleVO.setYesterdayOrderSum(yesterdayOrderSum == null ? 0 : yesterdayOrderSum);
+            saleVO.setYesterdayProdOrderNum(yesterdayProdNum == null ? 0 : yesterdayProdNum);
+            saleVO.setYesterdayOrderNum(yesterdayNum == null ? 0 : yesterdayNum);
+            saleVO.setYesterdayOrderSum(yesterdayOrderSum == null ? 0 : yesterdayOrderSum);
 
-                saleVO.setCountCA(countCA);
-                saleVO.setCountEnableCA(countEnableCA);
-                saleVO.setBalance(totalRecharge - totalCost);
-                saleVOList.add(saleVO);
-            }
-
-            return saleVOList;
-        } else {
-            return new ArrayList<>();
+            saleVO.setCountCA(countCA);
+            saleVO.setCountEnableCA(countEnableCA);
+            saleVO.setBalance(totalRecharge - totalCost);
+            saleVOList.add(saleVO);
         }
+
+        return saleVOList;
+    }
+
+    @Override
+    public List<User> listSaleUser() {
+        Integer uid = TokenInfoThreadHolder.getToken().getId();
+        List<Integer> sidList = usMapper.listSidByUid(uid);
+//        sidList.add(uid);
+        List<User> userList = userMapper.selectBatchIds(sidList);
+        return userList;
+    }
+
+    @Override
+    public ResultOfList listSaleRecharge(Integer page, Integer pageSize) {
+        pageSize = pageSize == null ? 20 : pageSize;
+        page = page == null ? 0 : (page - 1) * pageSize;
+        Integer uid = TokenInfoThreadHolder.getToken().getId();
+        List<Integer> sidList = usMapper.listSidByUid(uid);
+        sidList.add(uid);
+//        List<User> userList = userMapper.selectBatchIds(sidList);
+
+        List<VboxUserWallet> listSubUserWallet = vboxUserWalletMapper.listSubUserWallet(sidList, page, pageSize);
+        Integer count = vboxUserWalletMapper.countSubUserWallet(sidList);
+
+        ResultOfList rs = new ResultOfList<>(listSubUserWallet, count);
+        return rs;
     }
 
     @Override
@@ -224,7 +339,10 @@ public class SaleServiceImpl implements SaleService {
 
         pageSize = pageSize == null ? 20 : pageSize;
         page = page == null ? 0 : (page - 1) * pageSize;
-        List<CAccount> caList = cAccountMapper.listACInUids(sidList, acRemark, status, page, pageSize);
+        List<CAccount> caList;
+        if (sidList == null || sidList.isEmpty()) caList = new ArrayList<>();
+        else caList = cAccountMapper.listACInUids(sidList, acRemark, status, page, pageSize);
+
         Integer count = cAccountMapper.countACInUids(sidList, status, page, pageSize);
         List<CAccountVO> acVOList = new ArrayList<>();
         for (CAccount ca : caList) {
@@ -265,9 +383,20 @@ public class SaleServiceImpl implements SaleService {
 
         //check account
         String account = param.getAccount();
-        if (null == account) throw new Exception("account is null!");
+        if (null == account) throw new ServiceException("account is null!");
         Integer exist = userMapper.isExistAccount(account);
-        if (null != exist) throw new Exception("user is exist!");
+        if (null != exist && exist != 0) throw new ServiceException("用户已存在!");
+        List<Integer> subList = usMapper.listSidByUid(TokenInfoThreadHolder.getToken().getId());
+        if (subList.size() > 10) {
+            throw new ServiceException("子账号超出上限");
+        }
+        Set<String> roleValues = roleMapper.listRoleValueByUid(TokenInfoThreadHolder.getToken().getId());
+        if (!roleValues.contains("mng_sale")) {
+            throw new ServiceException("当前账号无操作权限");
+        }
+        if (null != param.getPass() && param.getPass().length() < 6) {
+            throw new ServiceException("密码设置长度为6-20位之间");
+        }
 
         // user
         user.setAccount(account);
@@ -292,7 +421,7 @@ public class SaleServiceImpl implements SaleService {
         userLogin.setUid(user.getId());
         userLogin.setUsername(user.getAccount());
         userLogin.setCaptcha(param.getPass() != null
-                ? Base32.encode(param.getPass()) : Base32.encode("123456"));
+                ? MD5.create().digestHex(param.getPass()) : MD5.create().digestHex("123456"));
         userLogin.setLoginType(LoginEnum.ACCOUNT.getType());
         userLogin.setCreateTime(LocalDateTime.now());
         userLogin.setRemark("账户登陆");
@@ -310,7 +439,7 @@ public class SaleServiceImpl implements SaleService {
         RelationUserRole ur = new RelationUserRole();
         ur.setUid(user.getId());
         // 直接设置为 子核销角色
-        Role role = roleMapper.selectOne(new QueryWrapper<Role>().eq("role_value", "sub_sale"));
+        Role role = roleMapper.selectOne(new QueryWrapper<Role>().eq("role_value", "sale"));
         ur.setRid(role.getId());
         urMapper.insert(ur);
 

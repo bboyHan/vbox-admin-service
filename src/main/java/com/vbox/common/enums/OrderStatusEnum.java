@@ -7,7 +7,7 @@ public enum OrderStatusEnum {
     PAY_TIMEOUT(3, "支付超时"),
     NO_PAY(2, "未支付"),
     PAY_CREATING(4, "待进单"),
-    PAY_CREATING_ERROR(5, "创建中"),
+    PAY_CREATING_ERROR(5, "订单异常"),
     PAY_FINISHED(1, "已支付"),
     PAY_FAILED(0, "支付失败"),
     ;

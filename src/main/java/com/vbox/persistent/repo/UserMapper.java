@@ -16,7 +16,7 @@ public interface UserMapper extends BaseMapper<User> {
             " LEFT JOIN sys_role r ON ur.rid = r.id")
     List<JoinUserRole> listUser();
 
-    @Select("SELECT 1 FROM sys_user WHERE account=#{account} LIMIT 1")
+    @Select("SELECT COUNT(1) FROM sys_user WHERE account=#{account} LIMIT 1")
     Integer isExistAccount(String account);
 
     @Select("SELECT u.*,r.id rid, r.role_name, r.role_value FROM sys_user u" +

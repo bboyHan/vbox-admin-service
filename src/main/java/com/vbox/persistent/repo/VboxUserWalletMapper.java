@@ -79,4 +79,30 @@ public interface VboxUserWalletMapper extends BaseMapper<VboxUserWallet> {
     Integer getHourOrderSum(Integer uid);
 
 
+    /*
+     * ==========================================
+     */
+    @Select("<script>" +
+            "SELECT *  FROM vbox_user_wallet WHERE 1=1" +
+            "<if test='sidList != null and sidList.size()!=0 '>" +
+            " AND uid IN " +
+            "<foreach item='item' index='index' collection='sidList' open='(' separator=',' close=')'>" +
+            " #{item}" +
+            "</foreach>" +
+            "</if>" +
+            " order by id desc limit #{page}, #{pageSize}" +
+            "</script>")
+    List<VboxUserWallet> listSubUserWallet(List<Integer> sidList, Integer page, Integer pageSize);
+
+    @Select("<script>" +
+            "SELECT count(1) FROM vbox_user_wallet WHERE 1=1" +
+            "<if test='sidList != null and sidList.size()!=0 '>" +
+            " AND uid IN " +
+            "<foreach item='item' index='index' collection='sidList' open='(' separator=',' close=')'>" +
+            " #{item}" +
+            "</foreach>" +
+            "</if>" +
+            "</script>")
+    Integer countSubUserWallet(List<Integer> sidList);
+
 }

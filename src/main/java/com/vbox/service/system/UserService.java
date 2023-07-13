@@ -17,8 +17,6 @@ public interface UserService extends IService<User> {
 
     int createOrUpdUser(UserCreateOrUpdParam userCreateOrUpdParam) throws Exception;
 
-//    int createSubAccount(UserSubCreateOrUpdParam createSubParam) throws Exception;
-
     int deleteUser(Integer id) throws Exception;
 
     Boolean isAccountExist(String account);

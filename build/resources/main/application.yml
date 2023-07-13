@@ -26,7 +26,7 @@ spring:
 
   redis:
     # 正式
-    host: 39.98.203.241
+    host: 62.234.218.227
 #    host: 127.0.0.1
     port: 6379
     password: Vbox123qwe

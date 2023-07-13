@@ -27,7 +27,7 @@ public class GlobalExceptionAdvice {
     @ExceptionHandler(value = ValidateException.class)
     @ResponseBody
     public ResponseEntity<Result<String>> handleValidateEx(HttpServletRequest req, ValidateException e) {
-        log.error(req.getRequestURI(), e);
+        log.error(req.getRequestURI(), e.getMessage());
         return Result.unauthorized(Result.wrap(e.getMessage(), ResultEnum.UNAUTHORIZED));
     }
 
@@ -47,16 +47,16 @@ public class GlobalExceptionAdvice {
 
     @ExceptionHandler(value = ServiceException.class)
     @ResponseBody
-    public ResponseEntity<Result<String>> handleServiceEx(HttpServletRequest req, NotFoundException e) {
+    public ResponseEntity<Result<String>> handleServiceEx(HttpServletRequest req, ServiceException e) {
         log.error(req.getRequestURI(), e);
-        return Result.notFound(Result.wrap(e.getMessage(), ResultEnum.SERVICE_ERROR));
+        return Result.error(Result.wrap(e.getMessage(), ResultEnum.SERVICE_ERROR));
     }
 
     @ExceptionHandler(value = IORuntimeException.class)
     @ResponseBody
     public ResponseEntity<Result<String>> handleIORuntimeEx(HttpServletRequest req, IORuntimeException e) {
         log.error(req.getRequestURI(), e);
-        return Result.notFound(Result.wrap(e.getMessage(), ResultEnum.SERVICE_ERROR));
+        return Result.error(Result.wrap(e.getMessage(), ResultEnum.SERVICE_ERROR));
     }
 
     @ExceptionHandler(value = DuplicateKeyException.class)

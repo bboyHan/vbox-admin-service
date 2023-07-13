@@ -88,98 +88,63 @@ public class OrderCreateTTask {
 //    @Scheduled(cron = "0/2 * * * * ? ")  //每 2s
     @Async("scheduleExecutor")
     public void handleCapPool() throws Exception {
-//        Object ele = redisUtil.rPop(CommonConstant.CHANNEL_ACCOUNT_QUEUE + 1);
-//        CAccount c;
-//        if (ele == null) {
-//            List<CAccount> randomTempList = cAccountMapper.selectList(new QueryWrapper<CAccount>()
-//                    .eq("status", 1)
-//                    .eq("sys_status", 1)
-//                    .eq("cid", 1)  // 1 - jd  2 - wx   3 - ali
-//            );
-//            for (CAccount cAccount : randomTempList) {
-//                redisUtil.lPush(CommonConstant.CHANNEL_ACCOUNT_QUEUE + 1, cAccount);
-//            }
-//            int randomIndex = RandomUtil.randomInt(randomTempList.size());
-//            c = randomTempList.get(randomIndex);
-//        } else {
-//            String text = ele.toString();
-//            try {
-//                c = JSONObject.parseObject(text, CAccount.class);
-//            } catch (Exception e) {
-//                log.error("CAccount queue解析异常, text: {}", text);
-//                return;
-//            }
-//        }
-//
-//        CGatewayInfo cgi = cGatewayMapper.getGateWayInfoByCIdAndGId(c.getCid(), c.getGid());
-
-//        PayInfo payInfo = new PayInfo();
-//        payInfo.setChannel("weixin_mobile");
-//        payInfo.setRepeat_passport(c.getAcAccount());
-//        payInfo.setGame("jx3");
-//        payInfo.setGateway(cgi.getCGateway());
-//        payInfo.setRecharge_unit(10);
-//        payInfo.setRecharge_type(6);
-
-//        log.info("yn 入参：{}", payInfo);
-
         try {
             SecCode secCode = gee4Service.verifyGeeCapForQuery();
-            redisUtil.addSecCode(secCode);
+            if (secCode!= null) redisUtil.addSecCode(secCode);
+//            log.warn("sec code is null, 验证添加异常");
         } catch (NullPointerException e) {
             log.error("handleCapPool.NPE, msg :{}", e.getMessage());
         }
-//        redisUtil.lPush(CommonConstant.CHANNEL_ACCOUNT_GEE + 1, jsonObject, 30);
     }
 
-    @Scheduled(cron = "0/1 * * * * ?")   //每 2s 执行一次, 接受订单创建的队列
-    @Async("scheduleExecutor")
-    public void handleAsyncCreateOrder2() throws Exception {
-        Object ele = redisUtil.rPop(CommonConstant.ORDER_CREATE_QUEUE);
-        if (ele == null) {
-            return;
-        }
-//        Thread.sleep(200L);
-        log.info("handleAsyncCreateOrder.start");
-
-        String text = ele.toString();
-        POrderQueue po = null;
-        try {
-            po = JSONObject.parseObject(text, POrderQueue.class);
-        } catch (Exception e) {
-            log.error("pOrderQueue解析异常, text: {}", text);
-            return;
-        }
-
-        try {
-            asyncOrder(po);
-        } catch (IORuntimeException e) {
-            log.error("【任务执行】IO ex 1次 : {}", e.getMessage());
-            try {
-                asyncOrder(po);
-            } catch (IORuntimeException ex) {
-                log.error("【任务执行】IO ex 2次 : {}", e.getMessage());
-                asyncOrder(po);
-            }
-        } catch (Exception e) {
-            log.error("【任务执行】handleAsyncCreateOrder, err: ", e);
-            // 判断订单创建时间，小于2分钟的丢回队列
-//            PayOrder poDB = pOrderMapper.getPOrderByOid(po.getOrderId());
-//            LocalDateTime createTime = poDB.getCreateTime();
-//            LocalDateTime nowTime = LocalDateTime.now().plusMinutes(-2);
-//            if (nowTime.isAfter(createTime)) {
-//                log.error("【任务执行】超时2分钟直接丢弃, {}", po);
-//                pOrderMapper.updateOStatusByOidForQueue(po.getOrderId(), OrderStatusEnum.PAY_CREATING_ERROR.getCode());
-//                log.error("【任务执行】数据库置为异常单, orderId : {}", po.getOrderId());
-//            } else {
-//            boolean b = redisUtil.lPush(CommonConstant.ORDER_CREATE_QUEUE, po);
-            log.error("【任务执行】异常单，丢弃, {}", po);
+//    @Scheduled(cron = "0/1 * * * * ?")   //每 2s 执行一次, 接受订单创建的队列
+//    @Async("scheduleExecutor")
+//    public void handleAsyncCreateOrder2() throws Exception {
+//        Object ele = redisUtil.rPop(CommonConstant.ORDER_CREATE_QUEUE);
+//        if (ele == null) {
+//            return;
+//        }
+////        Thread.sleep(200L);
+//        log.info("handleAsyncCreateOrder.start");
+//
+//        String text = ele.toString();
+//        POrderQueue po = null;
+//        try {
+//            po = JSONObject.parseObject(text, POrderQueue.class);
+//        } catch (Exception e) {
+//            log.error("pOrderQueue解析异常, text: {}", text);
+//            return;
+//        }
+//
+//        try {
+//            asyncOrder(po);
+//        } catch (IORuntimeException e) {
+//            log.error("【任务执行】IO ex 1次 : {}", e.getMessage());
+//            try {
+//                asyncOrder(po);
+//            } catch (IORuntimeException ex) {
+//                log.error("【任务执行】IO ex 2次 : {}", e.getMessage());
+//                asyncOrder(po);
 //            }
-        } finally {
-            ProxyInfoThreadHolder.remove();
-        }
-        log.info("handleAsyncCreateOrder.end");
-    }
+//        } catch (Exception e) {
+//            log.error("【任务执行】handleAsyncCreateOrder, err: ", e);
+//            // 判断订单创建时间，小于2分钟的丢回队列
+////            PayOrder poDB = pOrderMapper.getPOrderByOid(po.getOrderId());
+////            LocalDateTime createTime = poDB.getCreateTime();
+////            LocalDateTime nowTime = LocalDateTime.now().plusMinutes(-2);
+////            if (nowTime.isAfter(createTime)) {
+////                log.error("【任务执行】超时2分钟直接丢弃, {}", po);
+////                pOrderMapper.updateOStatusByOidForQueue(po.getOrderId(), OrderStatusEnum.PAY_CREATING_ERROR.getCode());
+////                log.error("【任务执行】数据库置为异常单, orderId : {}", po.getOrderId());
+////            } else {
+////            boolean b = redisUtil.lPush(CommonConstant.ORDER_CREATE_QUEUE, po);
+//            log.error("【任务执行】异常单，丢弃, {}", po);
+////            }
+//        } finally {
+//            ProxyInfoThreadHolder.remove();
+//        }
+//        log.info("handleAsyncCreateOrder.end");
+//    }
 
     @Scheduled(cron = "0/1 * * * * ?")   //每 2s 执行一次, 接受订单创建的队列
     @Async("scheduleExecutor")
@@ -224,6 +189,7 @@ public class OrderCreateTTask {
 //                boolean b = redisUtil.lPush(CommonConstant.ORDER_CREATE_QUEUE, po);
 //                log.error("【任务执行】重新丢回队列, {}, push: {}", po, b);
 //            }
+            pOrderMapper.updateOStatusByOidForQueue(po.getOrderId(), OrderStatusEnum.PAY_CREATING_ERROR.getCode());
             log.error("【任务执行】异常单，丢弃, {}", po);
         } finally {
             ProxyInfoThreadHolder.remove();
@@ -284,10 +250,10 @@ public class OrderCreateTTask {
         payInfo.setRecharge_type(6);
         String acPwd = c.getAcPwd();
         String cookie = "";
-        if ("jx3_weixin".equals(channelId)) {
-            redisUtil.del("account:ck:" + account);
-            log.info("ck new : - del account {}", account);
-        }
+//        if ("jx3_weixin".equals(channelId)) {
+//            redisUtil.del("account:ck:" + account);
+//            log.info("ck new : - del account {}", account);
+//        }
         cookie = payService.getCKforQuery(account, Base64.decodeStr(acPwd));
         boolean expire = gee4Service.tokenCheck(cookie, account);
         if (!expire) {
@@ -649,7 +615,7 @@ public class OrderCreateTTask {
         if ("alipay_mobile".equalsIgnoreCase(data.getString("channel")) || "alipay_qr".equalsIgnoreCase(data.getString("channel"))) {
             log.info("alipay url 初始: {}", resource_url);
             HttpResponse execute = HttpRequest.get(resource_url)
-//                    .setHttpProxy(ProxyInfoThreadHolder.getIpAddr(), ProxyInfoThreadHolder.getPort())
+                    .setHttpProxy(ProxyInfoThreadHolder.getIpAddr(), ProxyInfoThreadHolder.getPort())
 //                                .form(objectObjectSortedMap)
                     .contentType("application/x-www-form-urlencoded")
                     .header("X-Requested-With", "com.seasun.gamemgr")
@@ -662,7 +628,7 @@ public class OrderCreateTTask {
             String aliGateway = execute.header("Location");
             log.info("alipay url 一次修正: {}", aliGateway);
             HttpResponse cashierExecute = HttpRequest.get(aliGateway)
-//                    .setHttpProxy(ProxyInfoThreadHolder.getIpAddr(), ProxyInfoThreadHolder.getPort())
+                    .setHttpProxy(ProxyInfoThreadHolder.getIpAddr(), ProxyInfoThreadHolder.getPort())
 //                                .form(objectObjectSortedMap)
                     .contentType("application/x-www-form-urlencoded")
                     .header("X-Requested-With", "com.seasun.gamemgr")

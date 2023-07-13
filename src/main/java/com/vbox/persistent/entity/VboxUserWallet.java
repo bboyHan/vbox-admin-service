@@ -15,7 +15,8 @@ public class VboxUserWallet {
     @TableId(type = IdType.AUTO)
     private Integer id;
     private Integer uid;
-    private String nickname;
+    private String account;
+    private String remark;
     private Integer recharge;
     private BigDecimal tariff;
     private LocalDateTime createTime;

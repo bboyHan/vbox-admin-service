@@ -48,6 +48,8 @@ public class ChannelServiceImpl implements ChannelService {
     @Autowired
     private VboxUserWalletMapper vboxUserWalletMapper;
     @Autowired
+    private ChannelMapper channelMapper;
+    @Autowired
     private PayService payService;
     @Autowired
     private RedisUtil redisUtil;
@@ -372,6 +374,8 @@ public class ChannelServiceImpl implements ChannelService {
         CAccount caDB = caMapper.selectById(param.getId());
 
         if (cAccount.getStatus() == 1) {
+            //jx 走这个逻辑
+
             String ck = payService.getCKforQuery(caDB.getAcAccount(), Base64.decodeStr(caDB.getAcPwd()));
             boolean expire = gee4Service.tokenCheck(ck, caDB.getAcAccount());
 

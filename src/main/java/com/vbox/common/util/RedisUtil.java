@@ -33,7 +33,11 @@ public class RedisUtil {
 
     }
 
-    public void sub() {
+    public void clearExpireGee4Keys() {
+        String key = CommonConstant.CHANNEL_ACCOUNT_GEE;
+        long currentTime = System.currentTimeMillis();
+        ZSetOperations<String, Object> zSetOperations = redisTemplate.opsForZSet();
+        zSetOperations.removeRangeByScore(key, 0, currentTime - 60000);
     }
 
     //============================= queue sec ============================
@@ -44,10 +48,10 @@ public class RedisUtil {
             String value = JSONObject.toJSONString(secCode);
             ZSetOperations<String, Object> zSetOperations = redisTemplate.opsForZSet();
             zSetOperations.add(key, value, currentTime);
-            zSetOperations.removeRangeByScore(key, 0, currentTime - 90000);
+            zSetOperations.removeRangeByScore(key, 0, currentTime - 20000);
             zSetOperations.removeRange(key, 0, -100 - 1);
         } catch (Exception e) {
-            e.printStackTrace();
+            log.error("添加sec code 失败", e);
         }
     }
 

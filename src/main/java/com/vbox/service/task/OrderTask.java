@@ -343,7 +343,7 @@ public class OrderTask {
 
     }
 
-    @Scheduled(cron = "0/2 * * * * ?")   //每 2s 执行一次, 未支付单子复核 redis 池子
+    @Scheduled(cron = "0/5 * * * * ?")   //每 2s 执行一次, 未支付单子复核 redis 池子
     public void handleAsyncUnPayOrder() {
         Object ele = redisUtil.rPop(CommonConstant.ORDER_QUERY_QUEUE);
         if (ele == null) {
@@ -361,7 +361,10 @@ public class OrderTask {
         try {
             String orderId = po.getOrderId();
             // 生产
-            JSONObject resp = payService.queryOrderForQuery(orderId);
+            log.warn("query pay order ip: {}", po.getPayIp());
+            payService.addProxy(null, po.getPayIp(), null);
+            JSONObject resp = payService.queryOrder(orderId);
+//            JSONObject resp = payService.queryOrderForQuery(orderId);
             JSONObject data = resp.getJSONObject("data");
             Integer code = data.getInteger("order_status");
             //测试
@@ -406,6 +409,8 @@ public class OrderTask {
                     log.error("【任务执行】handleUnPayOrder重新丢回队列, {}, push: {}", po.getOrderId(), b);
                 }
             }
+        } catch (NotFoundException ex){
+            log.error("订单不存在异常：", ex);
         } catch (Exception e) {
 //            LocalDateTime createTime = po.getCreateTime();
 //            LocalDateTime nowTime = LocalDateTime.now().plusMinutes(-3);

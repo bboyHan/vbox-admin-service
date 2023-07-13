@@ -9,6 +9,7 @@ import cn.hutool.jwt.JWT;
 import cn.hutool.jwt.JWTUtil;
 import cn.hutool.jwt.JWTValidator;
 import cn.hutool.jwt.signers.JWTSignerUtil;
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.vbox.common.ResultOfList;
 import com.vbox.common.enums.GenderEnum;
@@ -50,6 +51,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     private UserMapper userMapper;
     @Autowired
     private RoleMapper roleMapper;
+    @Autowired
+    private DeptMapper deptMapper;
     @Autowired
     private RelationUDMapper udMapper;
     @Autowired
@@ -114,7 +117,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         String account = u.getAccount();
         if (null == account) throw new Exception("account is null!");
         Integer exist = userMapper.isExistAccount(account);
-        if (null != exist) throw new Exception("user is exist!");
+        if (null != exist && exist != 0) throw new Exception("user is exist!");
 
         //setting time
         u.setCreate_time(LocalDateTime.now());
@@ -164,68 +167,6 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
 
         return 0;
     }
-
-//    @Override
-//    public int createSubAccount(UserSubCreateOrUpdParam param) throws Exception{
-//        User user = new User();
-//
-//        //check account
-//        String account = param.getAccount();
-//        if (null == account) throw new Exception("account is null!");
-//        Integer exist = userMapper.isExistAccount(account);
-//        if (null != exist) throw new Exception("user is exist!");
-//
-//        // user
-//        user.setAccount(account);
-//        user.setNickname(RandomNameUtil.randomChineseName());
-//        user.setCreate_time(LocalDateTime.now());
-//        save(user);
-//
-//        // user ext
-//        UserExt userExt = new UserExt();
-//        userExt.setUid(user.getId());
-//        userExt.setGender(-1);
-//        userExtMapper.insert(userExt);
-//
-//        // user - sub relation
-//        RelationUserSub us = new RelationUserSub();
-//        us.setUid(TokenInfoThreadHolder.getToken().getId());
-//        us.setSid(user.getId());
-//        usMapper.insert(us);
-//
-//        // user - login
-//        UserLogin userLogin = new UserLogin();
-//        userLogin.setUid(user.getId());
-//        userLogin.setUsername(user.getAccount());
-//        userLogin.setCaptcha(param.getPass() != null
-//                ? Base32.encode(param.getPass()) : Base32.encode("123456"));
-//        userLogin.setLoginType(LoginEnum.ACCOUNT.getType());
-//        userLogin.setCreateTime(LocalDateTime.now());
-//        userLogin.setRemark("账户登陆");
-//        userLoginMapper.insert(userLogin);
-//
-//        //user - dept
-//        RelationUserDept ud = new RelationUserDept();
-//        ud.setUid(user.getId());
-//        ud.setDid(param.getDeptId());
-//        udMapper.insert(ud);
-//
-//        //user - role
-//        RelationUserRole ur = new RelationUserRole();
-//        ur.setUid(user.getId());
-//        ur.setRid(param.getRoleId());
-//        urMapper.insert(ur);
-//
-//        //auth
-//        UserAuth auth = new UserAuth();
-//        KeyPair rsa = SecureUtil.generateKeyPair("RSA");
-//        auth.setSecret(Base64.encode(rsa.getPrivate().getEncoded()));
-//        auth.setPub(Base64.encode(rsa.getPublic().getEncoded()));
-//        auth.setUid(user.getId());
-//        auth.setCreateTime(LocalDateTime.now());
-//        userAuthMapper.insert(auth);
-//        return 0;
-//    }
 
     @Override
     public int deleteUser(Integer id) throws Exception {

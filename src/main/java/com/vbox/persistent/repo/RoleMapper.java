@@ -9,6 +9,7 @@ import org.apache.ibatis.annotations.Options;
 import org.apache.ibatis.annotations.Select;
 
 import java.util.List;
+import java.util.Set;
 
 @Mapper
 public interface RoleMapper extends BaseMapper<Role> {
@@ -30,6 +31,9 @@ public interface RoleMapper extends BaseMapper<Role> {
             " </when>" +
             "</script>"})
     List<JoinRoleMenu> listRoleInIds(List<String> roleIds);
+
+    @Select("SELECT role_value FROM sys_role r WHERE r.id IN (SELECT rid FROM relation_user_role ur where ur.uid = #{uid})")
+    Set<String> listRoleValueByUid(Integer uid);
 
     @Insert("insert into sys_role (order_no, role_name, role_value, create_time, remark, status)" +
             " values (#{orderNo}, #{roleName}, #{role_value}, #{create_time}, #{remark}, #{status})")

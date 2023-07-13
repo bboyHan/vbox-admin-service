@@ -77,19 +77,6 @@ public class UserController {
         return Result.errBool(false);
     }
 
-//    @PostMapping("/code/createSub")
-//    public ResponseEntity<Result<Integer>> createSub(@RequestBody UserSubCreateOrUpdParam subCreateOrUpdParam) {
-//        int rl = 0;
-//        try {
-//            rl = userService.createSubAccount(subCreateOrUpdParam);
-//            return Result.ok(rl);
-//        } catch (Exception e) {
-//            e.printStackTrace();
-//        }
-//
-//        return Result.ok(rl);
-//    }
-
     @PostMapping("/system/user")
     public ResponseEntity<Result<Integer>> createOrUpdUser(@RequestBody UserCreateOrUpdParam userCreateOrUpdParam) {
         int role1 = 0;
@@ -111,4 +98,5 @@ public class UserController {
         }
         return Result.ok(role1);
     }
+
 }
