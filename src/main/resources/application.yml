@@ -10,7 +10,8 @@ spring:
     #      password: root
     druid:
 #      url: jdbc:mysql://vboxss-dev.rwlb.zhangbei.rds.aliyuncs.com:3306/vbox_admin?allowMultiQueries=true&useUnicode=true&characterEncoding=UTF-8&serverTimezone=GMT%2B8
-      url: jdbc:mysql://vboxss.rwlb.rds.aliyuncs.com:3306/vbox_admin?allowMultiQueries=true&useUnicode=true&characterEncoding=UTF-8&serverTimezone=GMT%2B8
+#      url: jdbc:mysql://vboxss.rwlb.rds.aliyuncs.com:3306/vbox_admin?allowMultiQueries=true&useUnicode=true&characterEncoding=UTF-8&serverTimezone=GMT%2B8
+      url: jdbc:mysql://vboxsss.rwlb.rds.aliyuncs.com:3306/vbox_admin?allowMultiQueries=true&useUnicode=true&characterEncoding=UTF-8&serverTimezone=GMT%2B8
       username: vbox_admin
       password: Vbox123qwe
       # 初始化连接池 最小 最大

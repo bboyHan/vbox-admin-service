@@ -1,13 +1,18 @@
 package com.vbox;
 
+import cn.hutool.core.date.LocalDateTimeUtil;
 import cn.hutool.core.util.IdUtil;
 import cn.hutool.core.util.URLUtil;
 import cn.hutool.http.HttpRequest;
 import cn.hutool.http.HttpUtil;
+import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
 
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.*;
 
 /**
@@ -46,8 +51,14 @@ public class TxQyTest {
                 .header("Content-Type", "application/x-www-form-urlencoded")
                 .execute().body();
 
-        JSONObject.parseObject(payRs);
+        JSONObject jsonObject = JSONObject.parseObject(payRs);
+        JSONArray waterList = jsonObject.getJSONArray("WaterList");
 
+        JSONObject o = waterList.getJSONObject(0);
+        long payTime = o.getLongValue("PayTime");
+        Instant instant = Instant.ofEpochSecond(payTime);
+        LocalDateTime parse = LocalDateTime.ofInstant(instant, ZoneId.systemDefault());
+        System.out.println(parse);
 
 
         //pgv_pvi=5688113152; RK=usp5+jSJO0; ptcz=09bb8313e22e3d125eac32f9a401376d0d370ad10355f745c8670f9cf046d774; pgv_pvid=6960940894; o_cookie=1697047283; tvfe_boss_uuid=270f85dd4903d642; pac_uid=1_1697047283; iip=0; h_uid=h591656404271869389; _tucao_session=dHJEVXdyT3g4SjQwUjRYbmJqSS8rY3VZbDhaNGdSdWxzNjRBOGVJcnFUU0ZIR1Y5OWFBZUJ1bnBhWUFad1loNE9ybFZwMXBOd2J1cWpXdXJ5TG5tYzl3bGhEZG8zMC81VlhRaVZqbGpFNGM9--D9dmYjGbXOnxOcgzV5QZVQ%3D%3D; pgv_info=ssid=s1503686639284071; pt2gguin=o0384774115; ETK=; skey=@VgIYweV9V; pt_recent_uins=4aa168e90f229ac4a07ea50c45aedbb421142765fc771df244eb90638391a127ce43998775b7e8347bb6cea29447e0e775b037ffdaad5356; ptnick_384774115=e59091e697a5e891b5; uin=o384774115; olu=2e912054f3be6de1a4dae642697b51310c88c617fac39ad7; pt_login_sig=e76nn0JbyFIJvoneliJXRuRl4yfHOLynj*sd-dmZwPNY5e4DRMR0CcLgEw5ZPn0c; pt_clientip=0caf2400da00c002ff21395110ffb25cf266c18b; pt_serverip=7ebb7f000001e2a9; pt_local_token=-579018090; uikey=82cbb4e62ba6c801e98d79f0c421f50f38ca1e67539be68f210ee5532d0e6a04; pt_guid_sig=ea7dd41fcad64bd1cb681f425cc1ffb8d14f6dfd95beeb772054810628159b3d; confirmuin=0; ptui_loginuin=1697047283; ptdrvs=d47g2o9mqWYlbtp8c6eDG8ttOoZLDBJFuHaLnqeDYEs*SRnw3ltGROxR2EiFVvZhz5Etg-2a8kg_; pt_sms_ticket=Z9j1MHK4RIHmdq10nZWf5ELM1qgBYDlhjyTKYOKICRvMgOjBcwAaTQNOLkTCPDaL-U3rlX9OKkTAyHYxol9wRHjPHRqId6fa; pt_sms_phone=182******65;

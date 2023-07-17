@@ -9,6 +9,12 @@ public enum ChannelEnum {
     JX3_JD("jx3_jd", "剑网3(京东端)"),
     JX3_ALIPAY("jx3_alipay", "剑网3(支付宝端)"),
     JX3_ALI_GIFT("jx3_ali_gift", "剑网3(支付宝特惠端)"),
+    TX_JYM("tx_jym", "腾讯(支付宝JYM)"),
+    TX_ZFB("tx_zfb", "腾讯(支付宝)"),
+    TX_TB("tx_tb", "腾讯(淘宝)"),
+    TX_DY("tx_dy", "腾讯(抖音)"),
+    TX_JD("tx_jd", "腾讯(京东)"),
+    TX_PDD("tx_pdd", "腾讯(拼多多)"),
     UNKNOWN("unknown", "未知"),
     ;
 

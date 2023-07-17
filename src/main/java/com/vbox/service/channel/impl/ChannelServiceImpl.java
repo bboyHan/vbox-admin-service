@@ -4,24 +4,28 @@ import cn.hutool.core.codec.Base64;
 import cn.hutool.core.date.DateUtil;
 import cn.hutool.core.util.DesensitizedUtil;
 import cn.hutool.core.util.IdUtil;
+import cn.hutool.core.util.URLUtil;
+import cn.hutool.http.HttpUtil;
 import com.vbox.common.ResultOfList;
 import com.vbox.common.constant.CommonConstant;
 import com.vbox.common.enums.PayTypeEnum;
+import com.vbox.common.util.CommonUtil;
 import com.vbox.common.util.RedisUtil;
 import com.vbox.config.exception.NotFoundException;
+import com.vbox.config.exception.ServiceException;
 import com.vbox.config.local.TokenInfoThreadHolder;
-import com.vbox.persistent.entity.CAccount;
-import com.vbox.persistent.entity.CAccountWallet;
-import com.vbox.persistent.entity.User;
+import com.vbox.persistent.entity.*;
 import com.vbox.persistent.pojo.dto.CGatewayInfo;
 import com.vbox.persistent.pojo.param.CAEnableParam;
 import com.vbox.persistent.pojo.param.CAccountParam;
+import com.vbox.persistent.pojo.param.TxCAccountParam;
 import com.vbox.persistent.pojo.vo.CAccountVO;
 import com.vbox.persistent.pojo.vo.CGatewayVO;
 import com.vbox.persistent.pojo.vo.VboxUserVO;
 import com.vbox.persistent.repo.*;
 import com.vbox.service.channel.ChannelService;
 import com.vbox.service.channel.PayService;
+import com.vbox.service.channel.TxPayService;
 import com.vbox.service.task.Gee4Service;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
@@ -29,6 +33,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
+import java.net.URL;
+import java.nio.charset.StandardCharsets;
+import java.rmi.ServerError;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -51,6 +58,8 @@ public class ChannelServiceImpl implements ChannelService {
     private ChannelMapper channelMapper;
     @Autowired
     private PayService payService;
+    @Autowired
+    private TxPayService txPayService;
     @Autowired
     private RedisUtil redisUtil;
     @Autowired
@@ -147,7 +156,7 @@ public class ChannelServiceImpl implements ChannelService {
             sm.put("account", user.getAccount());
             if (sidTodayOrderList == null || sidTodayOrderList.size() == 0) {
                 sm.put("list", new HashMap<String, Integer>());
-            }else {
+            } else {
                 Map<String, Integer> sidCollect = sidTodayOrderList.stream().collect(
                         Collectors.groupingBy(v -> {
                                     LocalDateTime createTime = v.getCreateTime();
@@ -258,6 +267,43 @@ public class ChannelServiceImpl implements ChannelService {
     }
 
     @Override
+    public int createTxChannelAccount(TxCAccountParam caParam) {
+
+        String ck = caParam.getCk();
+        String openId = CommonUtil.getCookieValue(ck, "openid");
+        String openKey = CommonUtil.getCookieValue(ck, "openkey");
+
+        boolean isValid = txPayService.tokenCheck(openId, openKey);
+        if (!isValid) throw new ServiceException("openID、Key传值错误，请核对");
+
+        CAccount ca = new CAccount();
+        BeanUtils.copyProperties(caParam, ca);
+
+        CGatewayInfo cgi = cgMapper.getGateWayInfoByCIdAndCG(caParam.getC_channel_id(), caParam.getC_gateway());
+        ca.setCid(cgi.getCid());
+        ca.setGid(cgi.getId());
+        Integer uid = TokenInfoThreadHolder.getToken().getId();
+        String payDesc = PayTypeEnum.of(caParam.getPayType());
+        ca.setAcAccount(caParam.getAc_account());
+        // ck - pwd - openID
+        ca.setAcPwd(caParam.getOpenId());
+        ca.setAcRemark(caParam.getAc_remark());
+        ca.setAcid(IdUtil.simpleUUID());
+        ca.setUid(uid);
+        // ck - openKey
+        ca.setCk(caParam.getOpenKey());
+        ca.setDailyLimit(caParam.getDaily_limit());
+        ca.setTotalLimit(caParam.getTotal_limit());
+        ca.setStatus(caParam.getStatus());
+        ca.setPayDesc(payDesc);
+        ca.setSysLog("初始化，暂未开启");
+        ca.setSysStatus(2);
+
+        caMapper.insert(ca);
+        return 0;
+    }
+
+    @Override
     public List<CGatewayVO> getGatewayList(String channelId) {
 
         List<CGatewayInfo> cgl = cgMapper.getGatewayListByCId(channelId);
@@ -364,6 +410,53 @@ public class ChannelServiceImpl implements ChannelService {
     }
 
     @Override
+    public int updateTxCAccount(TxCAccountParam param) {
+        CAccount cAccount = new CAccount();
+
+        String ck = param.getCk();
+        String openId = CommonUtil.getCookieValue(ck, "openid");
+        String openKey = CommonUtil.getCookieValue(ck, "openkey");
+
+//        String openId = param.getOpenId();
+//        String openKey = param.getOpenKey();
+//        String acAccount = param.getAc_account();
+        boolean isValid = txPayService.tokenCheck(openId, openKey);
+        if (!isValid) throw new ServiceException("openID、Key传值错误，请核对");
+
+        cAccount.setId(param.getId());
+        cAccount.setAcPwd(openId);
+        cAccount.setCk(openKey);
+
+        cAccount.setTotalLimit(param.getTotal_limit());
+        cAccount.setDailyLimit(param.getDaily_limit());
+        cAccount.setMin(param.getMin());
+        cAccount.setMax(param.getMax());
+        cAccount.setAcRemark(param.getAc_remark());
+
+        //判断用户余额是否足够
+        Integer uid = TokenInfoThreadHolder.getToken().getId();
+        // 总账户充值
+        Integer totalRecharge = vboxUserWalletMapper.getTotalRechargeByUid(uid);
+
+        // 总订单充值（花费）
+        Integer totalCost = vboxUserWalletMapper.getTotalCostByUid(uid);
+
+        totalRecharge = totalRecharge == null ? 0 : totalRecharge;
+        totalCost = totalCost == null ? 0 : totalCost;
+        // 总余额
+        int balance = totalRecharge - totalCost;
+
+        if (balance <= 0) {
+            cAccount.setSysStatus(0);
+            cAccount.setSysLog("总余额不足，请联系管理员充值");
+        } else {
+            cAccount.setSysStatus(1);
+            cAccount.setSysLog("账户信息更新，系统判定可用");
+        }
+        return caMapper.updateById(cAccount);
+    }
+
+    @Override
     public int enableCAccount(CAEnableParam param) throws IOException {
 
         CAccount cAccount = new CAccount();
@@ -375,20 +468,34 @@ public class ChannelServiceImpl implements ChannelService {
 
         if (cAccount.getStatus() == 1) {
             //jx 走这个逻辑
+            CChannel channel = channelMapper.getChannelById(caDB.getCid());
+            if ("jx3".equals(channel.getCGame())) {
+                log.warn("jx3 验证开启...");
+                String ck = payService.getCKforQuery(caDB.getAcAccount(), Base64.decodeStr(caDB.getAcPwd()));
+                boolean expire = gee4Service.tokenCheck(ck, caDB.getAcAccount());
 
-            String ck = payService.getCKforQuery(caDB.getAcAccount(), Base64.decodeStr(caDB.getAcPwd()));
-            boolean expire = gee4Service.tokenCheck(ck, caDB.getAcAccount());
-
-            if (!expire) {
-                redisUtil.del(CommonConstant.ACCOUNT_CK + caDB.getAcAccount());
-                ck = payService.getCKforQuery(caDB.getAcAccount(), Base64.decodeStr(caDB.getAcPwd()));
-                expire = gee4Service.tokenCheck(ck, caDB.getAcAccount());
                 if (!expire) {
-                    throw new NotFoundException("ck问题，请联系管理员");
+                    redisUtil.del(CommonConstant.ACCOUNT_CK + caDB.getAcAccount());
+                    ck = payService.getCKforQuery(caDB.getAcAccount(), Base64.decodeStr(caDB.getAcPwd()));
+                    expire = gee4Service.tokenCheck(ck, caDB.getAcAccount());
+                    if (!expire) {
+                        throw new NotFoundException("ck问题，请联系管理员");
+                    }
                 }
+
+                cAccount.setCk(ck);
             }
 
-            cAccount.setCk(ck);
+            if ("tx".equals(channel.getCGame())) {
+                //TODO
+                log.warn("tx系 验证开启...");
+                String openID = caDB.getAcPwd();
+                String openKey = caDB.getCk();
+                boolean isValid = txPayService.tokenCheck(openID, openKey);
+                if (!isValid) throw new ServiceException("openID、Key传值错误，请核对");
+            }
+
+
             cAccount.setSysStatus(1);
             cAccount.setSysLog("账户手动设置开启");
 
@@ -431,5 +538,23 @@ public class ChannelServiceImpl implements ChannelService {
             upd.setSoftDel(0);
             return caMapper.updateById(upd);
         }
+    }
+
+    //
+    @Override
+    public String getTxQuery(String orderId) {
+        PayOrder po = pOrderMapper.getPOrderByOid(orderId);
+        String formUrl = "";
+
+        if (po.getCChannelId().contains("jx3")) {
+            formUrl = "https://charge.xoyo.com/charge-record";
+        }else {
+            CAccount ca = caMapper.getCAccountByAcid(po.getAcId());
+            String openID = ca.getAcPwd();
+            String openKey = ca.getCk();
+            formUrl = "https://pay.qq.com/h5/trade-record/trade-record.php?appid=1450000186&_wv=1024&pf=2199&sessionid=openid&sessiontype=kp_accesstoken&openid=" + openID + "&openkey=" + openKey + "#/";
+        }
+
+        return formUrl;
     }
 }

@@ -18,6 +18,27 @@ import java.util.regex.Pattern;
 public class CommonUtil {
 
     /**
+     * cookie  key
+     */
+    public static String getCookieValue(String cookie, String key) {
+        String[] pairs = cookie.split("[;:]");
+        Map<String, String> map = new HashMap<>();
+
+        for (String pair : pairs) {
+            String[] keyValue = pair.trim().split("[=]");
+
+            if (keyValue.length == 2) {
+                String k = keyValue[0].toLowerCase(); // 转换为小写，不区分大小写
+                String v = keyValue[1];
+
+                map.put(k, v);
+            }
+        }
+
+        return map.get(key.toLowerCase()); // 转换为小写，不区分大小写
+    }
+
+    /**
      * ip查询
      */
     public static String ip2region(String ip) {

@@ -4,6 +4,7 @@ import com.vbox.common.Result;
 import com.vbox.common.ResultOfList;
 import com.vbox.persistent.pojo.param.CAEnableParam;
 import com.vbox.persistent.pojo.param.CAccountParam;
+import com.vbox.persistent.pojo.param.TxCAccountParam;
 import com.vbox.persistent.pojo.vo.CAccountVO;
 import com.vbox.persistent.pojo.vo.CGatewayVO;
 import com.vbox.persistent.pojo.vo.VboxUserVO;
@@ -47,6 +48,11 @@ public class ChannelController {
         int rl = channelService.createChannelAccount(caParam);
         return Result.ok(rl);
     }
+    @PostMapping("/channel/txCAccount")
+    public ResponseEntity<Result<Integer>> createTxChannelAccount(@RequestBody TxCAccountParam caParam) {
+        int rl = channelService.createTxChannelAccount(caParam);
+        return Result.ok(rl);
+    }
 
     @GetMapping("/channel/CAccount")
     public ResponseEntity<Result<ResultOfList<List<CAccountVO>>>> getCAccountList(CAccountParam caParam) {
@@ -72,6 +78,12 @@ public class ChannelController {
         return Result.ok(rl);
     }
 
+    @PutMapping("/channel/txCAccount")
+    public ResponseEntity<Result<Integer>> updTxCAccount(@RequestBody TxCAccountParam param) throws IOException {
+        int rl = channelService.updateTxCAccount(param);
+        return Result.ok(rl);
+    }
+
     @GetMapping("/channel/gateway")
     public ResponseEntity<Result<List<CGatewayVO>>> getGatewayList(@RequestParam(value = "c_channel_id", required = false) String c_channel_id) {
         List<CGatewayVO> rl = new ArrayList<>();
@@ -82,6 +94,12 @@ public class ChannelController {
             e.printStackTrace();
         }
 
+        return Result.ok(rl);
+    }
+
+    @GetMapping("/channel/txQuery/{id}")
+    public ResponseEntity<Result<Object>> getCAccountList(@PathVariable String id) {
+        String rl = channelService.getTxQuery(id);
         return Result.ok(rl);
     }
 }

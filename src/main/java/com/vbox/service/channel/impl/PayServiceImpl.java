@@ -1,6 +1,7 @@
 package com.vbox.service.channel.impl;
 
 import cn.hutool.core.codec.Base64;
+import cn.hutool.core.collection.CollectionUtil;
 import cn.hutool.core.date.DateUtil;
 import cn.hutool.core.exceptions.ValidateException;
 import cn.hutool.core.util.IdUtil;
@@ -26,6 +27,7 @@ import com.vbox.common.util.ProxyUtil;
 import com.vbox.common.util.RedisUtil;
 import com.vbox.config.exception.NotFoundException;
 import com.vbox.config.exception.ServiceException;
+import com.vbox.config.exception.UnSupportException;
 import com.vbox.config.local.PayerInfoThreadHolder;
 import com.vbox.config.local.ProxyInfoThreadHolder;
 import com.vbox.config.local.TokenInfoThreadHolder;
@@ -97,6 +99,8 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
     private VboxUserWalletMapper vboxUserWalletMapper;
     @Autowired
     private LocationMapper locationMapper;
+    @Autowired
+    private ChannelShopMapper channelShopMapper;
 
     @Override
     public int createPAccount(PAccountParam param) {
@@ -480,7 +484,7 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
         String pa = orderCreateParam.getP_account();
         String orderId = orderCreateParam.getP_order_id();
         //参数校验
-        Channel channel = paramCheckCreateOrder(orderCreateParam);
+        CChannel channel = paramCheckCreateOrder(orderCreateParam);
 
         // proxy setting
         addProxy(area, orderCreateParam.getPay_ip(), pr);
@@ -739,7 +743,7 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
         return payUrl;
     }
 
-    public Channel paramCheckCreateOrder(OrderCreateParam orderCreateParam) {
+    public CChannel paramCheckCreateOrder(OrderCreateParam orderCreateParam) {
 //        String pa = orderCreateParam.getP_account();
 //        String sign = orderCreateParam.getSign();
 //        PAccount paDB = pAccountMapper.selectOne((new QueryWrapper<PAccount>()).eq("p_account", pa));
@@ -751,24 +755,64 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
 //            throw new ValidateException("入参仅限文档包含字段，请核对");
 //        } else {
         String channelId = orderCreateParam.getChannel_id();
-        Channel channel = channelMapper.getChannelByChannelId(channelId);
+        CChannel channel = channelMapper.getChannelByChannelId(channelId);
         if (channel == null) {
-            throw new ValidateException("通道id错误，请重新查询确认");
+            throw new UnSupportException("通道id错误，请重新查询确认");
         } else {
             String notify = orderCreateParam.getNotify_url();
             boolean isUrl = CommonUtil.isUrl(notify);
             if (!isUrl) {
-                throw new ValidateException("notify_url不合法，请检验入参");
+                throw new UnSupportException("notify_url不合法，请检验入参");
             } else {
                 String attach = orderCreateParam.getAttach();
                 if (channelId.equals("jx3_ali_gift") || channelId.equals("jx3_wx_gift")){
                     Integer type = JXHTEnum.type(orderCreateParam.getMoney());
                     if (type == -1) {
-                        throw new ValidateException("该通道属于固额设置，请检验入参，金额限定为76，156，162，276");
+                        throw new UnSupportException("该通道属于固额设置，请检验入参，金额限定为76，156，162，276");
                     }
                 }
+                if (channelId.contains("tx")) {
+                    if (channelId.equals("tx_jym")) {
+                        log.warn("jym 金额不设定，正常通过");
+                    }else {
+                        QueryWrapper<ChannelShop> queryWrapper = new QueryWrapper<>();
+                        queryWrapper.eq("channel", channelId);
+                        queryWrapper.eq("money", orderCreateParam.getMoney());
+                        queryWrapper.eq("status", 1);
+                        List<ChannelShop> randomTempList = channelShopMapper.selectList(queryWrapper);
+                        if (randomTempList != null && randomTempList.size() != 0) {
+                            log.warn("tx通道库存金额校验通过 >> channel: {}, money: {}", channel, orderCreateParam.getMoney());
+                        }else {
+                            List<Integer> checkTempList = channelShopMapper.getChannelShopMoneyList(channelId);
+                            if (checkTempList != null && checkTempList.size() != 0){
+                                throw new UnSupportException("该通道属于固额设置，请检验入参，金额限定为" + checkTempList);
+                            }else {
+                                throw new UnSupportException("该通道无库存金额，请联系管理员");
+                            }
+                        }
+                    }
+                }
+
+//                if (channelId.equals("tx_dy") || channelId.equals("tx_jd")) {
+//                    List<Integer> moneyList = Arrays.asList(50, 100, 200, 300, 500);
+//                    if (!moneyList.contains(orderCreateParam.getMoney())) {
+//                        throw new ValidateException("该通道属于固额设置，请检验入参，金额限定为" + moneyList);
+//                    }
+//                }
+//                if (channelId.equals("tx_tb")) {
+//                    List<Integer> moneyList = Arrays.asList(30, 50, 100, 200, 300);
+//                    if (!moneyList.contains(orderCreateParam.getMoney())) {
+//                        throw new ValidateException("该通道属于固额设置，请检验入参，金额限定为" + moneyList);
+//                    }
+//                }
+//                if (channelId.equals("tx_zfb")) {
+//                    List<Integer> moneyList = Arrays.asList(50, 100);
+//                    if (!moneyList.contains(orderCreateParam.getMoney())) {
+//                        throw new ValidateException("该通道属于固额设置，请检验入参，金额限定为" + moneyList);
+//                    }
+//                }
                 if (attach != null && attach.length() > 128) {
-                    throw new ValidateException("attach不合法，请检验入参");
+                    throw new UnSupportException("attach不合法，请检验入参");
                 } else {
                     String orderId = orderCreateParam.getP_order_id();
                     if (orderId != null && orderId.length() <= 32 && orderId.length() >= 12) {
@@ -779,7 +823,7 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
                             return channel;
                         }
                     } else {
-                        throw new ValidateException("orderId不合法，请检验入参");
+                        throw new UnSupportException("orderId不合法，请检验入参");
                     }
                 }
             }
@@ -820,7 +864,7 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
         SortedMap<String, String> map = CommonUtil.objToTreeMap(orderCreateExtParam);
         String signDB = CommonUtil.encodeSign(map, pKey);
         if (!signDB.equals(sign)) {
-            throw new ValidateException("入参仅限文档包含字段，请核对sign值计算规则");
+            throw new UnSupportException("入参仅限文档包含字段，请核对sign值计算规则");
         }
 
         OrderCreateParam orderCreateParam = new OrderCreateParam();
@@ -830,7 +874,7 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
         log.info("修正参: area - {}, pr - {}, {}", area, pr, orderCreateParam);
         String orderId = orderCreateParam.getP_order_id();
         //参数校验
-        Channel channel = paramCheckCreateOrder(orderCreateParam);
+        CChannel channel = paramCheckCreateOrder(orderCreateParam);
 
         Integer reqMoney = orderCreateParam.getMoney();
         log.info("create order 创建订单: {}, p account: {}, 金额: {}", orderId, pa, reqMoney);
@@ -895,7 +939,7 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
 //        log.info("【商户：" + pa + "】【订单ID：" + orderId + "】创建订单准备.... ck 校验成功  ");
         //
 //        String acId = randomACInfo.getAcid();
-        String cChannelId = channel.getC_channel_id();
+        String cChannelId = channel.getCChannelId();
         PayOrder payOrder = new PayOrder();
         payOrder.setOrderId(orderId);
         payOrder.setPAccount(pa);
@@ -1403,7 +1447,7 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
         String pa = callbackParam.getP_account();
         String pub = callbackParam.getP_key();
         boolean valid = PayerInfo.valid(payerLocal, new PayerInfo(pub, pa));
-        if (!valid) throw new ValidateException("Token valid");
+        if (!valid) throw new UnSupportException("Token valid");
 
         String orderId = callbackParam.getP_order_id();
         PayOrder po = pOrderMapper.getPOrderByOid(orderId);
@@ -1474,7 +1518,7 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
         orderCreateParam.setSign(null);
 
         String signDB = CommonUtil.encodeSign(CommonUtil.objToTreeMap(orderCreateParam), pKey);
-        if (!signDB.equals(sign)) throw new ValidateException("Token valid");
+        if (!signDB.equals(sign)) throw new UnSupportException("Token valid");
 
         String orderId = orderCreateParam.getP_order_id();
         PayOrder po = pOrderMapper.getPOrderByOid(orderId);
@@ -1818,6 +1862,8 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
                 .body(reqBody)
                 .execute();
 
+        pOrderMapper.updateOStatusByOId(orderId, OrderStatusEnum.PAY_FINISHED.getCode(), CodeUseStatusEnum.FINISHED.getCode());
+
         pOrderMapper.updateCallbackStatusByOId(orderId);
 
         log.info("测试回调商户，商户返回信息： http status： {}， resp： {}", resp.getStatus(), resp.body());
@@ -1834,6 +1880,10 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
         payOrderCreateVO.setStatus(payOrder.getOrderStatus());
         payOrderCreateVO.setOrderId(payOrder.getOrderId());
         payOrderCreateVO.setChannelId(payOrder.getCChannelId());
+        if (payOrder.getCChannelId().contains("tx")) {
+            String platformOid = payOrder.getPlatformOid();
+            payOrderCreateVO.setPlatformOid(platformOid == null? "QQ|order waiting":platformOid.split("\\|")[1]);
+        }
         return payOrderCreateVO;
     }
 
@@ -1842,85 +1892,90 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
         if (po == null) {
             throw new NotFoundException("订单不存在，请核对");
         } else {
-            PAccount paDB = pAccountMapper.selectOne(new QueryWrapper<PAccount>().eq("p_account", po.getPAccount()));
-            JSONObject data = null;
-            CAccountWallet wallet = cAccountWalletMapper.selectOne((new QueryWrapper<CAccountWallet>()).eq("oid", orderId));
-            Integer code;
-            JSONObject resp;
-            boolean flag = false;
-            if (wallet != null) {
-                code = 2;
-                log.info("手动查单时发现该订单已支付入库, info: {}", wallet);
-            } else {
-                resp = queryOrderForQuery(orderId);
-                data = resp.getJSONObject("data");
-                code = data.getInteger("order_status");
-                flag = true;
-            }
-
-            if (po.getOrderStatus() == 3) {
-                if (!flag) {
+            String cChannelId = po.getCChannelId();
+            if (cChannelId.contains("jx3")) {
+                PAccount paDB = pAccountMapper.selectOne(new QueryWrapper<PAccount>().eq("p_account", po.getPAccount()));
+                JSONObject data = null;
+                CAccountWallet wallet = cAccountWalletMapper.selectOne((new QueryWrapper<CAccountWallet>()).eq("oid", orderId));
+                Integer code;
+                JSONObject resp;
+                boolean flag = false;
+                if (wallet != null) {
+                    code = 2;
+                    log.info("手动查单时发现该订单已支付入库, info: {}", wallet);
+                } else {
                     resp = queryOrderForQuery(orderId);
                     data = resp.getJSONObject("data");
                     code = data.getInteger("order_status");
+                    flag = true;
                 }
 
-                if (code == 2) {
-                    pOrderMapper.updateOStatusByOId(orderId, OrderStatusEnum.PAY_FINISHED.getCode(), CodeUseStatusEnum.FINISHED.getCode());
-                }
-            }
-
-            if (code == 2 && wallet != null) {
-                String notify = po.getNotifyUrl();
-                PayNotifyVO vo = new PayNotifyVO();
-                vo.setOrder_id(orderId);
-                vo.setStatus(po.getOrderStatus());
-                vo.setCost(po.getCost());
-                String account = po.getPAccount();
-                vo.setP_account(account);
-                String signNew = CommonUtil.encodeSign(CommonUtil.objToTreeMap(vo), paDB.getPKey());
-                vo.setSign(signNew);
-                HttpResponse execute = null;
-
-                try {
-                    String reqBody = JSONObject.toJSONString(vo);
-                    log.info("系统手动查单,手动回调请求消息：notify：{}，req body：{}", notify, reqBody);
-                    execute = HttpRequest.post(notify).body(reqBody).execute();
-                    log.info("系统手动查单,手动回调返回信息： http status： {}， resp： {}", execute.getStatus(), execute.body());
-                    if (execute.getStatus() == 200) {
-                        pOrderMapper.updateCallbackStatusByOId(orderId);
-                        redisUtil.setRemove("order_callback_queue", orderId);
-                        log.info("系统手动查单,该订单已回调成功，通知url：{}，orderID：{}", notify, orderId);
+                if (po.getOrderStatus() == 3) {
+                    if (!flag) {
+                        resp = queryOrderForQuery(orderId);
+                        data = resp.getJSONObject("data");
+                        code = data.getInteger("order_status");
                     }
-                } catch (Exception var14) {
-                    log.error("系统手动查单,手动回调失败，notify: {}, resp: {}, err: {}", notify, execute, var14);
-                }
-            }
 
-            if (code == 2 && wallet == null) {
-                int row = pOrderMapper.updateOStatusByOId(orderId, OrderStatusEnum.PAY_FINISHED.getCode(), CodeUseStatusEnum.FINISHED.getCode());
-                if (row == 1) {
-                    CAccount ca = this.cAccountMapper.getCAccountByAcid(po.getAcId());
-                    CAccountWallet w = new CAccountWallet();
-                    w.setCaid(ca.getId());
-                    w.setCost(po.getCost());
-                    w.setOid(po.getOrderId());
-                    w.setCreateTime(LocalDateTime.now());
+                    if (code == 2) {
+                        pOrderMapper.updateOStatusByOId(orderId, OrderStatusEnum.PAY_FINISHED.getCode(), CodeUseStatusEnum.FINISHED.getCode());
+                    }
+                }
+
+                if (code == 2 && wallet != null) {
+                    String notify = po.getNotifyUrl();
+                    PayNotifyVO vo = new PayNotifyVO();
+                    vo.setOrder_id(orderId);
+                    vo.setStatus(po.getOrderStatus());
+                    vo.setCost(po.getCost());
+                    String account = po.getPAccount();
+                    vo.setP_account(account);
+                    String signNew = CommonUtil.encodeSign(CommonUtil.objToTreeMap(vo), paDB.getPKey());
+                    vo.setSign(signNew);
+                    HttpResponse execute = null;
 
                     try {
-                        cAccountWalletMapper.insert(w);
-                    } catch (Exception var13) {
-                        log.warn("已经入库了，{}", var13.getMessage());
-                    }
-
-                    log.info("系统手动查单, 查询到该单在平台已支付成功，自动入库并入回调池: orderId - {}， 平台数据：{}", po.getOrderId(), data);
-                    long rowRedis = this.redisUtil.sSet("order_callback_queue", orderId);
-                    if (rowRedis == 1L) {
-                        log.info("系统手动查单, 查询未支付订单已完成支付，入回调通知池， 订单ID: {}", orderId);
+                        String reqBody = JSONObject.toJSONString(vo);
+                        log.info("系统手动查单,手动回调请求消息：notify：{}，req body：{}", notify, reqBody);
+                        execute = HttpRequest.post(notify).body(reqBody).execute();
+                        log.info("系统手动查单,手动回调返回信息： http status： {}， resp： {}", execute.getStatus(), execute.body());
+                        if (execute.getStatus() == 200) {
+                            pOrderMapper.updateCallbackStatusByOId(orderId);
+                            redisUtil.setRemove("order_callback_queue", orderId);
+                            log.info("系统手动查单,该订单已回调成功，通知url：{}，orderID：{}", notify, orderId);
+                        }
+                    } catch (Exception var14) {
+                        log.error("系统手动查单,手动回调失败，notify: {}, resp: {}, err: {}", notify, execute, var14);
                     }
                 }
-            }
 
+                if (code == 2 && wallet == null) {
+                    int row = pOrderMapper.updateOStatusByOId(orderId, OrderStatusEnum.PAY_FINISHED.getCode(), CodeUseStatusEnum.FINISHED.getCode());
+                    if (row == 1) {
+                        CAccount ca = this.cAccountMapper.getCAccountByAcid(po.getAcId());
+                        CAccountWallet w = new CAccountWallet();
+                        w.setCaid(ca.getId());
+                        w.setCost(po.getCost());
+                        w.setOid(po.getOrderId());
+                        w.setCreateTime(LocalDateTime.now());
+
+                        try {
+                            cAccountWalletMapper.insert(w);
+                        } catch (Exception ex) {
+                            log.warn("已经入库了，{}", ex.getMessage());
+                        }
+
+                        log.info("系统手动查单, 查询到该单在平台已支付成功，自动入库并入回调池: orderId - {}， 平台数据：{}", po.getOrderId(), data);
+                        long rowRedis = redisUtil.sSet("order_callback_queue", orderId);
+                        if (rowRedis == 1L) {
+                            log.info("系统手动查单, 查询未支付订单已完成支付，入回调通知池， 订单ID: {}", orderId);
+                        }
+                    }
+                }
+
+            }else {
+//TODO tx回调查单
+            }
             PayOrder pov = pOrderMapper.getPOrderByOid(orderId);
             OrderQueryVO vo = new OrderQueryVO();
             vo.setStatus(pov.getOrderStatus());
@@ -1929,6 +1984,7 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
             vo.setCost(pov.getCost());
             vo.setOrderId(pov.getOrderId());
             vo.setNotifyUrl(pov.getNotifyUrl());
+
             return vo;
         }
     }
@@ -1962,7 +2018,7 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
             redisUtil.set(CommonConstant.ORDER_WAIT_QUEUE + orderId, 1);
             POrderQueue pOrderQueue = new POrderQueue();
             pOrderQueue.setPa(poDB.getPAccount());
-            Channel channel = channelMapper.getChannelByChannelId(poDB.getCChannelId());
+            CChannel channel = channelMapper.getChannelByChannelId(poDB.getCChannelId());
             pOrderQueue.setChannel(channel.getId());
             pOrderQueue.setChannelId(poDB.getCChannelId());
             pOrderQueue.setOrderId(orderId);

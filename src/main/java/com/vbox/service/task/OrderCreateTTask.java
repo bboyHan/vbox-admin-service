@@ -19,12 +19,11 @@ import com.vbox.common.util.RedisUtil;
 import com.vbox.config.exception.NotFoundException;
 import com.vbox.config.exception.ServiceException;
 import com.vbox.config.local.ProxyInfoThreadHolder;
-import com.vbox.persistent.entity.CAccount;
-import com.vbox.persistent.entity.PayOrder;
-import com.vbox.persistent.entity.PayOrderEvent;
+import com.vbox.persistent.entity.*;
 import com.vbox.persistent.pojo.dto.*;
 import com.vbox.persistent.repo.*;
 import com.vbox.service.channel.PayService;
+import com.vbox.service.channel.TxPayService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Async;
@@ -39,7 +38,9 @@ import java.net.URL;
 import java.net.URLDecoder;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -69,6 +70,12 @@ public class OrderCreateTTask {
     private CGatewayMapper cGatewayMapper;
     @Autowired
     private PAccountMapper pAccountMapper;
+    @Autowired
+    private TxPayService txPayService;
+    @Autowired
+    private ChannelShopMapper channelShopMapper;
+    @Autowired
+    private ChannelMapper channelMapper;
 
     public static ExpireQueue<SecCode> queue = new ExpireQueue<>();
 
@@ -85,12 +92,12 @@ public class OrderCreateTTask {
 //    }
 
 
-//    @Scheduled(cron = "0/2 * * * * ? ")  //每 2s
+    //    @Scheduled(cron = "0/2 * * * * ? ")  //每 2s
     @Async("scheduleExecutor")
     public void handleCapPool() throws Exception {
         try {
             SecCode secCode = gee4Service.verifyGeeCapForQuery();
-            if (secCode!= null) redisUtil.addSecCode(secCode);
+            if (secCode != null) redisUtil.addSecCode(secCode);
 //            log.warn("sec code is null, 验证添加异常");
         } catch (NullPointerException e) {
             log.error("handleCapPool.NPE, msg :{}", e.getMessage());
@@ -211,27 +218,97 @@ public class OrderCreateTTask {
         String account;
         CAccount c = null;
 
-        Object ele = redisUtil.rPop(CommonConstant.CHANNEL_ACCOUNT_QUEUE + cid);
-        if (ele == null) {
+        CChannel channel = channelMapper.getChannelById(cid);
+        if ("jx3".equals(channel.getCGame())) {
+            Object ele = redisUtil.rPop(CommonConstant.CHANNEL_ACCOUNT_QUEUE + cid);
+            if (ele == null) {
+                List<CAccount> randomTempList = cAccountMapper.selectList(new QueryWrapper<CAccount>()
+                        .eq("status", 1)
+                        .eq("sys_status", 1)
+                        .eq("cid", cid)
+                );
+                for (CAccount cAccount : randomTempList) {
+                    redisUtil.lPush(CommonConstant.CHANNEL_ACCOUNT_QUEUE + cid, cAccount);
+                }
+                try {
+                    int randomIndex = RandomUtil.randomInt(randomTempList.size());
+                    c = randomTempList.get(randomIndex);
+                } catch (Exception e) {
+                    log.error("库存金额不足，或库存账号不足");
+                    throw new ServiceException("库存金额不足，或库存账号不足，请联系管理员");
+                }
+            } else {
+                String text = ele.toString();
+                try {
+                    c = JSONObject.parseObject(text, CAccount.class);
+                } catch (Exception e) {
+                    log.error("CAccount queue解析异常, text: {}", text);
+                    return;
+                }
+            }
+        } else {// tx
             List<CAccount> randomTempList = cAccountMapper.selectList(new QueryWrapper<CAccount>()
                     .eq("status", 1)
                     .eq("sys_status", 1)
-                    .eq("cid", cid)
+                    .eq("cid", channel.getId())
             );
+
+            Set<TxWaterList> rl = new HashSet<>();
+            // 使用HashMap来保存相同充值金额的充值账号
+            Map<Integer, List<String>> map = new HashMap<>();
+
             for (CAccount cAccount : randomTempList) {
-                redisUtil.lPush(CommonConstant.CHANNEL_ACCOUNT_QUEUE + cid, cAccount);
+                String openID = cAccount.getAcPwd();
+                String openKey = cAccount.getCk();
+                List<TxWaterList> txWaterList = txPayService.queryOrderBy30(openID, openKey);
+                log.warn("c- {}", txWaterList);
+                rl.addAll(txWaterList);
             }
-            int randomIndex = RandomUtil.randomInt(randomTempList.size());
-            c = randomTempList.get(randomIndex);
-        } else {
-            String text = ele.toString();
+
+            LocalDateTime now = LocalDateTime.now();
+            // 遍历rechargeList进行充值金额的筛选
+            for (TxWaterList recharge : rl) {
+                Integer payAmt = recharge.getPayAmt();
+                String provideID = recharge.getProvideID();
+                long payTime = recharge.getPayTime();
+                Instant instant = Instant.ofEpochSecond(payTime);
+                LocalDateTime parse = LocalDateTime.ofInstant(instant, ZoneId.systemDefault());
+                LocalDateTime pre30min = now.plusMinutes(-30);
+                // 如果该充值金额已存在于结果集中，则将充值账号添加进对应的列表中
+                if (parse.isAfter(pre30min)) {
+                    List<String> accountList = map.computeIfAbsent(payAmt, k -> new ArrayList<>());
+                    accountList.add(provideID);
+                }
+            }
+
+            //获取已经有充值当前金额的账户，作去除处理
+            List<String> qqList = map.get(reqMoney);
+            removeElements(qqList, randomTempList);
+
             try {
-                c = JSONObject.parseObject(text, CAccount.class);
+                int randomIndex = RandomUtil.randomInt(randomTempList.size());
+                c = randomTempList.get(randomIndex);
             } catch (Exception e) {
-                log.error("CAccount queue解析异常, text: {}", text);
-                return;
+                log.error("库存金额不足，或库存账号不足");
+                throw new ServiceException("库存金额不足，或库存账号不足，请联系管理员");
             }
+
+            String payUrl = handelTxPayUrl(channel.getCChannelId(), reqMoney);
+            LocalDateTime asyncTime = LocalDateTime.now();
+            pOrderMapper.updateInfoForQueue(orderId, c.getAcid(), OrderStatusEnum.NO_PAY.getCode(), "QQ|" + c.getAcAccount(), payUrl, payIp, asyncTime);
+            pOrderEventMapper.updateInfoForQueue(orderId, "", "QQ|" + c.getAcAccount(), "");
+
+            PayOrder poDB = pOrderMapper.getPOrderByOid(orderId);
+            boolean b = redisUtil.lPush(CommonConstant.ORDER_QUERY_QUEUE, poDB);
+            if (b) {
+                boolean has = redisUtil.hasKey(CommonConstant.ORDER_WAIT_QUEUE + orderId);
+                if (has) redisUtil.del(CommonConstant.ORDER_WAIT_QUEUE + orderId);
+                log.info("【任务执行】成功订单入查单回调池子, orderId: {}", orderId);
+            }
+
+            return;
         }
+
         log.info("handleAsyncCreateOrder.start");
 
         log.info("【任务执行】资源池取出..po channel id {} .randomACInfo - {}", channelId, c);
@@ -272,7 +349,7 @@ public class OrderCreateTTask {
         JSONObject orderResp;
         if ("jx3_ali_gift".equals(cgi.getCChannelId()) || "jx3_wx_gift".equals(cgi.getCChannelId())) {
             orderResp = gee4Service.createOrderT(cgi.getCGateway(), JXHTEnum.type(reqMoney), payInfo.getCk(), cgi.getCChannel());
-        }else {
+        } else {
             orderResp = gee4Service.createOrder(payInfo);
 //            orderResp = gee4Service.createOrderForQuery(payInfo);
             for (int i = 0; i < 10; i++) {
@@ -281,7 +358,7 @@ public class OrderCreateTTask {
                     if (os.contains("验证码")) {
                         log.warn("验证码不正确，重试 {} 次 : ", i + 1);
                         orderResp = gee4Service.createOrder(payInfo);
-                    }else {
+                    } else {
                         break;
                     }
                 }
@@ -296,7 +373,7 @@ public class OrderCreateTTask {
                 String os = orderResp.toString();
                 if (os.contains("冻结")) {
                     log.warn("冻结关号: channel_account : {}", c);
-                    cAccountMapper.stopByCaId("账号冻结，请及时查看" ,c.getId());
+                    cAccountMapper.stopByCaId("账号冻结，请及时查看", c.getId());
                 }
                 throw new ServiceException(os);
             } else {
@@ -325,6 +402,127 @@ public class OrderCreateTTask {
             throw new ServiceException("订单创建失败，请联系管理员");
         }
 
+    }
+
+    private String handelTxPayUrl(String cChannelId, Integer money) {
+        String payUrl = "";
+        if (cChannelId.contains("tx")) {
+            if (cChannelId.equals("tx_jym")) {
+                payUrl = "alipays://platformapi/startapp?appId=2021003103651463&page=%2Fpages%2Findex%2Findex%3FredirectUrl%3Dhttps%253A%252F%252Fm.jiaoyimao.com%252Frecharge%252Ffr%252Fcenter%253Fspm%253Dgcmall.home2022.kingkongarea.0%26jump%3DY&enbsv=0.2.2305051433.4&chInfo=ch_share__chsub_CopyLink&apshareid=1597A291-EF68-40B3-ABAF-72BD421AE78C&shareBizType=H5App_XCX&fxzjshareChinfo=ch_share__chsub_CopyLink";
+                log.info(" tx_jym - pay url: {}", payUrl);
+                return payUrl;
+            } else {
+                QueryWrapper<ChannelShop> queryWrapper = new QueryWrapper<>();
+                queryWrapper.eq("channel", cChannelId);
+                queryWrapper.eq("money", money);
+                queryWrapper.eq("status", 1);
+                List<ChannelShop> randomTempList = channelShopMapper.selectList(queryWrapper);
+                if (randomTempList != null && randomTempList.size() != 0) {
+                    int randomIndex = RandomUtil.randomInt(randomTempList.size());
+                    ChannelShop channelShop = randomTempList.get(randomIndex);
+                    payUrl = channelShop.getAddress();
+                }
+            }
+        }else {
+            log.error("当前通道无可用的引导地址， channel： {}, 引导金额： {}", cChannelId, money);
+            throw new ServiceException("当前通道无可用的引导地址");
+        }
+
+
+//        if (cChannelId.equals("tx_jym")) {
+//            payUrl = "alipays://platformapi/startapp?appId=2021003103651463&page=%2Fpages%2Findex%2Findex%3FredirectUrl%3Dhttps%253A%252F%252Fm.jiaoyimao.com%252Frecharge%252Ffr%252Fcenter%253Fspm%253Dgcmall.home2022.kingkongarea.0%26jump%3DY&enbsv=0.2.2305051433.4&chInfo=ch_share__chsub_CopyLink&apshareid=1597A291-EF68-40B3-ABAF-72BD421AE78C&shareBizType=H5App_XCX&fxzjshareChinfo=ch_share__chsub_CopyLink";
+//            log.info(" tx_jym - pay url: {}", payUrl);
+//            return payUrl;
+//        }
+//        if (cChannelId.equals("tx_tb")) {
+//            if (money == 30) {
+//                payUrl = "tbopen://m.taobao.com/tbopen/index.html?h5Url=https%3A%2F%2Fmarket.m.taobao.com%2Fapps%2Fmarket%2Fgames%2Fdeal.html%3Fwh_weex%3Dtrue%26referenceType%3D6%26referenceId%3D201161210%26channelId%3D2503001%26itemId%3D657899305846%26skuId%3D0%26quantity%3D1%26slk_gid%3Dgid_er_er%257Cgid_er_af_pop&action=ali.open.nav&module=h5&bootImage=0&slk_sid=ItihHOiEHRACAW/PeyWsKO3o_1689351746752&slk_t=1689351746779&slk_gid=gid_er_er%7Cgid_er_af_pop&afcPromotionOpen=false&source=slk_dp";
+//            }
+//            if (money == 50) {
+//                payUrl = "tbopen://m.taobao.com/tbopen/index.html?h5Url=https%3A%2F%2Fmarket.m.taobao.com%2Fapps%2Fmarket%2Fgames%2Fdeal.html%3Fwh_weex%3Dtrue%26referenceType%3D6%26itemId%3D657900053478";
+//            }
+//            if (money == 100) {
+//                payUrl = "tbopen://m.taobao.com/tbopen/index.html?h5Url=https%3A%2F%2Fmarket.m.taobao.com%2Fapps%2Fmarket%2Fgames%2Fdeal.html%3Fwh_weex%3Dtrue%26referenceType%3D6%26referenceId%3D201161210%26channelId%3D2503001%26itemId%3D657900389866%26skuId%3D0%26quantity%3D1%26slk_gid%3Dgid_er_er%257Cgid_er_af_pop&action=ali.open.nav&module=h5&bootImage=0&slk_sid=ItihHOiEHRACAW/PeyWsKO3o_1689351599055&slk_t=1689351599099&slk_gid=gid_er_er%7Cgid_er_af_pop&afcPromotionOpen=false&source=slk_dp";
+//            }
+//            if (money == 200) {
+//                payUrl = "tbopen://m.taobao.com/tbopen/index.html?h5Url=https%3A%2F%2Fmarket.m.taobao.com%2Fapps%2Fmarket%2Fgames%2Fdeal.html%3Fwh_weex%3Dtrue%26referenceType%3D6%26referenceId%3D201161210%26channelId%3D2503001%26itemId%3D658661863688%26skuId%3D0%26quantity%3D1%26slk_gid%3Dgid_er_er%257Cgid_er_af_pop&action=ali.open.nav&module=h5&bootImage=0&slk_sid=ItihHOiEHRACAW/PeyWsKO3o_1689351543326&slk_t=1689351543388&slk_gid=gid_er_er%7Cgid_er_af_pop&afcPromotionOpen=false&source=slk_dp";
+//            }
+//            if (money == 300) {
+//                payUrl = "tbopen://m.taobao.com/tbopen/index.html?h5Url=https%3A%2F%2Fmarket.m.taobao.com%2Fapps%2Fmarket%2Fgames%2Fdeal.html%3Fwh_weex%3Dtrue%26referenceType%3D6%26referenceId%3D201161210%26channelId%3D2503001%26itemId%3D657901101572%26skuId%3D0%26quantity%3D1%26slk_gid%3Dgid_er_er%257Cgid_er_af_pop&action=ali.open.nav&module=h5&bootImage=0&slk_sid=ItihHOiEHRACAW/PeyWsKO3o_1689351457896&slk_t=1689351457917&slk_gid=gid_er_er%7Cgid_er_af_pop&afcPromotionOpen=false&source=slk_dp";
+//            }
+//            log.info(" tx_tb - pay url: {}", payUrl);
+//            return payUrl;
+//        }
+//        if (cChannelId.equals("tx_zfb")) {
+//            if (money == 50) {
+//                payUrl = "alipays://platformapi/startapp?appId=2021003185606970&page=%2Fpages%2FproductDetail%2FproductDetail%3FproductId%3D1467&enbsv=0.2.2306091129.58&chInfo=ch_share__chsub_CopyLink&fxzjshareChinfo=ch_share__chsub_CopyLink&apshareid=598a805e-ee91-4059-8b75-3a38f9d8d995&shareBizType=H5App_XCX&launchKey=102d940e-2384-41a7-aac8-5d2ae1275b62-1689349737646";
+//            }
+//            if (money == 100) {
+//                payUrl = "alipays://platformapi/startapp?appId=2021003185606970&page=%2Fpages%2FproductDetail%2FproductDetail%3FproductId%3D1603&enbsv=0.2.2306091129.58&chInfo=ch_share__chsub_CopyLink&fxzjshareChinfo=ch_share__chsub_CopyLink&apshareid=f41ef249-46e0-44ae-99a7-3ef5c2b25fce&shareBizType=H5App_XCX&launchKey=d68feafa-87d3-408d-b851-2c195e927efe-1689351952630";
+//            }
+//            log.info(" tx_zfb - pay url: {}", payUrl);
+//            return payUrl;
+//        }
+//        if (cChannelId.equals("tx_dy")) {
+//            if (money == 50) {
+////                payUrl = "snssdk1128://ec_goods_detail?channel_id=&channel_type=&enter_from=new_h5_product_detail&meta_params=%7B%22entrance_info%22%3A%22%7B%5C%22share_content%5C%22%3A%5C%22product_detail%5C%22%2C%5C%22share_object%5C%22%3A%5C%22copy%5C%22%7D%22%7D&promotion_id=3618318391900813952&request_additions=%7B%22sec_author_id%22%3A%22MS4wLjABAAAA2I9NdgAKZrz9e0tLm1csyDMNqLESPDm34TdYYqXe8-I%22%2C%22enter_from%22%3A%22new_h5_product_detail%22%7D&scene_from=share_reflow&use_link_command=1&zlink=https%3A%2F%2Fz.douyin.com%2FYCvp&zlink_click_time=1689351152&__reporte_stage=launch";
+//                payUrl = "snssdk1128://ec_goods_detail?channel_id=&channel_type=&enter_from=new_h5_product_detail&meta_params=%7B%22entrance_info%22%3A%22%7B%5C%22share_content%5C%22%3A%5C%22product_detail%5C%22%2C%5C%22share_object%5C%22%3A%5C%22copy%5C%22%7D%22%7D&promotion_id=3618318076203948235&request_additions=%7B%22sec_author_id%22%3A%22MS4wLjABAAAA2I9NdgAKZrz9e0tLm1csyDMNqLESPDm34TdYYqXe8-I%22%2C%22enter_from%22%3A%22new_h5_product_detail%22%7D&scene_from=share_reflow&use_link_command=1&zlink=https%3A%2F%2Fz.douyin.com%2FYCvp&zlink_click_time=1689491760&__reporte_stage=launch";
+//            }
+//            if (money == 100) {
+//                payUrl = "snssdk1128://ec_goods_detail?channel_id=&channel_type=&enter_from=new_h5_product_detail&meta_params=%7B%22entrance_info%22%3A%22%7B%5C%22share_content%5C%22%3A%5C%22product_detail%5C%22%2C%5C%22share_object%5C%22%3A%5C%22copy%5C%22%7D%22%7D&promotion_id=3618318220076937099&request_additions=%7B%22sec_author_id%22%3A%22MS4wLjABAAAA2I9NdgAKZrz9e0tLm1csyDMNqLESPDm34TdYYqXe8-I%22%2C%22enter_from%22%3A%22new_h5_product_detail%22%7D&scene_from=share_reflow&use_link_command=1&zlink=https%3A%2F%2Fz.douyin.com%2FYCvp&zlink_click_time=1689351278&__reporte_stage=launch";
+//            }
+//            if (money == 200) {
+//                payUrl = "snssdk1128://ec_goods_detail?channel_id=&channel_type=&enter_from=new_h5_product_detail&meta_params=%7B%22entrance_info%22%3A%22%7B%5C%22share_content%5C%22%3A%5C%22product_detail%5C%22%2C%5C%22share_object%5C%22%3A%5C%22copy%5C%22%7D%22%7D&promotion_id=3618318391900813952&request_additions=%7B%22sec_author_id%22%3A%22MS4wLjABAAAA2I9NdgAKZrz9e0tLm1csyDMNqLESPDm34TdYYqXe8-I%22%2C%22enter_from%22%3A%22new_h5_product_detail%22%7D&scene_from=share_reflow&use_link_command=1&zlink=https%3A%2F%2Fz.douyin.com%2FYCvp&zlink_click_time=1689351152&__reporte_stage=launch";
+//            }
+//            if (money == 300) {
+//                payUrl = "snssdk1128://ec_goods_detail?channel_id=&channel_type=&enter_from=new_h5_product_detail&meta_params=%7B%22entrance_info%22%3A%22%7B%5C%22share_content%5C%22%3A%5C%22product_detail%5C%22%2C%5C%22share_object%5C%22%3A%5C%22copy%5C%22%7D%22%7D&promotion_id=3624398545265771310&request_additions=%7B%22sec_author_id%22%3A%22MS4wLjABAAAAwEH5Emgyy7hH0y9Ui8OLL68XYJNpXu7PEfpQklrigye43_tOIVZbwbSop1ubEjim%22%2C%22enter_from%22%3A%22new_h5_product_detail%22%7D&scene_from=share_reflow&use_link_command=1&zlink=https%3A%2F%2Fz.douyin.com%2FYCvp&zlink_click_time=1689352259&__reporte_stage=launch";
+//            }
+//            if (money == 500) {
+//                payUrl = "snssdk1128://ec_goods_detail?channel_id=&channel_type=&enter_from=new_h5_product_detail&meta_params=%7B%22entrance_info%22%3A%22%7B%5C%22share_content%5C%22%3A%5C%22product_detail%5C%22%2C%5C%22share_object%5C%22%3A%5C%22copy%5C%22%7D%22%7D&promotion_id=3615351507823762752&request_additions=%7B%22sec_author_id%22%3A%22MS4wLjABAAAAwEH5Emgyy7hH0y9Ui8OLL68XYJNpXu7PEfpQklrigye43_tOIVZbwbSop1ubEjim%22%2C%22enter_from%22%3A%22new_h5_product_detail%22%7D&scene_from=share_reflow&use_link_command=1&zlink=https%3A%2F%2Fz.douyin.com%2FYCvp&zlink_click_time=1689352197&__reporte_stage=launch";
+//            }
+//            if (money == 500) {
+//                payUrl = "snssdk1128://ec_goods_detail?channel_id=&channel_type=&enter_from=new_h5_product_detail&meta_params=%7B%22entrance_info%22%3A%22%7B%5C%22share_content%5C%22%3A%5C%22product_detail%5C%22%2C%5C%22share_object%5C%22%3A%5C%22copy%5C%22%7D%22%7D&promotion_id=3615351507823762752&request_additions=%7B%22sec_author_id%22%3A%22MS4wLjABAAAAwEH5Emgyy7hH0y9Ui8OLL68XYJNpXu7PEfpQklrigye43_tOIVZbwbSop1ubEjim%22%2C%22enter_from%22%3A%22new_h5_product_detail%22%7D&scene_from=share_reflow&use_link_command=1&zlink=https%3A%2F%2Fz.douyin.com%2FYCvp&zlink_click_time=1689352197&__reporte_stage=launch";
+//            }
+//            log.info(" tx_dy - pay url: {}", payUrl);
+//            return payUrl;
+//        }
+//        if (cChannelId.equals("tx_jd")) {
+//            if (money == 50) {
+//                payUrl = "openapp.jdmobile://virtual?params=%7B%22sourceValue%22%3A%220_productDetail_97%22%2C%22des%22%3A%22productDetail%22%2C%22skuId%22%3A%2210063946360171%22%2C%22category%22%3A%22jump%22%2C%22sourceType%22%3A%22PCUBE_CHANNEL%22%7D%20";
+//            }
+//            if (money == 100) {
+//                payUrl = "openapp.jdmobile://virtual?params=%7B%22sourceValue%22%3A%220_productDetail_97%22%2C%22des%22%3A%22productDetail%22%2C%22skuId%22%3A%2210063946477179%22%2C%22category%22%3A%22jump%22%2C%22sourceType%22%3A%22PCUBE_CHANNEL%22%7D%20";
+//            }
+//            if (money == 200) {
+//                payUrl = "openapp.jdmobile://virtual?params=%7B%22sourceValue%22%3A%220_productDetail_97%22%2C%22des%22%3A%22productDetail%22%2C%22skuId%22%3A%2210063946614417%22%2C%22category%22%3A%22jump%22%2C%22sourceType%22%3A%22PCUBE_CHANNEL%22%7D%20";
+//            }
+//            if (money == 300) {
+//                payUrl = "openapp.jdmobile://virtual?params=%7B%22sourceValue%22%3A%220_productDetail_97%22%2C%22des%22%3A%22productDetail%22%2C%22skuId%22%3A%2210063946727378%22%2C%22category%22%3A%22jump%22%2C%22sourceType%22%3A%22PCUBE_CHANNEL%22%7D%20";
+//            }
+//            if (money == 500) {
+//                payUrl = "openapp.jdmobile://virtual?params=%7B%22sourceValue%22%3A%220_productDetail_97%22%2C%22des%22%3A%22productDetail%22%2C%22skuId%22%3A%2210063946825293%22%2C%22category%22%3A%22jump%22%2C%22sourceType%22%3A%22PCUBE_CHANNEL%22%7D%20";
+//            }
+////            payUrl = "openapp.jdmobile://virtual?params=%7B%22sourceValue%22%3A%220_productDetail_97%22%2C%22des%22%3A%22productDetail%22%2C%22skuId%22%3A%2210063946360171%22%2C%22category%22%3A%22jump%22%2C%22sourceType%22%3A%22PCUBE_CHANNEL%22%7D%20";
+//            log.info(" tx_jd - pay url: {}", payUrl);
+//            return payUrl;
+//        }
+        return payUrl;
+    }
+
+    public void removeElements(List<String> qqList, List<CAccount> txList) {
+        Iterator<CAccount> iterator = txList.iterator();
+
+        if (qqList == null || qqList.size() == 0) return;
+
+        while (iterator.hasNext()) {
+            CAccount cAccount = iterator.next();
+            String qq = cAccount.getAcAccount();
+
+            // 判断provideID是否包含在array1中的元素中
+            if (qqList.contains(qq)) {
+                iterator.remove();
+            }
+        }
     }
 
     private List<CAccountInfo> compute(Integer channelId, String now, List<CAccountInfo> cAccountList, List<CAccountInfo> cAccountListToday) throws IOException {

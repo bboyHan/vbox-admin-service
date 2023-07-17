@@ -27,8 +27,15 @@ public class GlobalExceptionAdvice {
     @ExceptionHandler(value = ValidateException.class)
     @ResponseBody
     public ResponseEntity<Result<String>> handleValidateEx(HttpServletRequest req, ValidateException e) {
-        log.error(req.getRequestURI(), e.getMessage());
+        log.error(req.getRequestURI(), e);
         return Result.unauthorized(Result.wrap(e.getMessage(), ResultEnum.UNAUTHORIZED));
+    }
+
+    @ExceptionHandler(value = UnSupportException.class)
+    @ResponseBody
+    public ResponseEntity<Result<String>> handleValidEx(HttpServletRequest req, UnSupportException e) {
+        log.error(req.getRequestURI(), e);
+        return Result.forbidden(Result.wrap(e.getMessage(), ResultEnum.ACCESS_FORBIDDEN));
     }
 
     @ExceptionHandler(value = AccessLimitException.class)

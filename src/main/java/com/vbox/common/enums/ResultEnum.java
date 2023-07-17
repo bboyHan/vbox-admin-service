@@ -5,6 +5,7 @@ import java.util.Objects;
 public enum ResultEnum {
 
     ACCESS_LIMIT(500403, "访问过于频繁，超出访问频率限制，请稍后再试"),
+    ACCESS_FORBIDDEN(500400, "访问限制，请核验参数或权限"),
     UNAUTHORIZED(500401, "身份验证未通过，请尝试重新授权"),
     NOT_FOUND(500404, "相关资源未找到，请联系管理员"),
     CONFLICT_ERROR(500409, "主Key重复，请重新设置"),

@@ -10,6 +10,7 @@ import com.vbox.common.enums.ResultEnum;
 import com.vbox.common.util.RedisUtil;
 import com.vbox.config.annotation.AccessLimit;
 import com.vbox.config.exception.AccessLimitException;
+import com.vbox.config.exception.UnSupportException;
 import com.vbox.config.local.PayerInfoThreadHolder;
 import com.vbox.persistent.pojo.dto.PayerInfo;
 import lombok.extern.slf4j.Slf4j;
@@ -67,7 +68,7 @@ public class AccessLimitAspect {
         PublicKey pubKey = SecureUtil.rsa(null, pub).getPublicKey();
 
         boolean verify = JWTUtil.verify(token, JWTSignerUtil.rs256(pubKey));
-        if (!verify) throw new ValidateException();
+        if (!verify) throw new UnSupportException("访问频次过于频繁");
 
         // 访问限制
         String key = "accessLimit:" + account + ":" + uri;
