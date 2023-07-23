@@ -53,6 +53,11 @@ public class ChannelController {
         int rl = channelService.createTxChannelAccount(caParam);
         return Result.ok(rl);
     }
+    @PostMapping("/channel/sdoCAccount")
+    public ResponseEntity<Result<Integer>> createSdoChannelAccount(@RequestBody CAccountParam caParam) {
+        int rl = channelService.createSdoChannelAccount(caParam);
+        return Result.ok(rl);
+    }
 
     @GetMapping("/channel/CAccount")
     public ResponseEntity<Result<ResultOfList<List<CAccountVO>>>> getCAccountList(CAccountParam caParam) {
@@ -84,6 +89,12 @@ public class ChannelController {
         return Result.ok(rl);
     }
 
+    @PutMapping("/channel/sdoCAccount")
+    public ResponseEntity<Result<Integer>> updateSdoCAccount(@RequestBody CAccountParam param) throws IOException {
+        int rl = channelService.updateSdoCAccount(param);
+        return Result.ok(rl);
+    }
+
     @GetMapping("/channel/gateway")
     public ResponseEntity<Result<List<CGatewayVO>>> getGatewayList(@RequestParam(value = "c_channel_id", required = false) String c_channel_id) {
         List<CGatewayVO> rl = new ArrayList<>();
@@ -98,7 +109,7 @@ public class ChannelController {
     }
 
     @GetMapping("/channel/txQuery/{id}")
-    public ResponseEntity<Result<Object>> getCAccountList(@PathVariable String id) {
+    public ResponseEntity<Result<Object>> getTxQuery(@PathVariable String id) {
         String rl = channelService.getTxQuery(id);
         return Result.ok(rl);
     }

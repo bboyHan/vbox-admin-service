@@ -15,6 +15,7 @@ public enum ChannelEnum {
     TX_DY("tx_dy", "腾讯(抖音)"),
     TX_JD("tx_jd", "腾讯(京东)"),
     TX_PDD("tx_pdd", "腾讯(拼多多)"),
+    SDO_ALIPAY("sdo_alipay", "测试(支付宝)"),
     UNKNOWN("unknown", "未知"),
     ;
 

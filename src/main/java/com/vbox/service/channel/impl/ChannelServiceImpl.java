@@ -25,6 +25,7 @@ import com.vbox.persistent.pojo.vo.VboxUserVO;
 import com.vbox.persistent.repo.*;
 import com.vbox.service.channel.ChannelService;
 import com.vbox.service.channel.PayService;
+import com.vbox.service.channel.SdoPayService;
 import com.vbox.service.channel.TxPayService;
 import com.vbox.service.task.Gee4Service;
 import lombok.extern.slf4j.Slf4j;
@@ -47,6 +48,8 @@ public class ChannelServiceImpl implements ChannelService {
     @Autowired
     private CAccountMapper caMapper;
     @Autowired
+    private CAccountDelMapper caDelMapper;
+    @Autowired
     private CGatewayMapper cgMapper;
     @Autowired
     private RelationUSMapper relationUSMapper;
@@ -60,6 +63,8 @@ public class ChannelServiceImpl implements ChannelService {
     private PayService payService;
     @Autowired
     private TxPayService txPayService;
+    @Autowired
+    private SdoPayService sdoPayService;
     @Autowired
     private RedisUtil redisUtil;
     @Autowired
@@ -267,9 +272,44 @@ public class ChannelServiceImpl implements ChannelService {
     }
 
     @Override
+    public int createSdoChannelAccount(CAccountParam caParam) {
+        log.warn("createSdoChannelAccount, param: {}", caParam);
+        String ck = caParam.getCk();
+        String nsessionid = CommonUtil.getCookieValue(ck, "nsessionid");
+
+//        boolean isValid = sdoPayService.tokenCheck(nsessionid);
+//        if (!isValid) throw new ServiceException("ck传值错误，请核对");
+
+        CAccount ca = new CAccount();
+        BeanUtils.copyProperties(caParam, ca);
+
+        CGatewayInfo cgi = cgMapper.getGateWayInfoByCIdAndCG(caParam.getC_channel_id(), caParam.getC_gateway());
+        ca.setCid(cgi.getCid());
+        ca.setGid(cgi.getId());
+        Integer uid = TokenInfoThreadHolder.getToken().getId();
+        String payDesc = PayTypeEnum.of(caParam.getPayType());
+        ca.setAcAccount(caParam.getAc_account());
+        ca.setAcPwd(nsessionid);
+        ca.setAcRemark(caParam.getAc_remark());
+        ca.setAcid(IdUtil.simpleUUID());
+        ca.setUid(uid);
+        ca.setCk(ck);
+        ca.setDailyLimit(caParam.getDaily_limit());
+        ca.setTotalLimit(caParam.getTotal_limit());
+        ca.setStatus(caParam.getStatus());
+        ca.setPayDesc(payDesc);
+        ca.setSysLog("初始化，暂未开启");
+        ca.setSysStatus(2);
+
+        caMapper.insert(ca);
+        return 0;
+    }
+
+    @Override
     public int createTxChannelAccount(TxCAccountParam caParam) {
 
         String ck = caParam.getCk();
+        log.warn("param ck : {}", ck);
         String openId = CommonUtil.getCookieValue(ck, "openid");
         String openKey = CommonUtil.getCookieValue(ck, "openkey");
 
@@ -286,12 +326,12 @@ public class ChannelServiceImpl implements ChannelService {
         String payDesc = PayTypeEnum.of(caParam.getPayType());
         ca.setAcAccount(caParam.getAc_account());
         // ck - pwd - openID
-        ca.setAcPwd(caParam.getOpenId());
+        ca.setAcPwd(openId);
         ca.setAcRemark(caParam.getAc_remark());
         ca.setAcid(IdUtil.simpleUUID());
         ca.setUid(uid);
         // ck - openKey
-        ca.setCk(caParam.getOpenKey());
+        ca.setCk(openKey);
         ca.setDailyLimit(caParam.getDaily_limit());
         ca.setTotalLimit(caParam.getTotal_limit());
         ca.setStatus(caParam.getStatus());
@@ -457,6 +497,49 @@ public class ChannelServiceImpl implements ChannelService {
     }
 
     @Override
+    public int updateSdoCAccount(CAccountParam param) throws IOException {
+        CAccount cAccount = new CAccount();
+
+        String ck = param.getCk();
+        String nsessionid = CommonUtil.getCookieValue(ck, "nsessionid");
+
+        boolean isValid = sdoPayService.tokenCheck(nsessionid);
+        if (!isValid) throw new ServiceException("ck传值错误，请核对");
+
+        cAccount.setId(param.getId());
+        cAccount.setAcPwd(nsessionid);
+        cAccount.setCk(ck);
+
+        cAccount.setTotalLimit(param.getTotal_limit());
+        cAccount.setDailyLimit(param.getDaily_limit());
+        cAccount.setMin(param.getMin());
+        cAccount.setMax(param.getMax());
+        cAccount.setAcRemark(param.getAc_remark());
+
+        //判断用户余额是否足够
+        Integer uid = TokenInfoThreadHolder.getToken().getId();
+        // 总账户充值
+        Integer totalRecharge = vboxUserWalletMapper.getTotalRechargeByUid(uid);
+
+        // 总订单充值（花费）
+        Integer totalCost = vboxUserWalletMapper.getTotalCostByUid(uid);
+
+        totalRecharge = totalRecharge == null ? 0 : totalRecharge;
+        totalCost = totalCost == null ? 0 : totalCost;
+        // 总余额
+        int balance = totalRecharge - totalCost;
+
+        if (balance <= 0) {
+            cAccount.setSysStatus(0);
+            cAccount.setSysLog("总余额不足，请联系管理员充值");
+        } else {
+            cAccount.setSysStatus(1);
+            cAccount.setSysLog("账户信息更新，系统判定可用");
+        }
+        return caMapper.updateById(cAccount);
+    }
+
+    @Override
     public int enableCAccount(CAEnableParam param) throws IOException {
 
         CAccount cAccount = new CAccount();
@@ -482,6 +565,7 @@ public class ChannelServiceImpl implements ChannelService {
                         throw new NotFoundException("ck问题，请联系管理员");
                     }
                 }
+                log.warn("jx3 验证结果... {}", true);
 
                 cAccount.setCk(ck);
             }
@@ -492,8 +576,16 @@ public class ChannelServiceImpl implements ChannelService {
                 String openID = caDB.getAcPwd();
                 String openKey = caDB.getCk();
                 boolean isValid = txPayService.tokenCheck(openID, openKey);
+                log.warn("tx系 验证结果... {}", isValid);
                 if (!isValid) throw new ServiceException("openID、Key传值错误，请核对");
             }
+
+//            if ("sdo".equals(channel.getCGame())) {
+//                log.warn("sdo系 验证开启...");
+//                String nsessionid = caDB.getAcPwd();
+//                boolean isValid = sdoPayService.tokenCheck(nsessionid);
+//                if (!isValid) throw new ServiceException("ck传值错误或者过期，请核对");
+//            }
 
 
             cAccount.setSysStatus(1);
@@ -533,10 +625,11 @@ public class ChannelServiceImpl implements ChannelService {
         if (count == 0) {
             return caMapper.deleteById(cid);
         } else { //有过订单，软删
-            CAccount upd = new CAccount();
-            upd.setId(cid);
-            upd.setSoftDel(0);
-            return caMapper.updateById(upd);
+            CAccountDel upd = new CAccountDel();
+            BeanUtils.copyProperties(ca, upd);
+            upd.setId(null);
+            caMapper.deleteById(cid);
+            return caDelMapper.insert(upd);
         }
     }
 

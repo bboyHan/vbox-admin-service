@@ -3,7 +3,6 @@ package com.vbox.persistent.repo;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.vbox.persistent.entity.Channel;
 import com.vbox.persistent.entity.CChannel;
-import com.vbox.persistent.pojo.dto.CGatewayInfo;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Select;
 
@@ -22,5 +21,8 @@ public interface ChannelMapper extends BaseMapper<Channel> {
     Integer getChannelIdByChannelId(String channelId);
 
     @Select("SELECT * FROM vbox_channel WHERE type = 1")
-    List<CChannel> getChannelTypes();
+    List<CChannel> getChannelShopTypes();
+
+    @Select("SELECT * FROM vbox_channel WHERE type = 2")
+    List<CChannel> getChannelPreTypes();
 }

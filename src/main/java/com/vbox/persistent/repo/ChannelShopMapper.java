@@ -10,7 +10,7 @@ import java.util.List;
 @Mapper
 public interface ChannelShopMapper extends BaseMapper<ChannelShop> {
 
-    @Select("select money from vbox_channel_shop where channel = #{channel} and status = 1")
+    @Select("select distinct money from vbox_channel_shop where channel = #{channel} and status = 1")
     List<Integer> getChannelShopMoneyList(String channel);
 
 }

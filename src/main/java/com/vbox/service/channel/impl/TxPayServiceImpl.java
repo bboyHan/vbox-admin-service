@@ -4,17 +4,21 @@ import cn.hutool.core.util.IdUtil;
 import cn.hutool.core.util.URLUtil;
 import cn.hutool.http.HttpRequest;
 import cn.hutool.http.HttpUtil;
-import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
+import com.vbox.config.local.ProxyInfoThreadHolder;
 import com.vbox.persistent.pojo.dto.TxWaterList;
 import com.vbox.persistent.pojo.param.TxPreAuthParam;
+import com.vbox.service.channel.PayService;
 import com.vbox.service.channel.TxPayService;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
-import java.util.*;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 @Service
 @Slf4j
@@ -63,7 +67,7 @@ public class TxPayServiceImpl implements TxPayService {
                         "&readyState=complete&docWidth=400&docHeight=330&sinceNavigationStart=10098&closeOnSuccess=1&groupid=" +
                         "&gray_new_ui=store&openid=" + openID + "&openkey=" + openKey + "&qqAppid=101502376" +
                         "&sessionid=openid&sessiontype=kp_accesstoken&shownick=1&supercoupons=noCoupon&u=&wxAppid2=wx951bdcac522929b6" +
-                        "&aid=mvip.pingtai.wechat.wxye_ktvip&n=" + amount + "&account=qq&zoneid="+zoneID+"&as=1";
+                        "&aid=mvip.pingtai.wechat.wxye_ktvip&n=" + amount + "&account=qq&zoneid=" + zoneID + "&as=1";
         }
 
         URL urlPay = URLUtil.url(shtml);
@@ -89,7 +93,7 @@ public class TxPayServiceImpl implements TxPayService {
                 .header("Content-Type", "application/x-www-form-urlencoded")
                 .execute().body();
 
-        log.warn("tx token校验结果: {}", payRs!= null? payRs.trim(): null);
+        log.warn("tx token校验结果: {}", payRs != null ? payRs.trim() : null);
 
         JSONObject userResp = JSONObject.parseObject(payRs);
         if (userResp == null) return false;
@@ -98,6 +102,9 @@ public class TxPayServiceImpl implements TxPayService {
         return ret == 0;
 
     }
+
+    @Autowired
+    private PayService payService;
 
     @Override
     public List<TxWaterList> queryOrderBy30(String openId, String openKey) {
@@ -129,15 +136,20 @@ public class TxPayServiceImpl implements TxPayService {
         urlPayMap.put("openid", openId);
         urlPayMap.put("openkey", openKey);
 
+        if (ProxyInfoThreadHolder.getProxy() == null || ProxyInfoThreadHolder.getIpAddr() == null) {
+            payService.addProxy(null, "127.0.0.1", null);
+        }
+
         String payRs = HttpRequest.post("https://api.unipay.qq.com/v1/r/1450000490/trade_record_query")
                 .form(urlPayMap)
+                .setHttpProxy(ProxyInfoThreadHolder.getIpAddr(), ProxyInfoThreadHolder.getPort())
                 .header("Referer", "https://pay.qq.com/")
                 .header("Content-Type", "application/x-www-form-urlencoded")
                 .execute().body();
-
-        log.warn("tx trade_record_query, : {}" ,payRs);
+//        log.warn("tx trade_record_query, : {}" ,payRs);
 
         JSONObject jsonResp = JSONObject.parseObject(payRs);
+        log.warn("tx trade_record_query, : {}", jsonResp.get("ret"));
         List<TxWaterList> txWaterListList = jsonResp.getList("WaterList", TxWaterList.class);
 //        Map<String, Set<Integer>> s = new HashMap<>();
 //

@@ -175,6 +175,13 @@ public class PayController {
         return Result.ok(body);
     }
 
+    @GetMapping("/channel/order/callback/confirm/{orderId}")
+    public ResponseEntity<Result<Object>> callbackOrder(@PathVariable String orderId) throws Exception {
+
+        String body = payService.callbackOrder(orderId);
+        return Result.ok(body);
+    }
+
     @GetMapping({"/channel/order/queryAndCallback/{orderId}"})
     public ResponseEntity<Result<Object>> queryAndCallback(@PathVariable String orderId) throws Exception {
         OrderQueryVO rs = payService.queryAndCallback(orderId);

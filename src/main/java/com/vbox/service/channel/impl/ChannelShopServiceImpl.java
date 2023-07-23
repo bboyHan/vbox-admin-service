@@ -5,9 +5,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.vbox.common.ResultOfList;
 import com.vbox.config.local.TokenInfoThreadHolder;
 import com.vbox.persistent.entity.CChannel;
-import com.vbox.persistent.entity.Channel;
 import com.vbox.persistent.entity.ChannelShop;
-import com.vbox.persistent.entity.PayOrder;
 import com.vbox.persistent.pojo.param.CSEnableParam;
 import com.vbox.persistent.pojo.param.ChannelShopParam;
 import com.vbox.persistent.repo.ChannelMapper;
@@ -70,7 +68,7 @@ public class ChannelShopServiceImpl implements ChannelShopService {
         }
 
         queryWrapper.eq("uid", uid);
-        queryWrapper.orderByDesc("id");
+        queryWrapper.orderByDesc("shop_remark");
 
         Page<ChannelShop> page = null;
         if (null != queryParam.getPage() && null != queryParam.getPageSize()) {
@@ -112,7 +110,7 @@ public class ChannelShopServiceImpl implements ChannelShopService {
 
     @Override
     public List<CChannel> getChannelShopTypes(ChannelShopParam channelShopParam) {
-        List<CChannel> channels = channelMapper.getChannelTypes();
+        List<CChannel> channels = channelMapper.getChannelShopTypes();
         return channels;
     }
 }

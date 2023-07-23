@@ -13,5 +13,6 @@ public class OrderQueryParam extends PageParam {
     private String p_account;  //付方ID
     private String cChannelId;
     private String acAccount;
+    private String acRemark;
 
 }

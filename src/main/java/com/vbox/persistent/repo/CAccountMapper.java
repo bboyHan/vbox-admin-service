@@ -102,6 +102,9 @@ public interface CAccountMapper extends BaseMapper<CAccount> {
     @Update("update vbox_channel_account set status = 0, sys_status = 0, sys_log = #{sysLog} where id = #{id}")
     void stopByCaId(@Param("sysLog")String sysLog, @Param("id") Integer id);
 
+    @Update("update vbox_channel_account set status = 0, sys_status = 0, sys_log = #{sysLog} where acid = #{acid}")
+    void stopByACID(@Param("sysLog")String sysLog, @Param("acid") String acid);
+
     @Update("update vbox_channel_account set sys_status = 1, sys_log = #{sysLog} where uid = #{uid}")
     void startByUid(@Param("sysLog")String sysLog, @Param("uid") Integer uid);
 }

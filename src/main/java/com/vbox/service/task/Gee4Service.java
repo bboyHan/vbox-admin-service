@@ -283,22 +283,24 @@ public class Gee4Service {
                 datetime = pow_detail.getString("datetime");
                 lot_number = cap.getString("lot_number");
                 String captcha_type = cap.getString("captcha_type");
-//                if (captcha_type.equalsIgnoreCase("word") || captcha_type.equalsIgnoreCase("nine")) {
-                if (captcha_type.equalsIgnoreCase("nine")) {
+                if (captcha_type.equalsIgnoreCase("word") || captcha_type.equalsIgnoreCase("nine")) {
+//                if (captcha_type.equalsIgnoreCase("nine")) {
                     analysis = analysis(cap);
                     cptList = analysis.getJSONArray("cptList");
-//                log.info("尝试次数 - capRetry : {}", capRetry);
+                    log.info("尝试次数 - capRetry : {}", capRetry);
                     if (cptList.size() != 3) {
 //                    log.warn("word analysis error: {}", cptList);
                         continue;
                     }
-                    if (capRetry > 10) {
+                    if (capRetry > 15) {
+                        log.error("当前为 GeeCap 已超过 {} 次尝试失败 ，结束本次验证机制", capRetry);
                         throw new ServiceException("平台验证未通过（请尝试重试请求）");
                     }
                     break;
                 }
             } catch (UnSupportException e) {
-                if (capRetry > 10) {
+                if (capRetry > 15) {
+                    log.error("当前为 GeeCap 已超过 {} 次尝试失败 ，结束本次验证机制", capRetry);
                     throw new ServiceException("平台验证未通过（请尝试重试请求）");
                 }
             }
@@ -341,7 +343,7 @@ public class Gee4Service {
         JSONArray cptList = null;
 
         int capRetry = 0;
-        for (int i = 0; i < 10; i++) {
+        for (int i = 0; i < 20; i++) {
             try {
                 capRetry++;
                 cap = capForQuery();
@@ -362,7 +364,7 @@ public class Gee4Service {
 //                    log.warn("word analysis error: {}", cptList);
                         continue;
                     }
-                    if (capRetry > 10) {
+                    if (capRetry > 15) {
                         log.error("当前为 GeeCap 已超过 {} 次尝试失败 ，结束本次验证机制", capRetry);
                         throw new ServiceException("平台验证未通过（请尝试重试请求）");
                     }
@@ -370,7 +372,7 @@ public class Gee4Service {
                 }
             } catch (Exception e) {
                 log.error("当前为 GeeCap 第 {} 次尝试失败 ", capRetry);
-                if (capRetry > 10) {
+                if (capRetry > 15) {
                     log.error("当前为 GeeCap 已超过 {} 次尝试失败 ，结束本次验证机制", capRetry);
                     throw new ServiceException("平台验证未通过（请尝试重试请求）");
                 }
@@ -645,7 +647,7 @@ public class Gee4Service {
                 .form("lang", "zho")
                 .form("callback", "geetest_" + time)
                 .execute().body();
-        log.info(resp);
+//        log.info(resp);
         String s = parseGeeJson(resp);
 
         JSONObject obj = JSONObject.parseObject(s);

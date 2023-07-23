@@ -1,9 +1,7 @@
 package com.vbox.service.channel.impl;
 
 import cn.hutool.core.codec.Base64;
-import cn.hutool.core.collection.CollectionUtil;
 import cn.hutool.core.date.DateUtil;
-import cn.hutool.core.exceptions.ValidateException;
 import cn.hutool.core.util.IdUtil;
 import cn.hutool.core.util.NumberUtil;
 import cn.hutool.core.util.RandomUtil;
@@ -101,6 +99,8 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
     private LocationMapper locationMapper;
     @Autowired
     private ChannelShopMapper channelShopMapper;
+    @Autowired
+    private ChannelPreMapper channelPreMapper;
 
     @Override
     public int createPAccount(PAccountParam param) {
@@ -251,223 +251,11 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
             }
         }
 
-        // 豫南
-        /*if (StringUtils.hasLength(payIp)) {
-            String location = CommonUtil.ip2region(payIp);
-            if (location == null) {
-                throw new ServiceException("传入ip有误，请确认是否为正确Ipv4地址");
-            }
-            log.info("当前传入ip，查询location为 : {}", location);
-            String[] split = location.split("\\|");
-            String regionCity = split[3];
-            Location locCity = locationMapper.regionSearch(regionCity);
-            if (locCity != null) {
-                areaCity = locCity.getRegion().split("-")[2];
-
-                log.info("从库里取出【市区】, area : {} ,loc : {}", areaCity, locCity);
-            }
-            String region = split[2];
-            Location loc = locationMapper.regionSearch(region);
-            if (loc != null) {
-                area = loc.getRegion().split("-")[1];
-
-                log.info("从库里取出【省区】, area : {} ,loc : {}", area, loc);
-            }
-
-            if (StringUtils.hasLength(areaCity)) {
-                //https://aapi.51daili.com/getapi2?linePoolIndex=1&packid=2&unkey=&tid=&qty=1&time=2&port=1&format=json&ss=5&css=&pro=%E6%B1%9F%E8%8B%8F%E7%9C%81&city=&dt=0&ct=0&service=1&usertype=17
-                //https://aapi.51daili.com/getapi2?linePoolIndex=1&packid=2&unkey=&tid=&qty=1&time=2&port=1&format=json&ss=5&css=&pro=%E9%99%95%E8%A5%BF%E7%9C%81&city=%E5%AE%89%E5%BA%B7%E5%B8%82&dt=1&ct=0&service=1&usertype=17
-                JSONObject data = new JSONObject();
-                data.put("area", areaCity);
-                String bodyCityParam = data.toString();
-                String bodyCity = HttpRequest.post("http://118.31.4.40/getIpThird")
-                        .body(bodyCityParam, "application/json")
-                        .execute().body();
-//                String bodyCity = HttpRequest.get("http://ip.quanminip.com/ip?secret=n7VuiYE6&num=1&port=1&type=json&cs=1&mr=1&sign=27ec7a99aa182aa07192281bbcb652d3&region=" + areaCity).execute().body();
-                log.info("1- 市区area传入: {}，获取代理 resp: {}", bodyCityParam, bodyCity);
-                JSONObject resp = null;
-                try { //市区
-                    resp = JSONObject.parseObject(bodyCity);
-                    data = resp.getJSONObject("data");
-                    ipAddr = data.getString("ip");
-                    ripAddr = data.getString("real_ip");
-                    port = data.getInteger("port");
-                } catch (Exception e) { //省区
-                    log.info("1- 代理解析失败 msg: {}", e.getMessage());
-                    if (StringUtils.hasLength(area)) {
-                        data = new JSONObject();
-                        data.put("area", area);
-                        String bodyRegion = data.toString();
-                        String bodyProvince = HttpRequest.post("http://118.31.4.40/getIpThird")
-                                .body(bodyRegion, "application/json")
-                                .execute().body();
-                        log.info("2- 从省区area传入： {}，获取代理 resp: {}", bodyRegion, bodyProvince);
-                        try {
-                            resp = JSONObject.parseObject(bodyProvince);
-                            data = resp.getJSONObject("data");
-                            ipAddr = data.getString("ip");
-                            ripAddr = data.getString("real_ip");
-                            port = data.getInteger("port");
-                        } catch (Exception ex) {
-                            log.info("2- 代理解析失败 msg: {}", ex.getMessage());
-                        }
-                    }
-
-                }
-            } else if (!StringUtils.hasLength(areaCity) && StringUtils.hasLength(area)) {
-                JSONObject data = new JSONObject();
-                data.put("area", area);
-                String bodyRegion = data.toString();
-                String bodyProvince = HttpRequest.post("http://118.31.4.40/getIpThird")
-                        .body(bodyRegion, "application/json")
-                        .execute().body();
-                log.info("11- 从省区area，传入: {}, 获取代理 resp: {}", bodyRegion, bodyProvince);
-                JSONObject resp = null;
-                try {
-                    resp = JSONObject.parseObject(bodyProvince);
-                    data = resp.getJSONObject("data");
-                    ipAddr = data.getString("ip");
-                    ripAddr = data.getString("real_ip");
-                    port = data.getInteger("port");
-                } catch (Exception ex) {
-                    log.info("11- 代理解析失败 msg: {}", ex.getMessage());
-                }
-            } else {
-                String bodyRandom = HttpRequest.get("https://aapi.51daili.com/getapi2?linePoolIndex=1&packid=2&unkey=&tid=&qty=1&time=2" +
-                        "&port=1&format=json&ss=5&css=&city=&dt=1&ct=0&service=1&usertype=17&pro=").execute().body();
-//                String bodyRandom = HttpRequest.get("http://ip.quanminip.com/ip?secret=n7VuiYE6&num=1&port=1&type=json&cs=1&mr=1&sign=27ec7a99aa182aa07192281bbcb652d3").execute().body();
-                log.info("111- 全国area，获取代理 resp: {}", bodyRandom);
-                JSONObject resp = null;
-                try {
-                    resp = JSONObject.parseObject(bodyRandom);
-                    JSONArray list = resp.getJSONArray("data");
-                    JSONObject data = list.getJSONObject(0);
-                    ipAddr = data.getString("IP");
-                    port = data.getInteger("Port");
-                } catch (Exception exx) {
-                    log.info("222- 代理解析失败 msg: {}", exx.getMessage());
-                }
-            }
-        }*/
-
-        /*if (StringUtils.hasLength(payIp)) {
-            String location = CommonUtil.ip2region(payIp);
-            if (location == null) {
-                throw new ServiceException("传入ip有误，请确认是否为正确Ipv4地址");
-            }
-            log.info("当前传入ip，查询location为 : {}", location);
-            String[] split = location.split("\\|");
-            String regionCity = split[3];
-            Location locCity = locationMapper.regionSearch(regionCity);
-            if (locCity != null) {
-                areaCity = locCity.getRegion().split("-")[2];
-
-                log.info("从库里取出【市区】, area : {} ,loc : {}", areaCity, locCity);
-            }
-            String region = split[2];
-            Location loc = locationMapper.regionSearch(region);
-            if (loc != null) {
-                area = loc.getRegion().split("-")[1];
-
-                log.info("从库里取出【省区】, area : {} ,loc : {}", area, loc);
-            }
-
-            if (StringUtils.hasLength(areaCity)) {
-                //https://aapi.51daili.com/getapi2?linePoolIndex=1&packid=2&unkey=&tid=&qty=1&time=2&port=1&format=json&ss=5&css=&pro=%E6%B1%9F%E8%8B%8F%E7%9C%81&city=&dt=0&ct=0&service=1&usertype=17
-                //https://aapi.51daili.com/getapi2?linePoolIndex=1&packid=2&unkey=&tid=&qty=1&time=2&port=1&format=json&ss=5&css=&pro=%E9%99%95%E8%A5%BF%E7%9C%81&city=%E5%AE%89%E5%BA%B7%E5%B8%82&dt=1&ct=0&service=1&usertype=17
-                String bodyCity = HttpRequest.get("https://aapi.51daili.com/getapi2?linePoolIndex=1&packid=2&unkey=&tid=&qty=1&time=2" +
-                                "&port=1&format=json&ss=5&css=&city=&dt=0&ct=0&service=1&usertype=17&pro=" + area + "&city=" + areaCity)
-                        .execute().body();
-//                String bodyCity = HttpRequest.get("http://ip.quanminip.com/ip?secret=n7VuiYE6&num=1&port=1&type=json&cs=1&mr=1&sign=27ec7a99aa182aa07192281bbcb652d3&region=" + areaCity).execute().body();
-                log.info("1- 市区area传入: {}，获取代理 resp: {}", areaCity, bodyCity);
-                JSONObject resp = null;
-                try { //市区
-                    resp = JSONObject.parseObject(bodyCity);
-                    JSONArray list = resp.getJSONArray("data");
-                    JSONObject data = list.getJSONObject(0);
-                    ipAddr = data.getString("IP");
-                    port = data.getInteger("Port");
-                } catch (Exception e) { //省区
-                    log.info("1- 代理解析失败 msg: {}", e.getMessage());
-                    if (StringUtils.hasLength(area)) {
-                        String body = HttpRequest.get("https://aapi.51daili.com/getapi2?linePoolIndex=1&packid=2&unkey=&tid=&qty=1&time=2" +
-                                "&port=1&format=json&ss=5&css=&city=&dt=1&ct=0&service=1&usertype=17&pro=" + area).execute().body();
-//                        String body = HttpRequest.get("http://ip.quanminip.com/ip?secret=n7VuiYE6&num=1&port=1&type=json&cs=1&mr=1&sign=27ec7a99aa182aa07192281bbcb652d3&region=" + area).execute().body();
-                        log.info("2- 从省区area传入： {}，获取代理 resp: {}", area, body);
-                        try {
-                            resp = JSONObject.parseObject(body);
-                            JSONArray list = resp.getJSONArray("data");
-                            JSONObject data = list.getJSONObject(0);
-                            ipAddr = data.getString("IP");
-                            port = data.getInteger("Port");
-                        } catch (Exception ex) {
-                            log.info("2- 代理解析失败 msg: {}", ex.getMessage());
-                            String bodyRandom = HttpRequest.get("https://aapi.51daili.com/getapi2?linePoolIndex=1&packid=2&unkey=&tid=&qty=1&time=2" +
-                                    "&port=1&format=json&ss=5&css=&city=&dt=1&ct=0&service=1&usertype=17").execute().body();
-                            log.info("3- 全国area，获取代理 resp: {}", bodyRandom);
-                            try {
-                                resp = JSONObject.parseObject(bodyRandom);
-                                JSONArray list = resp.getJSONArray("data");
-                                JSONObject data = list.getJSONObject(0);
-                                ipAddr = data.getString("IP");
-                                port = data.getInteger("Port");
-                            } catch (Exception exx) {
-                                log.info("3- 代理解析失败 msg: {}", ex.getMessage());
-                            }
-                        }
-                    }
-
-                }
-            } else if (!StringUtils.hasLength(areaCity) && StringUtils.hasLength(area)) {
-                String body = HttpRequest.get("https://aapi.51daili.com/getapi2?linePoolIndex=1&packid=2&unkey=&tid=&qty=1&time=2" +
-                        "&port=1&format=json&ss=5&css=&city=&dt=1&ct=0&service=1&usertype=17&pro=" + area).execute().body();
-//                String body = HttpRequest.get("http://ip.quanminip.com/ip?secret=n7VuiYE6&num=1&port=1&type=json&cs=1&mr=1&sign=27ec7a99aa182aa07192281bbcb652d3&region=" + area).execute().body();
-                log.info("11- 从省区area，获取代理 resp: {}", body);
-                JSONObject resp = null;
-                try {
-                    resp = JSONObject.parseObject(body);
-                    JSONArray list = resp.getJSONArray("data");
-                    JSONObject data = list.getJSONObject(0);
-                    ipAddr = data.getString("IP");
-                    port = data.getInteger("Port");
-                } catch (Exception ex) {
-                    log.info("11- 代理解析失败 msg: {}", ex.getMessage());
-                    String bodyRandom = HttpRequest.get("https://aapi.51daili.com/getapi2?linePoolIndex=1&packid=2&unkey=&tid=&qty=1&time=2" +
-                            "&port=1&format=json&ss=5&css=&city=&dt=1&ct=0&service=1&usertype=17&pro=").execute().body();
-//                    String bodyRandom = HttpRequest.get("http://ip.quanminip.com/ip?secret=n7VuiYE6&num=1&port=1&type=json&cs=1&mr=1&sign=27ec7a99aa182aa07192281bbcb652d3").execute().body();
-                    log.info("22- 全国area，获取代理 resp: {}", bodyRandom);
-                    try {
-                        resp = JSONObject.parseObject(bodyRandom);
-                        JSONArray list = resp.getJSONArray("data");
-                        JSONObject data = list.getJSONObject(0);
-                        ipAddr = data.getString("IP");
-                        port = data.getInteger("Port");
-                    } catch (Exception exx) {
-                        log.info("22- 代理解析失败 msg: {}", exx.getMessage());
-                    }
-                }
-
-            } else {
-                String bodyRandom = HttpRequest.get("https://aapi.51daili.com/getapi2?linePoolIndex=1&packid=2&unkey=&tid=&qty=1&time=2" +
-                        "&port=1&format=json&ss=5&css=&city=&dt=1&ct=0&service=1&usertype=17&pro=").execute().body();
-//                String bodyRandom = HttpRequest.get("http://ip.quanminip.com/ip?secret=n7VuiYE6&num=1&port=1&type=json&cs=1&mr=1&sign=27ec7a99aa182aa07192281bbcb652d3").execute().body();
-                log.info("111- 全国area，获取代理 resp: {}", bodyRandom);
-                JSONObject resp = null;
-                try {
-                    resp = JSONObject.parseObject(bodyRandom);
-                    JSONArray list = resp.getJSONArray("data");
-                    JSONObject data = list.getJSONObject(0);
-                    ipAddr = data.getString("IP");
-                    port = data.getInteger("Port");
-                } catch (Exception exx) {
-                    log.info("222- 代理解析失败 msg: {}", exx.getMessage());
-                }
-            }
-        }*/
-
         ProxyInfo proxyInfo = new ProxyInfo();
         proxyInfo.setPort(port);
         proxyInfo.setIpAddr(ipAddr);
+
+        log.warn("proxy value - {}", proxyInfo);
 
         ProxyInfoThreadHolder.addProxy(proxyInfo);
 
@@ -743,6 +531,21 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
         return payUrl;
     }
 
+    public void removeSdoElements(List<ChannelPre> sdoList) {
+        Iterator<ChannelPre> iterator = sdoList.iterator();
+        LocalDateTime now = LocalDateTime.now();
+
+        while (iterator.hasNext()) {
+            ChannelPre pre = iterator.next();
+            LocalDateTime createTime = pre.getCreateTime();
+            LocalDateTime pre30min = now.plusDays(-2);
+            if (createTime.isBefore(pre30min)) { //当前预产时间已经是一天前的, remove并置为超时状态
+                channelPreMapper.updateByPlatId(pre.getPlatOid(), 3);
+                iterator.remove();
+            }
+        }
+    }
+
     public CChannel paramCheckCreateOrder(OrderCreateParam orderCreateParam) {
 //        String pa = orderCreateParam.getP_account();
 //        String sign = orderCreateParam.getSign();
@@ -765,8 +568,9 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
                 throw new UnSupportException("notify_url不合法，请检验入参");
             } else {
                 String attach = orderCreateParam.getAttach();
-                if (channelId.equals("jx3_ali_gift") || channelId.equals("jx3_wx_gift")){
-                    Integer type = JXHTEnum.type(orderCreateParam.getMoney());
+                Integer money = orderCreateParam.getMoney();
+                if (channelId.equals("jx3_ali_gift") || channelId.equals("jx3_wx_gift")) {
+                    Integer type = JXHTEnum.type(money);
                     if (type == -1) {
                         throw new UnSupportException("该通道属于固额设置，请检验入参，金额限定为76，156，162，276");
                     }
@@ -774,22 +578,45 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
                 if (channelId.contains("tx")) {
                     if (channelId.equals("tx_jym")) {
                         log.warn("jym 金额不设定，正常通过");
-                    }else {
+                    } else {
                         QueryWrapper<ChannelShop> queryWrapper = new QueryWrapper<>();
                         queryWrapper.eq("channel", channelId);
-                        queryWrapper.eq("money", orderCreateParam.getMoney());
+                        queryWrapper.eq("money", money);
                         queryWrapper.eq("status", 1);
                         List<ChannelShop> randomTempList = channelShopMapper.selectList(queryWrapper);
                         if (randomTempList != null && randomTempList.size() != 0) {
-                            log.warn("tx通道库存金额校验通过 >> channel: {}, money: {}", channel, orderCreateParam.getMoney());
-                        }else {
+                            log.warn("tx通道库存金额校验通过 >> channel: {}, money: {}", channel, money);
+                        } else {
                             List<Integer> checkTempList = channelShopMapper.getChannelShopMoneyList(channelId);
-                            if (checkTempList != null && checkTempList.size() != 0){
+                            if (checkTempList != null && checkTempList.size() != 0) {
                                 throw new UnSupportException("该通道属于固额设置，请检验入参，金额限定为" + checkTempList);
-                            }else {
+                            } else {
                                 throw new UnSupportException("该通道无库存金额，请联系管理员");
                             }
                         }
+                    }
+                }
+                if (channelId.contains("sdo")) {
+                    if (money == 200) {
+                        money = 204;
+                    } else if (money == 1) {
+                        money = 1;
+                    } else if (money == 100) {
+                        money = 102;
+                    } else {
+                        throw new UnSupportException("仅支持100、200的固额设置");
+                    }
+
+                    QueryWrapper<ChannelPre> queryWrapper = new QueryWrapper<>();
+                    queryWrapper.eq("status", 2);
+                    queryWrapper.eq("money", money);
+
+                    List<ChannelPre> channelPres = channelPreMapper.selectList(queryWrapper);
+                    removeSdoElements(channelPres);
+
+                    if (channelPres.size() == 0) {
+                        log.error("库存金额不足");
+                        throw new UnSupportException("该通道无库存金额，请联系管理员");
                     }
                 }
 
@@ -1392,10 +1219,22 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
             queryWrapper.eq("p_account", queryParam.getP_account());
         }
         if (StringUtils.hasLength(queryParam.getAcAccount())) {
-            CAccount acAccount = cAccountMapper.selectOne(new QueryWrapper<CAccount>().eq("ac_account", queryParam.getAcAccount()));
-            if (acAccount != null) {
-                queryWrapper.eq("ac_id", acAccount.getAcid());
+            List<CAccount> acList = cAccountMapper.selectList(new QueryWrapper<CAccount>().like("ac_account", queryParam.getAcAccount()));
+            List<String> acidList = new ArrayList<>();
+            for (CAccount cAccount : acList) {
+                String acid = cAccount.getAcid();
+                acidList.add(acid);
             }
+            queryWrapper.in("ac_id", acidList);
+        }
+        if (StringUtils.hasLength(queryParam.getAcRemark())) {
+            List<CAccount> acList = cAccountMapper.selectList(new QueryWrapper<CAccount>().like("ac_remark", queryParam.getAcRemark()));
+            List<String> acidList = new ArrayList<>();
+            for (CAccount cAccount : acList) {
+                String acid = cAccount.getAcid();
+                acidList.add(acid);
+            }
+            queryWrapper.in("ac_id", acidList);
         }
         if (StringUtils.hasLength(queryParam.getOrderId())) {
             queryWrapper.likeRight("order_id", queryParam.getOrderId());
@@ -1857,16 +1696,62 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
         payNotifyVO.setSign(sign);
 
         String reqBody = JSONObject.toJSONString(payNotifyVO);
-        log.info("测试回调商户, 回调请求消息：notify：{}，req body：{}", payOrder.getNotifyUrl(), reqBody);
-        HttpResponse resp = HttpRequest.post(payOrder.getNotifyUrl())
-                .body(reqBody)
-                .execute();
 
         pOrderMapper.updateOStatusByOId(orderId, OrderStatusEnum.PAY_FINISHED.getCode(), CodeUseStatusEnum.FINISHED.getCode());
 
         pOrderMapper.updateCallbackStatusByOId(orderId);
 
-        log.info("测试回调商户，商户返回信息： http status： {}， resp： {}", resp.getStatus(), resp.body());
+        log.info("测试回调商户, 回调请求消息：notify：\n{}，req body：\n{}", payOrder.getNotifyUrl(), reqBody);
+        HttpResponse resp = HttpRequest.post(payOrder.getNotifyUrl())
+                .body(reqBody)
+                .execute();
+
+        log.info("测试回调商户，商户返回信息： http status：\n {}， resp： \n{}", resp.getStatus(), resp.body());
+        return resp.body();
+    }
+
+    @Override
+    public String callbackOrder(String orderId) throws IllegalAccessException {
+        PayOrder payOrder = pOrderMapper.getPOrderByOid(orderId);
+
+        String pa = payOrder.getPAccount();
+        PAccount paDB = pAccountMapper.selectOne(new QueryWrapper<PAccount>().eq("p_account", pa));
+        String pKey = paDB.getPKey();
+
+        PayNotifyVO payNotifyVO = new PayNotifyVO();
+        payNotifyVO.setOrder_id(payOrder.getOrderId());
+        payNotifyVO.setCost(payOrder.getCost());
+        payNotifyVO.setStatus(1);
+        payNotifyVO.setP_account(pa);
+        String sign = CommonUtil.encodeSign(CommonUtil.objToTreeMap(payNotifyVO), pKey);
+        payNotifyVO.setSign(sign);
+
+        String reqBody = JSONObject.toJSONString(payNotifyVO);
+
+        pOrderMapper.updateOStatusByOId(orderId, OrderStatusEnum.PAY_FINISHED.getCode(), CodeUseStatusEnum.FINISHED.getCode());
+
+        pOrderMapper.updateCallbackStatusByOId(orderId);
+        try {
+            CAccount caDB = cAccountMapper.getCAccountByAcid(payOrder.getAcId());
+            CAccountWallet w = new CAccountWallet();
+            w.setCaid(caDB.getId());
+            w.setCost(payOrder.getCost());
+            w.setOid(payOrder.getOrderId());
+            w.setCreateTime(LocalDateTime.now());
+            cAccountWalletMapper.insert(w);
+        } catch (Exception var14) {
+            log.warn("CAccountWallet 已经入库, err: {}", var14.getMessage());
+        }
+        log.info("[强补] , 入回调池: orderId - {}", orderId);
+
+        long rowRedis = redisUtil.sSetAndTime(CommonConstant.ORDER_CALLBACK_QUEUE, 300, orderId);
+
+        log.info("强补回调商户, 回调请求消息：\n notify：{}，\n req body：{}", payOrder.getNotifyUrl(), reqBody);
+        HttpResponse resp = HttpRequest.post(payOrder.getNotifyUrl())
+                .body(reqBody)
+                .execute();
+
+        log.info("强补回调商户，商户返回信息：\n http status： {}， \nresp： {}", resp.getStatus(), resp.body());
         return resp.body();
     }
 
@@ -1882,7 +1767,7 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
         payOrderCreateVO.setChannelId(payOrder.getCChannelId());
         if (payOrder.getCChannelId().contains("tx")) {
             String platformOid = payOrder.getPlatformOid();
-            payOrderCreateVO.setPlatformOid(platformOid == null? "QQ|order waiting":platformOid.split("\\|")[1]);
+            payOrderCreateVO.setPlatformOid(platformOid == null ? "QQ|order waiting" : platformOid.split("\\|")[1]);
         }
         return payOrderCreateVO;
     }
@@ -1973,7 +1858,7 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
                     }
                 }
 
-            }else {
+            } else {
 //TODO tx回调查单
             }
             PayOrder pov = pOrderMapper.getPOrderByOid(orderId);

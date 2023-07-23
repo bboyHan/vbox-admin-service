@@ -1,5 +1,6 @@
 package com.vbox.common.util;
 
+import cn.hutool.http.HttpUtil;
 import com.alibaba.fastjson2.JSON;
 import jodd.util.StringUtil;
 import org.lionsoul.ip2region.xdb.Searcher;
@@ -18,24 +19,52 @@ import java.util.regex.Pattern;
 public class CommonUtil {
 
     /**
+     * 判断html中的qrCode - sdo
+     */
+    public static String getQrCodeValue(String html) {
+        String regex = "<input[^>]*name=\"qrCode\"[^>]*value=\"([^\"]+)\"";
+        Pattern pattern = Pattern.compile(regex);
+        Matcher matcher = pattern.matcher(html);
+
+        if (matcher.find()) {
+            return matcher.group(1);
+        }
+
+        return null;
+    }
+
+    /**
+     * 判断设备情况
+     */
+    public static boolean isMobileDevice(String userAgent) {
+        // 判断逻辑可以根据实际需求进行扩展和改进
+        return userAgent != null && (userAgent.toLowerCase().contains("android") || userAgent.toLowerCase().contains("iphone"));
+    }
+
+    /**
      * cookie  key
      */
     public static String getCookieValue(String cookie, String key) {
-        String[] pairs = cookie.split("[;:]");
-        Map<String, String> map = new HashMap<>();
+        String[] pairs = cookie.split("[;]");
 
         for (String pair : pairs) {
-            String[] keyValue = pair.trim().split("[=]");
+            String[] keyValue = pair.trim().split("[:=]");
 
             if (keyValue.length == 2) {
                 String k = keyValue[0].toLowerCase(); // 转换为小写，不区分大小写
                 String v = keyValue[1];
 
-                map.put(k, v);
+                // 使用正则表达式进行模糊匹配
+                Pattern pattern = Pattern.compile(key, Pattern.CASE_INSENSITIVE);
+                Matcher matcher = pattern.matcher(k);
+
+                if (matcher.find()) {
+                    return v;
+                }
             }
         }
 
-        return map.get(key.toLowerCase()); // 转换为小写，不区分大小写
+        return null; // 转换为小写，不区分大小写
     }
 
     /**
@@ -90,7 +119,7 @@ public class CommonUtil {
                 + "[0-9]{2}|[1-9]{1}[0-9]{1}|[1-9]|0)\\.(25[0-5]|2[0-4][0-9]|"
                 + "[0-1]{1}[0-9]{2}|[1-9]{1}[0-9]{1}|[1-9]|0)\\.(25[0-5]|2[0-"
                 + "4][0-9]|[0-1]{1}[0-9]{2}|[1-9]{1}[0-9]{1}|[0-9])|([a-zA-Z0"
-                + "-9\\-]+\\.)*[a-zA-Z0-9\\-]+\\.[a-zA-Z]{2,4})(\\:[0-9]+)?(/"
+                + "-9\\-]+\\.)*[a-zA-Z0-9\\-]+\\.[a-zA-Z]{2,6})(\\:[0-9]+)?(/"
                 + "[^/][a-zA-Z0-9\\.\\,\\?\\'\\\\/\\+&%\\$\\=~_\\-@]*)*$";
         Pattern p = Pattern.compile(regEx);
         Matcher matcher = p.matcher(url);

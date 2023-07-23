@@ -19,6 +19,7 @@ public interface ChannelService {
     List<Long> getVboxUserViewOrderNum();
 
     int createChannelAccount(CAccountParam caParam);
+    int createSdoChannelAccount(CAccountParam caParam);
 
     int createTxChannelAccount(TxCAccountParam caParam);
 
@@ -28,6 +29,7 @@ public interface ChannelService {
 
     int updateCAccount(CAccountParam param) throws IOException;
     int updateTxCAccount(TxCAccountParam param) throws IOException;
+    int updateSdoCAccount(CAccountParam param) throws IOException;
 
     int enableCAccount(CAEnableParam param) throws IOException;
 
