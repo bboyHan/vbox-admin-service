@@ -107,55 +107,6 @@ public class OrderCreateTTask {
         }
     }
 
-//    @Scheduled(cron = "0/1 * * * * ?")   //每 2s 执行一次, 接受订单创建的队列
-//    @Async("scheduleExecutor")
-//    public void handleAsyncCreateOrder2() throws Exception {
-//        Object ele = redisUtil.rPop(CommonConstant.ORDER_CREATE_QUEUE);
-//        if (ele == null) {
-//            return;
-//        }
-////        Thread.sleep(200L);
-//        log.info("handleAsyncCreateOrder.start");
-//
-//        String text = ele.toString();
-//        POrderQueue po = null;
-//        try {
-//            po = JSONObject.parseObject(text, POrderQueue.class);
-//        } catch (Exception e) {
-//            log.error("pOrderQueue解析异常, text: {}", text);
-//            return;
-//        }
-//
-//        try {
-//            asyncOrder(po);
-//        } catch (IORuntimeException e) {
-//            log.error("【任务执行】IO ex 1次 : {}", e.getMessage());
-//            try {
-//                asyncOrder(po);
-//            } catch (IORuntimeException ex) {
-//                log.error("【任务执行】IO ex 2次 : {}", e.getMessage());
-//                asyncOrder(po);
-//            }
-//        } catch (Exception e) {
-//            log.error("【任务执行】handleAsyncCreateOrder, err: ", e);
-//            // 判断订单创建时间，小于2分钟的丢回队列
-////            PayOrder poDB = pOrderMapper.getPOrderByOid(po.getOrderId());
-////            LocalDateTime createTime = poDB.getCreateTime();
-////            LocalDateTime nowTime = LocalDateTime.now().plusMinutes(-2);
-////            if (nowTime.isAfter(createTime)) {
-////                log.error("【任务执行】超时2分钟直接丢弃, {}", po);
-////                pOrderMapper.updateOStatusByOidForQueue(po.getOrderId(), OrderStatusEnum.PAY_CREATING_ERROR.getCode());
-////                log.error("【任务执行】数据库置为异常单, orderId : {}", po.getOrderId());
-////            } else {
-////            boolean b = redisUtil.lPush(CommonConstant.ORDER_CREATE_QUEUE, po);
-//            log.error("【任务执行】异常单，丢弃, {}", po);
-////            }
-//        } finally {
-//            ProxyInfoThreadHolder.remove();
-//        }
-//        log.info("handleAsyncCreateOrder.end");
-//    }
-
     @Scheduled(cron = "0/1 * * * * ?")   //每 2s 执行一次, 接受订单创建的队列
     @Async("scheduleExecutor")
     public void handleAsyncCreateOrder() throws Exception {
@@ -261,7 +212,7 @@ public class OrderCreateTTask {
                         .eq("cid", channel.getId())
                 );
 
-                Set<TxWaterList> rl = new HashSet<>();
+                List<TxWaterList> rl = new ArrayList<>();
                 // 使用HashMap来保存相同充值金额的充值账号
                 Map<Integer, List<String>> map = new HashMap<>();
 
@@ -276,14 +227,14 @@ public class OrderCreateTTask {
                 LocalDateTime now = LocalDateTime.now();
                 // 遍历rechargeList进行充值金额的筛选
                 for (TxWaterList recharge : rl) {
-                    Integer payAmt = recharge.getPayAmt();
+                    Integer payAmt = recharge.getPayAmt() / 100;
                     String provideID = recharge.getProvideID();
                     long payTime = recharge.getPayTime();
                     Instant instant = Instant.ofEpochSecond(payTime);
-                    LocalDateTime parse = LocalDateTime.ofInstant(instant, ZoneId.systemDefault());
+                    LocalDateTime payTimeLoc = LocalDateTime.ofInstant(instant, ZoneId.of("Asia/Shanghai"));
                     LocalDateTime pre30min = now.plusMinutes(-30);
                     // 如果该充值金额已存在于结果集中，则将充值账号添加进对应的列表中
-                    if (parse.isAfter(pre30min)) {
+                    if (payTimeLoc.isAfter(pre30min)) {
                         List<String> accountList = map.computeIfAbsent(payAmt, k -> new ArrayList<>());
                         accountList.add(provideID);
                     }
@@ -291,15 +242,19 @@ public class OrderCreateTTask {
 
                 //获取已经有充值当前金额的账户，作去除处理
                 List<String> qqList = map.get(reqMoney);
-                removeTxElements(qqList, randomTempList);
+                log.warn("当前30分钟内 - 已支付的记录，金额: {},记录：{}", reqMoney, qqList);
 
-                for (CAccount cAccount : randomTempList) {
-                    redisUtil.lPush(CommonConstant.CHANNEL_ACCOUNT_QUEUE + cid, cAccount);
-                }
+                removeTxElements(qqList, randomTempList, reqMoney);
 
                 try {
                     int randomIndex = RandomUtil.randomInt(randomTempList.size());
                     c = randomTempList.get(randomIndex);
+
+                    randomTempList.remove(randomIndex);
+
+                    for (CAccount cAccount : randomTempList) {
+                        redisUtil.lPush(CommonConstant.CHANNEL_ACCOUNT_QUEUE + cid, cAccount);
+                    }
                 } catch (Exception e) {
                     log.error("库存金额不足，或库存账号不足");
                     throw new ServiceException("库存金额不足，或库存账号不足，请联系管理员");
@@ -389,7 +344,15 @@ public class OrderCreateTTask {
             }
 
             log.info("【任务执行】资源池取出..po channel id {} .random preDB Info - {}", channelId, preDB);
-            String payUrl = handelSdoPayUrl(preDB.getAddress(), userAgent);
+            String payUrl = null;
+            try {
+                payUrl = handelSdoPayUrl(preDB.getAddress(), userAgent);
+            } catch (Exception e) {
+                log.error("预产链接异常: pay url -> {}", payUrl);
+                int row = channelPreMapper.deleteById(preDB.getId());
+                log.error("预产链接异常删除处理: row -> {}, pre info: {}", row, preDB);
+                throw e;
+            }
             LocalDateTime asyncTime = LocalDateTime.now();
             channelPreMapper.updateByPlatId(preDB.getPlatOid(), 1); // 1 - 已取码
             pOrderMapper.updateInfoForQueue(orderId, preDB.getAcid(), OrderStatusEnum.NO_PAY.getCode(), preDB.getPlatOid(), payUrl, payIp, asyncTime);
@@ -646,17 +609,26 @@ public class OrderCreateTTask {
         return payUrl;
     }
 
-    public void removeTxElements(List<String> qqList, List<CAccount> txList) {
+    public void removeTxElements(List<String> qqList, List<CAccount> txList, Integer money) {
         Iterator<CAccount> iterator = txList.iterator();
-
-        if (qqList == null || qqList.size() == 0) return;
 
         while (iterator.hasNext()) {
             CAccount cAccount = iterator.next();
             String qq = cAccount.getAcAccount();
 
+            String acid = cAccount.getAcid();
+            Integer count = pOrderMapper.isExistPOrderByAcIdAndStatus(acid, money);
+            if (count != null && count > 0) {
+                log.warn("当前订单里已有 {} 金额未支付, acid: {}, 作去除", money, acid);
+                iterator.remove();
+            }
+
+            if (qqList == null || qqList.size() == 0) {
+                continue;
+            }
             // 判断provideID是否包含在array1中的元素中
             if (qqList.contains(qq)) {
+                log.warn("当前tx官方半小时内已有 {} 金额存在, acid: {}, 作去除", money, acid);
                 iterator.remove();
             }
         }

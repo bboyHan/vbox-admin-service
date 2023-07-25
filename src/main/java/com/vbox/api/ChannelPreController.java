@@ -11,7 +11,10 @@ import com.vbox.service.channel.ChannelPreService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.multipart.MultipartHttpServletRequest;
 
+import javax.servlet.http.HttpServletRequest;
 import java.io.IOException;
 import java.util.List;
 
@@ -21,6 +24,19 @@ public class ChannelPreController {
 
     @Autowired
     private ChannelPreService channelPreService;
+
+    @PostMapping("/channel/pre/upload")
+    public ResponseEntity<Result<Integer>> upload(HttpServletRequest request) {
+        int rs = 0;
+        try {
+            List<MultipartFile> files = ((MultipartHttpServletRequest) request).getFiles("file");
+            MultipartFile multipartFile = null;
+//            rs = fileService.upload(role);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return Result.ok(rs);
+    }
 
     @GetMapping("/channel/pre/types")
     public ResponseEntity<Result<Object>> getChannelPreTypes(ChannelPreParam param) {

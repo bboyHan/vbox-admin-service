@@ -111,10 +111,25 @@ public class ChannelPreServiceImpl implements ChannelPreService {
         }
         channelPre.setMoney(money);
 
-        String url = "https://mapi.alipay.com/gateway.do?";
-
-        if (!platParam.contains("_input_charset")) {
-            throw new ServiceException("核对queryString参数,示例: _input_charset...");
+        String url ="";
+        if (platParam.contains("_input_charset")) {
+            url = "https://mapi.alipay.com/gateway.do?";
+            boolean flag = platParam.startsWith("_input_charset");
+            if (!flag) {
+                throw new ServiceException("核对queryString参数,示例: _input_charset...或者 app_id=");
+            }
+        }else if ((platParam.contains("app_id"))){
+            url = "https://openapi.alipay.com/gateway.do?";
+            boolean flag1 = platParam.startsWith("app_id");
+            if (!flag1) {
+                throw new ServiceException("核对queryString参数,示例: _input_charset...或者 app_id=");
+            }
+            boolean flag2 = platParam.endsWith("version=1.0");
+            if (!flag2) {
+                throw new ServiceException("核对queryString参数,示例: _input_charset...或者 app_id=");
+            }
+        }else {
+            throw new ServiceException("核对queryString参数,示例: _input_charset...或者 app_id=");
         }
 
         String address = url + platParam;

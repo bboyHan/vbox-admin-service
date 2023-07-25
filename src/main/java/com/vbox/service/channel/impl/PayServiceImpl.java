@@ -1214,27 +1214,27 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
         List<String> acIdList = cAccountMapper.listAcIdInUids(sidList);
         if (acIdList.size() == 0) return new ArrayList<>();
         QueryWrapper<PayOrder> queryWrapper = new QueryWrapper<>();
-        queryWrapper.in("ac_id", acIdList);
         if (StringUtils.hasLength(queryParam.getP_account())) {
             queryWrapper.eq("p_account", queryParam.getP_account());
         }
-        if (StringUtils.hasLength(queryParam.getAcAccount())) {
+        if (StringUtils.hasLength(queryParam.getAcAccount()) && !StringUtils.hasLength(queryParam.getAcRemark())) {
             List<CAccount> acList = cAccountMapper.selectList(new QueryWrapper<CAccount>().like("ac_account", queryParam.getAcAccount()));
-            List<String> acidList = new ArrayList<>();
+            acIdList = new ArrayList<>();
             for (CAccount cAccount : acList) {
                 String acid = cAccount.getAcid();
-                acidList.add(acid);
+                acIdList.add(acid);
             }
-            queryWrapper.in("ac_id", acidList);
-        }
-        if (StringUtils.hasLength(queryParam.getAcRemark())) {
+            queryWrapper.in("ac_id", acIdList);
+        }else if (!StringUtils.hasLength(queryParam.getAcAccount()) && StringUtils.hasLength(queryParam.getAcRemark())) {
             List<CAccount> acList = cAccountMapper.selectList(new QueryWrapper<CAccount>().like("ac_remark", queryParam.getAcRemark()));
-            List<String> acidList = new ArrayList<>();
+            acIdList = new ArrayList<>();
             for (CAccount cAccount : acList) {
                 String acid = cAccount.getAcid();
-                acidList.add(acid);
+                acIdList.add(acid);
             }
-            queryWrapper.in("ac_id", acidList);
+            queryWrapper.in("ac_id", acIdList);
+        }else {
+            queryWrapper.in("ac_id", acIdList);
         }
         if (StringUtils.hasLength(queryParam.getOrderId())) {
             queryWrapper.likeRight("order_id", queryParam.getOrderId());

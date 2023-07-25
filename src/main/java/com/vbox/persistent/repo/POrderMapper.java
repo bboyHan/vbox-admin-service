@@ -150,4 +150,7 @@ public interface POrderMapper extends BaseMapper<PayOrder> {
     // 今天成单金额
     @Select("select sum(cost) from vbox_pay_order where order_status = 1 and p_account =  #{pAccount} AND create_time > DATE_SUB(curdate(),INTERVAL 0 DAY)")
     Integer sumPOrderPayedTodayByPAID(String pAccount);
+
+    @Select("select count(1) from vbox_pay_order where order_status = 2 and cost = #{money} and ac_id = #{acid}")
+    Integer isExistPOrderByAcIdAndStatus(String acid, Integer money);
 }

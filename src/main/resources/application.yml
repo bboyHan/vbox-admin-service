@@ -27,7 +27,6 @@ spring:
 
   redis:
     # 正式
-#    host: 62.234.218.227
 #    host: vboxredis.redis.rds.aliyuncs.com
 #    password: Vbox123qwe
     host: 127.0.0.1

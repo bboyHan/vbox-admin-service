@@ -297,6 +297,7 @@ public class OrderTask {
             try {
                 CAccount caDB = cAccountMapper.getCAccountByAcid(po.getAcId());
                 String orderId = po.getOrderId();
+                LocalDateTime nowTime = LocalDateTime.now();
                 if (po.getCChannelId().contains("jx3")) {
                     Thread.sleep(1500L);
                     // 生产
@@ -314,7 +315,7 @@ public class OrderTask {
                             w.setCaid(caDB.getId());
                             w.setCost(po.getCost());
                             w.setOid(po.getOrderId());
-                            w.setCreateTime(LocalDateTime.now());
+                            w.setCreateTime(nowTime);
                             try {
                                 cAccountWalletMapper.insert(w);
                             } catch (Exception var14) {
@@ -333,15 +334,15 @@ public class OrderTask {
                         String rechargeTime = orderInfo.getString("recharge_time");
                         DateTimeFormatter format = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
                         LocalDateTime orderTime = LocalDateTime.parse(rechargeTime, format);
-                        LocalDateTime nowTime = LocalDateTime.now().plusMinutes(-5);
-                        if (nowTime.isAfter(orderTime)) { //超5分钟了查到未支付，直接设置为失败单
+                        LocalDateTime pre5min = nowTime.plusMinutes(-5);
+                        if (pre5min.isAfter(orderTime)) { //超5分钟了查到未支付，直接设置为失败单
                             int row = pOrderMapper.updateOStatusByOId(orderId, OrderStatusEnum.PAY_TIMEOUT.getCode(), CodeUseStatusEnum.PLATFORM_NOT_PAY.getCode());
                             if (row == 1) {
                                 log.info("[task check] not pay order, check platform pay timeout, pay order: {}, platform order info: {}", po, data);
                             }
                         }
                     }
-                } else if (po.getCChannelId().contains("tx")){//
+                } else if (po.getCChannelId().contains("tx")) {//
                     Integer money = po.getCost();
                     String openID = caDB.getAcPwd();
                     String openKey = caDB.getCk();
@@ -349,32 +350,32 @@ public class OrderTask {
 
                     List<TxWaterList> txWaterLists = txPayService.queryOrderBy30(openID, openKey);
 
-                    Set<TxWaterList> rl = new HashSet<>(txWaterLists);
                     // 使用HashMap来保存相同充值金额的充值账号
                     Map<Integer, List<String>> map = new HashMap<>();
 
-                    LocalDateTime now = LocalDateTime.now();
                     // 遍历rechargeList进行充值金额的筛选
-                    for (TxWaterList recharge : rl) {
-                        Integer payAmt = recharge.getPayAmt();
+                    for (TxWaterList recharge : txWaterLists) {
+                        Integer payAmt = recharge.getPayAmt() / 100;
                         String provideID = recharge.getProvideID();
                         long payTime = recharge.getPayTime();
                         Instant instant = Instant.ofEpochSecond(payTime);
-                        LocalDateTime parse = LocalDateTime.ofInstant(instant, ZoneId.systemDefault());
-                        LocalDateTime pre30min = now.plusMinutes(-30);
+                        LocalDateTime payTimeLoc = LocalDateTime.ofInstant(instant, ZoneId.of("Asia/Shanghai"));
+                        LocalDateTime pre30min = payTimeLoc.plusMinutes(30);
                         // 如果该充值金额已存在于结果集中，则将充值账号添加进对应的列表中
-                        if (parse.isAfter(pre30min)) {
+                        if (payTimeLoc.isBefore(pre30min) && payTimeLoc.isAfter(po.getCreateTime())) {
                             List<String> accountList = map.computeIfAbsent(payAmt, k -> new ArrayList<>());
                             accountList.add(provideID);
+                            log.warn("payTimeLoc.isAfter(pre30min) - qq: {},记录：{}", provideID, recharge);
                         }
                     }
 
-                    List<String> moneyQQList = map.get(money * 100);
+                    List<String> moneyQQList = map.get(money);
                     if (moneyQQList == null || moneyQQList.size() == 0) {
                         //没查到充值记录
                         LocalDateTime orderTime = po.getCreateTime();
-                        LocalDateTime nowTime = LocalDateTime.now().plusMinutes(-10);
-                        if (nowTime.isAfter(orderTime)) { //超10分钟了查到未支付，直接设置为失败单
+                        LocalDateTime pre10min = nowTime.plusMinutes(-10);
+                        log.warn("订单时间： {}, 比较10分钟前的时间：{}", orderTime, pre10min);
+                        if (pre10min.isAfter(orderTime)) { //超10分钟了查到未支付，直接设置为失败单
                             int row = pOrderMapper.updateOStatusByOId(orderId, OrderStatusEnum.PAY_TIMEOUT.getCode(), CodeUseStatusEnum.PLATFORM_NOT_PAY.getCode());
                             if (row == 1) {
                                 log.info("[task check] not pay order, check platform pay timeout, pay order: {}", po);
@@ -389,7 +390,7 @@ public class OrderTask {
                                 w.setCaid(caDB.getId());
                                 w.setCost(po.getCost());
                                 w.setOid(po.getOrderId());
-                                w.setCreateTime(LocalDateTime.now());
+                                w.setCreateTime(nowTime);
                                 try {
                                     cAccountWalletMapper.insert(w);
                                 } catch (Exception ex) {
@@ -404,8 +405,9 @@ public class OrderTask {
                         } else {
                             //没查到充值记录
                             LocalDateTime orderTime = po.getCreateTime();
-                            LocalDateTime nowTime = LocalDateTime.now().plusMinutes(-10);
-                            if (nowTime.isAfter(orderTime)) { //超10分钟了查到未支付，直接设置为失败单
+                            LocalDateTime pre10min = nowTime.plusMinutes(-10);
+                            log.warn("moneyQQList - 订单时间： {}, 比较10分钟前的时间：{}", orderTime, pre10min);
+                            if (pre10min.isAfter(orderTime)) { //超10分钟了查到未支付，直接设置为失败单
                                 int row = pOrderMapper.updateOStatusByOId(orderId, OrderStatusEnum.PAY_TIMEOUT.getCode(), CodeUseStatusEnum.PLATFORM_NOT_PAY.getCode());
                                 if (row == 1) {
                                     log.info("[task check] not pay order, check platform pay timeout, pay order: {}", po);
@@ -414,10 +416,11 @@ public class OrderTask {
                         }
                     }
 
-                } else if (po.getCChannelId().contains("sdo")){
+                } else if (po.getCChannelId().contains("sdo")) {
                     String platformOid = po.getPlatformOid();
                     String address = channelPreMapper.getAddressByPlatOid(platformOid);
                     boolean flag = querySdoOrder(address);
+                    log.warn("查到sdo html pay 已付, platformOid : {}", platformOid);
                     if (flag) {
                         int row = pOrderMapper.updateOStatusByOId(orderId, OrderStatusEnum.PAY_FINISHED.getCode(), CodeUseStatusEnum.FINISHED.getCode());
                         if (row == 1) {
@@ -426,7 +429,7 @@ public class OrderTask {
                             w.setCaid(caDB.getId());
                             w.setCost(po.getCost());
                             w.setOid(po.getOrderId());
-                            w.setCreateTime(LocalDateTime.now());
+                            w.setCreateTime(nowTime);
                             try {
                                 channelPreMapper.updateByPlatId(platformOid, 1); //update 1
                                 cAccountWalletMapper.insert(w);
@@ -472,11 +475,11 @@ public class OrderTask {
 //                    }
 
 //                    if (!flag){
-                    else{
+                    else {
                         //没查到充值记录
                         LocalDateTime orderTime = po.getCreateTime();
-                        LocalDateTime nowTime = LocalDateTime.now().plusMinutes(-3);
-                        if (nowTime.isAfter(orderTime)) { //超3分钟了查到未支付，直接设置为失败单
+                        LocalDateTime pre4min = nowTime.plusMinutes(-4);
+                        if (pre4min.isAfter(orderTime)) { //超4分钟了查到未支付，直接设置为失败单
                             int row = pOrderMapper.updateOStatusByOId(orderId, OrderStatusEnum.PAY_TIMEOUT.getCode(), CodeUseStatusEnum.PLATFORM_NOT_PAY.getCode());
                             if (row == 1) {
                                 log.info("[task check] not pay order, check platform pay timeout, pay order: {}", po);
@@ -508,7 +511,7 @@ public class OrderTask {
                 .execute();
 
         String html = executeLocation.body();
-        return html.contains("交易已经支付");
+        return html.contains("交易已经支付") || html.contains("该订单已付款");
     }
 
     @Scheduled(cron = "0/3 * * * * ?")   //每 2s 执行一次, 未支付单子复核 redis 池子
@@ -526,6 +529,7 @@ public class OrderTask {
             log.error("handleAsyncUnPayOrder.order解析异常： {}", text);
             return;
         }
+        LocalDateTime nowTime = LocalDateTime.now();
         try {
             String orderId = po.getOrderId();
             CAccount caDB = cAccountMapper.getCAccountByAcid(po.getAcId());
@@ -550,7 +554,7 @@ public class OrderTask {
                         w.setCaid(ca.getId());
                         w.setCost(po.getCost());
                         w.setOid(po.getOrderId());
-                        w.setCreateTime(LocalDateTime.now());
+                        w.setCreateTime(nowTime);
                         try {
                             cAccountWalletMapper.insert(w);
                         } catch (Exception var14) {
@@ -569,8 +573,8 @@ public class OrderTask {
                     String rechargeTime = orderInfo.getString("recharge_time");
                     DateTimeFormatter format = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
                     LocalDateTime orderTime = LocalDateTime.parse(rechargeTime, format);
-                    LocalDateTime nowTime = LocalDateTime.now().plusMinutes(-3);
-                    if (nowTime.isAfter(orderTime)) { //超3分钟了查到未支付，直接设置为失败单
+                    LocalDateTime pre3min = nowTime.plusMinutes(-3);
+                    if (pre3min.isAfter(orderTime)) { //超3分钟了查到未支付，直接设置为失败单
                         int row = pOrderMapper.updateOStatusByOId(orderId, OrderStatusEnum.PAY_TIMEOUT.getCode(), CodeUseStatusEnum.PLATFORM_NOT_PAY.getCode());
                         if (row == 1) {
                             log.info("【任务执行】 not pay order, 订单超时置为超时状态, pay order: {}, platform order info: {}", po, data);
@@ -580,52 +584,102 @@ public class OrderTask {
                         log.error("【任务执行】handleUnPayOrder重新丢回队列, {}, push: {}", po.getOrderId(), b);
                     }
                 }
-            } else if (cChannelId.contains("tx")) { // c_channel_id = tx
-                payService.addProxy(null, po.getPayIp(), null);
+            } else {
+                if (cChannelId.contains("tx")) { // c_channel_id = tx
+                    Thread.sleep(10000);
+                    payService.addProxy(null, po.getPayIp(), null);
 
-                Integer money = po.getCost();
-                String openID = caDB.getAcPwd();
-                String openKey = caDB.getCk();
-                String qq = caDB.getAcAccount();
+                    Integer money = po.getCost();
+                    String openID = caDB.getAcPwd();
+                    String openKey = caDB.getCk();
+                    String qq = caDB.getAcAccount();
 
-                List<TxWaterList> txWaterLists = txPayService.queryOrderBy30(openID, openKey);
+                    List<TxWaterList> txWaterLists = txPayService.queryOrderBy30(openID, openKey);
 
-                Set<TxWaterList> rl = new HashSet<>(txWaterLists);
-                // 使用HashMap来保存相同充值金额的充值账号
-                Map<Integer, List<String>> map = new HashMap<>();
+                    // 使用HashMap来保存相同充值金额的充值账号
+                    Map<Integer, List<String>> map = new HashMap<>();
 
-                LocalDateTime now = LocalDateTime.now();
-                // 遍历rechargeList进行充值金额的筛选
-                for (TxWaterList recharge : rl) {
-                    Integer payAmt = recharge.getPayAmt();
-                    String provideID = recharge.getProvideID();
-                    long payTime = recharge.getPayTime();
-                    Instant instant = Instant.ofEpochSecond(payTime);
-                    LocalDateTime parse = LocalDateTime.ofInstant(instant, ZoneId.systemDefault());
-                    LocalDateTime pre30min = now.plusMinutes(-30);
-                    // 如果该充值金额已存在于结果集中，则将充值账号添加进对应的列表中
-                    if (parse.isAfter(pre30min)) {
-                        List<String> accountList = map.computeIfAbsent(payAmt, k -> new ArrayList<>());
-                        accountList.add(provideID);
+                    //订单创建时间
+                    LocalDateTime orderCreateTime = po.getCreateTime();
+
+                    // 遍历rechargeList进行充值金额的筛选
+                    for (TxWaterList recharge : txWaterLists) {
+
+                        Integer payAmt = recharge.getPayAmt() / 100;
+                        String provideID = recharge.getProvideID();
+                        long payTime = recharge.getPayTime();
+                        Instant instant = Instant.ofEpochSecond(payTime);
+                        //订单支付时间
+                        LocalDateTime payTimeLoc = LocalDateTime.ofInstant(instant, ZoneId.of("Asia/Shanghai"));
+                        //订单创建后的30分钟内
+                        LocalDateTime pre30min = orderCreateTime.plusMinutes(30);
+
+                        // 如果该充值金额已存在于结果集中，则将充值账号添加进对应的列表中
+                        if (payTimeLoc.isBefore(pre30min) && payTimeLoc.isAfter(orderCreateTime)) { //订单创建后的30分钟前，付款时间比付款时间后面
+                            List<String> accountList = map.computeIfAbsent(payAmt, k -> new ArrayList<>());
+                            accountList.add(provideID);
+                            log.warn("payTimeLoc.isAfter(pre30min) - qq: {},记录：{}", provideID, recharge);
+                        }
                     }
-                }
 
-                List<String> moneyQQList = map.get(money * 100);
-                if (moneyQQList == null || moneyQQList.size() == 0) {
-                    //没查到充值记录
-                    LocalDateTime orderTime = po.getCreateTime();
-                    LocalDateTime nowTime = LocalDateTime.now().plusMinutes(-5);
-                    if (nowTime.isAfter(orderTime)) { //超5分钟了查到未支付，直接设置为失败单
-                        int row = pOrderMapper.updateOStatusByOId(orderId, OrderStatusEnum.PAY_TIMEOUT.getCode(), CodeUseStatusEnum.PLATFORM_NOT_PAY.getCode());
-                        if (row == 1) {
-                            log.info("[task check] not pay order, check platform pay timeout, pay order: {}", po);
+                    List<String> moneyQQList = map.get(money);
+                    log.warn("OrderTask: 当前qq : {}", qq);
+                    log.warn("OrderTask: 当前money: {}, collect : {}", money, moneyQQList);
+                    if (moneyQQList == null || moneyQQList.size() == 0) {
+                        //没查到充值记录
+                        LocalDateTime after12min = nowTime.plusMinutes(-12);
+                        if (after12min.isAfter(orderCreateTime)) { //超12分钟了查到未支付，直接设置为失败单
+                            int row = pOrderMapper.updateOStatusByOId(orderId, OrderStatusEnum.PAY_TIMEOUT.getCode(), CodeUseStatusEnum.PLATFORM_NOT_PAY.getCode());
+                            if (row == 1) {
+                                log.info("[task check] not pay order, check platform pay timeout, pay order: {}", po);
+                            }
+                        } else {
+                            boolean b = redisUtil.lPush(CommonConstant.ORDER_QUERY_QUEUE, po);
+                            log.error("【任务执行】handleUnPayOrder重新丢回队列, {}, push: {}", po.getOrderId(), b);
                         }
                     } else {
-                        boolean b = redisUtil.lPush(CommonConstant.ORDER_QUERY_QUEUE, po);
-                        log.error("【任务执行】handleUnPayOrder重新丢回队列, {}, push: {}", po.getOrderId(), b);
+                        if (moneyQQList.contains(qq)) { // 支付成功的
+                            int row = pOrderMapper.updateOStatusByOId(orderId, OrderStatusEnum.PAY_FINISHED.getCode(), CodeUseStatusEnum.FINISHED.getCode());
+                            if (row == 1) {
+                                // 支付成功后 入库 wallet
+                                CAccountWallet w = new CAccountWallet();
+                                w.setCaid(caDB.getId());
+                                w.setCost(po.getCost());
+                                w.setOid(po.getOrderId());
+                                w.setCreateTime(nowTime);
+                                try {
+                                    cAccountWalletMapper.insert(w);
+                                } catch (Exception ex) {
+                                    log.warn("CAccountWallet 已经入库, err: {}", ex.getMessage());
+                                }
+                                log.info("[task check] 自动查单, 查询到该单在平台已支付成功，自动入库并入回调池: orderId - {}", po.getOrderId());
+                                long rowRedis = redisUtil.sSetAndTime(CommonConstant.ORDER_CALLBACK_QUEUE, 300, orderId);
+                                if (rowRedis == 1) {
+                                    log.info("handleUnPayOrder, 查询未支付订单已完成支付，入回调通知池， 订单ID: {}", orderId);
+                                }
+                            }
+                        } else {
+                            //没查到充值记录
+                            LocalDateTime orderTime = po.getCreateTime();
+                            LocalDateTime pre12min = nowTime.plusMinutes(-12);
+                            if (pre12min.isAfter(orderTime)) { //超12分钟了查到未支付，直接设置为失败单
+                                int row = pOrderMapper.updateOStatusByOId(orderId, OrderStatusEnum.PAY_TIMEOUT.getCode(), CodeUseStatusEnum.PLATFORM_NOT_PAY.getCode());
+                                if (row == 1) {
+                                    log.info("[task check] not pay order, check platform pay timeout, pay order: {}", po);
+                                }
+                            } else {
+                                boolean b = redisUtil.lPush(CommonConstant.ORDER_QUERY_QUEUE, po);
+                                log.error("【任务执行】handleUnPayOrder重新丢回队列, {}, push: {}", po.getOrderId(), b);
+                            }
+                        }
                     }
-                } else {
-                    if (moneyQQList.contains(qq)) { // 支付成功的
+                } else if (cChannelId.contains("sdo")) {
+    //                payService.addProxy(null, po.getPayIp(), null);
+
+                    String platformOid = po.getPlatformOid();
+                    String address = channelPreMapper.getAddressByPlatOid(platformOid);
+                    boolean flag = querySdoOrder(address);
+                    if (flag) {
                         int row = pOrderMapper.updateOStatusByOId(orderId, OrderStatusEnum.PAY_FINISHED.getCode(), CodeUseStatusEnum.FINISHED.getCode());
                         if (row == 1) {
                             // 支付成功后 入库 wallet
@@ -633,8 +687,9 @@ public class OrderTask {
                             w.setCaid(caDB.getId());
                             w.setCost(po.getCost());
                             w.setOid(po.getOrderId());
-                            w.setCreateTime(LocalDateTime.now());
+                            w.setCreateTime(nowTime);
                             try {
+                                channelPreMapper.updateByPlatId(platformOid, 1); //update 1
                                 cAccountWalletMapper.insert(w);
                             } catch (Exception ex) {
                                 log.warn("CAccountWallet 已经入库, err: {}", ex.getMessage());
@@ -645,11 +700,43 @@ public class OrderTask {
                                 log.info("handleUnPayOrder, 查询未支付订单已完成支付，入回调通知池， 订单ID: {}", orderId);
                             }
                         }
-                    } else {
+                    }
+    //                String ckid = channelPreMapper.getCKIDbyPlatOid(platformOid);
+    //                CAccount ckAccount = cAccountMapper.getCAccountByAcid(ckid);
+    //                String sessionId = ckAccount.getAcPwd();
+    //                List<SdoWater> sdoWaters = sdoPayService.queryOrderBy2Day(sessionId, ckid);
+    //                boolean flag = false;
+    //                for (SdoWater sdoWater : sdoWaters) {
+    //                    if (sdoWater.getOrderId().equals(platformOid) && sdoWater.getState() == 5) {
+    //                        int row = pOrderMapper.updateOStatusByOId(orderId, OrderStatusEnum.PAY_FINISHED.getCode(), CodeUseStatusEnum.FINISHED.getCode());
+    //                        if (row == 1) {
+    //                            flag = true;
+    //                            // 支付成功后 入库 wallet
+    //                            CAccountWallet w = new CAccountWallet();
+    //                            w.setCaid(caDB.getId());
+    //                            w.setCost(po.getCost());
+    //                            w.setOid(po.getOrderId());
+    //                            w.setCreateTime(LocalDateTime.now());
+    //                            try {
+    //                                channelPreMapper.updateByPlatId(platformOid, 1); //update 1
+    //                                cAccountWalletMapper.insert(w);
+    //                            } catch (Exception ex) {
+    //                                log.warn("CAccountWallet 已经入库, err: {}", ex.getMessage());
+    //                            }
+    //                            log.info("[task check] 自动查单, 查询到该单在平台已支付成功，自动入库并入回调池: orderId - {}", po.getOrderId());
+    //                            long rowRedis = redisUtil.sSetAndTime(CommonConstant.ORDER_CALLBACK_QUEUE, 300, orderId);
+    //                            if (rowRedis == 1) {
+    //                                log.info("handleUnPayOrder, 查询未支付订单已完成支付，入回调通知池， 订单ID: {}", orderId);
+    //                            }
+    //                        }
+    //                    }
+    //                }
+    //                if (!flag){
+                    else {
                         //没查到充值记录
                         LocalDateTime orderTime = po.getCreateTime();
-                        LocalDateTime nowTime = LocalDateTime.now().plusMinutes(-5);
-                        if (nowTime.isAfter(orderTime)) { //超3分钟了查到未支付，直接设置为失败单
+                        LocalDateTime pre4min = nowTime.plusMinutes(-4);
+                        if (pre4min.isAfter(orderTime)) { //超10分钟了查到未支付，直接设置为失败单
                             int row = pOrderMapper.updateOStatusByOId(orderId, OrderStatusEnum.PAY_TIMEOUT.getCode(), CodeUseStatusEnum.PLATFORM_NOT_PAY.getCode());
                             if (row == 1) {
                                 log.info("[task check] not pay order, check platform pay timeout, pay order: {}", po);
@@ -660,79 +747,6 @@ public class OrderTask {
                         }
                     }
                 }
-            } else if (cChannelId.contains("sdo")) {
-//                payService.addProxy(null, po.getPayIp(), null);
-
-                String platformOid = po.getPlatformOid();
-                String address = channelPreMapper.getAddressByPlatOid(platformOid);
-                boolean flag = querySdoOrder(address);
-                if (flag) {
-                    int row = pOrderMapper.updateOStatusByOId(orderId, OrderStatusEnum.PAY_FINISHED.getCode(), CodeUseStatusEnum.FINISHED.getCode());
-                    if (row == 1) {
-                        // 支付成功后 入库 wallet
-                        CAccountWallet w = new CAccountWallet();
-                        w.setCaid(caDB.getId());
-                        w.setCost(po.getCost());
-                        w.setOid(po.getOrderId());
-                        w.setCreateTime(LocalDateTime.now());
-                        try {
-                            channelPreMapper.updateByPlatId(platformOid, 1); //update 1
-                            cAccountWalletMapper.insert(w);
-                        } catch (Exception ex) {
-                            log.warn("CAccountWallet 已经入库, err: {}", ex.getMessage());
-                        }
-                        log.info("[task check] 自动查单, 查询到该单在平台已支付成功，自动入库并入回调池: orderId - {}", po.getOrderId());
-                        long rowRedis = redisUtil.sSetAndTime(CommonConstant.ORDER_CALLBACK_QUEUE, 300, orderId);
-                        if (rowRedis == 1) {
-                            log.info("handleUnPayOrder, 查询未支付订单已完成支付，入回调通知池， 订单ID: {}", orderId);
-                        }
-                    }
-                }
-//                String ckid = channelPreMapper.getCKIDbyPlatOid(platformOid);
-//                CAccount ckAccount = cAccountMapper.getCAccountByAcid(ckid);
-//                String sessionId = ckAccount.getAcPwd();
-//                List<SdoWater> sdoWaters = sdoPayService.queryOrderBy2Day(sessionId, ckid);
-//                boolean flag = false;
-//                for (SdoWater sdoWater : sdoWaters) {
-//                    if (sdoWater.getOrderId().equals(platformOid) && sdoWater.getState() == 5) {
-//                        int row = pOrderMapper.updateOStatusByOId(orderId, OrderStatusEnum.PAY_FINISHED.getCode(), CodeUseStatusEnum.FINISHED.getCode());
-//                        if (row == 1) {
-//                            flag = true;
-//                            // 支付成功后 入库 wallet
-//                            CAccountWallet w = new CAccountWallet();
-//                            w.setCaid(caDB.getId());
-//                            w.setCost(po.getCost());
-//                            w.setOid(po.getOrderId());
-//                            w.setCreateTime(LocalDateTime.now());
-//                            try {
-//                                channelPreMapper.updateByPlatId(platformOid, 1); //update 1
-//                                cAccountWalletMapper.insert(w);
-//                            } catch (Exception ex) {
-//                                log.warn("CAccountWallet 已经入库, err: {}", ex.getMessage());
-//                            }
-//                            log.info("[task check] 自动查单, 查询到该单在平台已支付成功，自动入库并入回调池: orderId - {}", po.getOrderId());
-//                            long rowRedis = redisUtil.sSetAndTime(CommonConstant.ORDER_CALLBACK_QUEUE, 300, orderId);
-//                            if (rowRedis == 1) {
-//                                log.info("handleUnPayOrder, 查询未支付订单已完成支付，入回调通知池， 订单ID: {}", orderId);
-//                            }
-//                        }
-//                    }
-//                }
-//                if (!flag){
-                else{
-                    //没查到充值记录
-                    LocalDateTime orderTime = po.getCreateTime();
-                    LocalDateTime nowTime = LocalDateTime.now().plusMinutes(-4);
-                    if (nowTime.isAfter(orderTime)) { //超10分钟了查到未支付，直接设置为失败单
-                        int row = pOrderMapper.updateOStatusByOId(orderId, OrderStatusEnum.PAY_TIMEOUT.getCode(), CodeUseStatusEnum.PLATFORM_NOT_PAY.getCode());
-                        if (row == 1) {
-                            log.info("[task check] not pay order, check platform pay timeout, pay order: {}", po);
-                        }
-                    } else {
-                        boolean b = redisUtil.lPush(CommonConstant.ORDER_QUERY_QUEUE, po);
-                        log.error("【任务执行】handleUnPayOrder重新丢回队列, {}, push: {}", po.getOrderId(), b);
-                    }
-                }
             }
 
         } catch (NotFoundException ex) {
@@ -741,8 +755,8 @@ public class OrderTask {
             log.error("【任务执行】handleUnPayOrder数据库置为异常单, orderId : {}", po.getOrderId());
         } catch (Exception e) {
             LocalDateTime createTime = po.getCreateTime();
-            LocalDateTime nowTime = LocalDateTime.now().plusMinutes(-30);
-            if (nowTime.isAfter(createTime)) {
+            LocalDateTime pre30min = nowTime.plusMinutes(-30);
+            if (pre30min.isAfter(createTime)) {
                 log.error("【任务执行】handleUnPayOrder超时30分钟直接丢弃, {}", po);
                 pOrderMapper.updateOStatusByOidForQueue(po.getOrderId(), OrderStatusEnum.PAY_CREATING_ERROR.getCode());
                 log.error("【任务执行】handleUnPayOrder数据库置为异常单, orderId : {}", po.getOrderId());

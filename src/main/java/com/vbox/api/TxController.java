@@ -54,11 +54,11 @@ public class TxController {
         LocalDateTime now = LocalDateTime.now();
         // 遍历rechargeList进行充值金额的筛选
         for (TxWaterList recharge : rl) {
-            Integer payAmt = recharge.getPayAmt();
+            Integer payAmt = recharge.getPayAmt() / 100;
             String provideID = recharge.getProvideID();
             long payTime = recharge.getPayTime();
             Instant instant = Instant.ofEpochSecond(payTime);
-            LocalDateTime parse = LocalDateTime.ofInstant(instant, ZoneId.systemDefault());
+            LocalDateTime parse = LocalDateTime.ofInstant(instant, ZoneId.of("Asia/Shanghai"));
             LocalDateTime pre30min = now.plusMinutes(-30);
             // 如果该充值金额已存在于结果集中，则将充值账号添加进对应的列表中
             if (parse.isAfter(pre30min)) {
