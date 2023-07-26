@@ -61,6 +61,8 @@ public class SaleServiceImpl implements SaleService {
     private VboxUserWalletMapper vboxUserWalletMapper;
     @Autowired
     private POrderMapper pOrderMapper;
+    @Autowired
+    private ChannelPreMapper channelPreMapper;
 
     @Override
     public TotalVO totalOverView() {
@@ -353,6 +355,9 @@ public class SaleServiceImpl implements SaleService {
             acv.setC_gateway_name(gw.getCGatewayName());
             acv.setAc_pwd(DesensitizedUtil.idCardNum(Base64.decodeStr(ca.getAcPwd()), 1, 1));
 
+            //预产
+            int preCount = channelPreMapper.countForPreByACID(ca.getAcid());
+            acv.setPre_count(preCount);
             //总充值
             Integer totalCost = vboxUserWalletMapper.getTotalCostByCaid(ca.getId());
             //今充值

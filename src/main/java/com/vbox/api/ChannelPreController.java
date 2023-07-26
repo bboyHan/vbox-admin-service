@@ -26,14 +26,12 @@ public class ChannelPreController {
     private ChannelPreService channelPreService;
 
     @PostMapping("/channel/pre/upload")
-    public ResponseEntity<Result<Integer>> upload(HttpServletRequest request) {
+    public ResponseEntity<Result<Integer>> batchChannelPreFile(HttpServletRequest request) {
         int rs = 0;
-        try {
-            List<MultipartFile> files = ((MultipartHttpServletRequest) request).getFiles("file");
-            MultipartFile multipartFile = null;
-//            rs = fileService.upload(role);
-        } catch (Exception e) {
-            e.printStackTrace();
+        List<MultipartFile> files = ((MultipartHttpServletRequest) request).getFiles("file");
+        if (files.size() != 0) {
+            MultipartFile multipartFile = files.get(0);
+            rs = channelPreService.batchChannelPre(multipartFile);
         }
         return Result.ok(rs);
     }

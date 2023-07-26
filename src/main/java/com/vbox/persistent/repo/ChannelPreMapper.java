@@ -43,5 +43,7 @@ public interface ChannelPreMapper extends BaseMapper<ChannelPre> {
             "</script>")
     List<ChannelPreCount> countForCAccounts(@Param("sidList") List<Integer> sidList, Integer status, String acAccount);
 
+    @Select("SELECT COUNT(1) as count from vbox_channel_pre_code where status = 2 and acid = #{acid}")
+    int countForPreByACID(String acid);
 
 }

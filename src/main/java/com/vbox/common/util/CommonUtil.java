@@ -2,21 +2,77 @@ package com.vbox.common.util;
 
 import cn.hutool.http.HttpUtil;
 import com.alibaba.fastjson2.JSON;
+import com.vbox.persistent.entity.ChannelPre;
+import com.vbox.persistent.pojo.dto.ChannelPreExcel;
 import jodd.util.StringUtil;
+import org.apache.poi.ss.usermodel.Cell;
+import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.ss.usermodel.Sheet;
+import org.apache.poi.ss.usermodel.Workbook;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.lionsoul.ip2region.xdb.Searcher;
 import org.springframework.util.StringUtils;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.io.*;
 import java.lang.reflect.Field;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.security.MessageDigest;
+import java.time.LocalDateTime;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class CommonUtil {
+
+    public static List<ChannelPreExcel> parseChannelPreExcel(MultipartFile file) throws IOException {
+        Workbook workbook = new XSSFWorkbook(file.getInputStream());
+        Sheet sheet = workbook.getSheetAt(0);
+
+        List<ChannelPreExcel> data = new ArrayList<>();
+
+        for (Row row : sheet) {
+            if (row.getRowNum() == 0) {
+                continue; // 跳过表头行
+            }
+            ChannelPreExcel channelPre = new ChannelPreExcel();
+            mapRowToClass(row, channelPre);
+            data.add(channelPre);
+        }
+
+        workbook.close();
+
+        return data;
+    }
+
+    public static  void mapRowToClass(Row row, ChannelPreExcel channelPre) {
+        Field[] fields = ChannelPreExcel.class.getDeclaredFields();
+        for (int i = 0; i < fields.length; i++) {
+            Field field = fields[i];
+            field.setAccessible(true);
+            Cell cell = row.getCell(i);
+            Class<?> fieldType = field.getType();
+            try {
+                if (fieldType.equals(Integer.class)) {
+                    field.set(channelPre, (int) cell.getNumericCellValue());
+                } else if (fieldType.equals(String.class)) {
+                    field.set(channelPre, cell.getStringCellValue());
+                } else if (fieldType.equals(LocalDateTime.class)) {
+                    // 处理 LocalDateTime 类型，你可以根据实际需求进行相应的转换
+                    // 例如，从字符串转换为 LocalDateTime 对象：
+                    // String localDateTimeStr = cell.getStringCellValue();
+                    // LocalDateTime localDateTime = LocalDateTime.parse(localDateTimeStr);
+                    // field.set(channelPre, localDateTime);
+                    // 这里仅作示例，具体转换逻辑需根据Excel中日期时间类型的格式来决定
+                }
+                // 其他属性类型的处理...
+            } catch (IllegalAccessException e) {
+                e.printStackTrace();
+            }
+        }
+    }
 
     /**
      * 判断html中的qrCode - sdo

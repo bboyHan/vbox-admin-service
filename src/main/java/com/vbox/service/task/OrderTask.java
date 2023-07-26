@@ -4,6 +4,7 @@ import cn.hutool.core.codec.Base64;
 import cn.hutool.core.date.DateUtil;
 import cn.hutool.core.util.IdUtil;
 import cn.hutool.core.util.RandomUtil;
+import cn.hutool.http.HttpException;
 import cn.hutool.http.HttpRequest;
 import cn.hutool.http.HttpResponse;
 import com.alibaba.fastjson2.JSONObject;
@@ -501,17 +502,22 @@ public class OrderTask {
     }
 
     public boolean querySdoOrder(String address) {
-        HttpResponse execute = HttpRequest.get(address)
-                .header("User-Agent", "Mozilla/5.0 (Linux; Android 8.0.0; SM-G955U Build/R16NW) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.141 Mobile Safari/537.36")
-                .execute();
-        String location = execute.header("Location");
+        try {
+            HttpResponse execute = HttpRequest.get(address)
+                    .header("User-Agent", "Mozilla/5.0 (Linux; Android 8.0.0; SM-G955U Build/R16NW) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.141 Mobile Safari/537.36")
+                    .execute();
+            String location = execute.header("Location");
 
-        HttpResponse executeLocation = HttpRequest.get(location)
-                .header("User-Agent", "Mozilla/5.0 (Linux; Android 8.0.0; SM-G955U Build/R16NW) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.141 Mobile Safari/537.36")
-                .execute();
+            HttpResponse executeLocation = HttpRequest.get(location)
+                    .header("User-Agent", "Mozilla/5.0 (Linux; Android 8.0.0; SM-G955U Build/R16NW) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.141 Mobile Safari/537.36")
+                    .execute();
 
-        String html = executeLocation.body();
-        return html.contains("交易已经支付") || html.contains("该订单已付款");
+            String html = executeLocation.body();
+            return html.contains("交易已经支付") || html.contains("该订单已付款");
+        } catch (Exception e) {
+            log.error("querySdoOrder ex: ",e);
+            return false;
+        }
     }
 
     @Scheduled(cron = "0/3 * * * * ?")   //每 2s 执行一次, 未支付单子复核 redis 池子

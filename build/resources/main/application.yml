@@ -27,9 +27,9 @@ spring:
 
   redis:
     # 正式
-#    host: vboxredis.redis.rds.aliyuncs.com
-#    password: Vbox123qwe
-    host: 127.0.0.1
+    host: vboxredis.redis.rds.aliyuncs.com
+    password: Vbox123qwe
+#    host: 127.0.0.1
     port: 6379
 #    redisson: classpath:redisson.yml
 

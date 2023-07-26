@@ -2746,7 +2746,7 @@ function get_w(param, user_resp) {
     lang: 'zh',
     ep: '123',
     yeg6: 'd6w9',
-	a2pf: '1576338293',
+	hq7f: '1040912425',
     em: {
       ph: 0,
       cp: 0,

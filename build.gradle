@@ -36,6 +36,8 @@ dependencies {
     implementation group: 'org.lionsoul', name: 'ip2region', version: '2.7.0'
     implementation 'net.java.dev.jna:jna:5.9.0'
     implementation 'net.java.dev.jna:jna-platform:5.9.0'
+    implementation 'org.apache.poi:poi:5.0.0'
+    implementation 'org.apache.poi:poi-ooxml:5.0.0'
 }
 
 tasks.named('test') {

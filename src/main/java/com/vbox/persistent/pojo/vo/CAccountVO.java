@@ -26,6 +26,7 @@ public class CAccountVO {
     private Integer min;
     private Integer max;
     private Integer status;
+    private Integer pre_count;
     private Integer sys_status;
     private String sys_log;
 

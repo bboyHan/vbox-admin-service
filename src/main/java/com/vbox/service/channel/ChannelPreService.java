@@ -9,10 +9,13 @@ import com.vbox.persistent.pojo.dto.ChannelPreCount;
 import com.vbox.persistent.pojo.param.CSEnableParam;
 import com.vbox.persistent.pojo.param.ChannelPreParam;
 import com.vbox.persistent.pojo.param.ChannelShopParam;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
 public interface ChannelPreService {
+
+    int batchChannelPre(MultipartFile multipartFile);
 
     List<ChannelPreCount> countForCAccounts(ChannelPreParam csParam);
 

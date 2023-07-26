@@ -4,12 +4,14 @@ import cn.hutool.core.util.NumberUtil;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.vbox.common.ResultOfList;
+import com.vbox.common.util.CommonUtil;
 import com.vbox.config.exception.ServiceException;
 import com.vbox.config.local.TokenInfoThreadHolder;
 import com.vbox.persistent.entity.CAccount;
 import com.vbox.persistent.entity.CChannel;
 import com.vbox.persistent.entity.ChannelPre;
 import com.vbox.persistent.pojo.dto.ChannelPreCount;
+import com.vbox.persistent.pojo.dto.ChannelPreExcel;
 import com.vbox.persistent.pojo.dto.SdoWater;
 import com.vbox.persistent.pojo.param.ChannelPreParam;
 import com.vbox.persistent.repo.CAccountMapper;
@@ -20,10 +22,14 @@ import com.vbox.service.channel.ChannelPreService;
 import com.vbox.service.channel.PayService;
 import com.vbox.service.channel.SdoPayService;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.BeanUtils;
+import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -45,16 +51,94 @@ public class ChannelPreServiceImpl implements ChannelPreService {
     @Autowired
     private SdoPayService sdoPayService;
 
-    public Long unUsedCount() {
-        Integer currentUid = TokenInfoThreadHolder.getToken().getId();
-        List<Integer> sidList = relationUSMapper.listSidByUid(currentUid);
+    @Override
+    public int batchChannelPre(MultipartFile multipartFile) {
+        Integer uid = TokenInfoThreadHolder.getToken().getId();
+        List<ChannelPreExcel> preExcelList;
+        try {
+            preExcelList = CommonUtil.parseChannelPreExcel(multipartFile);
+//            if (preExcelList.size() > 50) {
+//                log.error("batchChannelPre. 超出上限，一次最多50个");
+//                throw new ServiceException("文件解析异常");
+//            }
+        } catch (IOException e) {
+            log.error("batchChannelPre. 上传文件解析异常");
+            throw new ServiceException("文件解析异常");
+        }
+        log.warn("本次批量导入 start ... uid: {}", uid);
 
-        sidList.add(currentUid);
+        int count = 0;
+        int errCount = 0;
+        LocalDateTime now = LocalDateTime.now();
 
-        QueryWrapper<ChannelPre> unUsedQueryWrapper = new QueryWrapper<>();
-        unUsedQueryWrapper.eq("status", 2);
-        Long count = channelPreMapper.selectCount(unUsedQueryWrapper);
-        return count;
+        for (ChannelPreExcel preExcel : preExcelList) {
+            try {
+                ChannelPre channelPre = new ChannelPre();
+                BeanUtils.copyProperties(preExcel, channelPre);
+
+                CAccount ca = cAccountMapper.getCAccountByAcRemark(preExcel.getAcRemark());
+                CChannel channelDB = channelMapper.getChannelByChannelId(channelPre.getChannel());
+
+                String acid = ca.getAcid();
+
+//                log.warn("{}",channelPre);
+                Integer money = channelPre.getMoney();
+                String platParam = channelPre.getPlatParam();
+                String remark = "";
+                if (money == 200) {
+                    money = 204;
+                    remark = "200|204," + "null|" + acid;
+                } else if (money == 1) {
+                    money = 1;
+                    remark = "1|1," + "null|" + acid + ",test";
+                } else if (money == 100) {
+                    money = 102;
+                    remark = "100|102," + "null|" + acid;
+                }
+
+                String url ="";
+                if (platParam.contains("_input_charset")) {
+                    url = "https://mapi.alipay.com/gateway.do?";
+                    boolean flag = platParam.startsWith("_input_charset");
+                    if (!flag) {
+                        throw new ServiceException("核对queryString参数,示例: _input_charset...或者 app_id=");
+                    }
+                }else if ((platParam.contains("app_id"))){
+                    url = "https://openapi.alipay.com/gateway.do?";
+                    boolean flag1 = platParam.startsWith("app_id");
+                    if (!flag1) {
+                        throw new ServiceException("核对queryString参数,示例: _input_charset...或者 app_id=");
+                    }
+                    boolean flag2 = platParam.endsWith("version=1.0");
+                    if (!flag2) {
+                        throw new ServiceException("核对queryString参数,示例: _input_charset...或者 app_id=");
+                    }
+                }else {
+                    throw new ServiceException("核对queryString参数,示例: _input_charset...或者 app_id=");
+                }
+
+                String address = url + platParam;
+                log.warn("创建预产地址: {}", address);
+                channelPre.setAddress(address);
+                channelPre.setUid(uid);
+                channelPre.setAcid(acid);
+                channelPre.setMoney(money);
+                channelPre.setChannel(preExcel.getChannel());
+                channelPre.setCid(channelDB.getId());
+                channelPre.setRemark(remark);
+                channelPre.setCreateTime(now);
+                channelPreMapper.insert(channelPre);
+                count++;
+
+            } catch (Exception e) {
+                errCount++;
+                log.error("第 {} 行记录参数异常，跳过， info ： {}", count, preExcel, e);
+            }
+        }
+
+        log.warn("共计本次批量导入总计： {} 条, : {} 条成功, : {} 条失败", preExcelList.size(), count, errCount);
+
+        return 1;
     }
 
     @Override
@@ -76,7 +160,6 @@ public class ChannelPreServiceImpl implements ChannelPreService {
         sidList.add(currentUid);
 
         List<CAccount> caList = cAccountMapper.listACInUids(sidList, null, 1, 0, 999);
-//        Integer count = cAccountMapper.countACInUids(sidList, 1, 0, 999);
 
         return caList;
     }

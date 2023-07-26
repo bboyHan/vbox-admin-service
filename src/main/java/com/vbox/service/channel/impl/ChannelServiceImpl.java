@@ -69,6 +69,8 @@ public class ChannelServiceImpl implements ChannelService {
     private RedisUtil redisUtil;
     @Autowired
     private POrderMapper pOrderMapper;
+    @Autowired
+    private ChannelPreMapper channelPreMapper;
 
     @Override
     public VboxUserVO getVboxUser() {
@@ -376,7 +378,8 @@ public class ChannelServiceImpl implements ChannelService {
             acv.setC_channel_name(gw.getCGameName() + "-" + gw.getCChannelName());
             acv.setC_gateway_name(gw.getCGatewayName());
             acv.setAc_pwd(DesensitizedUtil.idCardNum(Base64.decodeStr(ca.getAcPwd()), 1, 1));
-
+            int countPre = channelPreMapper.countForPreByACID(ca.getAcid());
+            acv.setPre_count(countPre);
             //cost
             Integer totalCost = vboxUserWalletMapper.getTotalCostByCaid(ca.getId());
             Integer todayCost = vboxUserWalletMapper.getTodayOrderSumByCaid(ca.getId());

@@ -96,6 +96,9 @@ public interface CAccountMapper extends BaseMapper<CAccount> {
     @Select("select * from vbox_channel_account where acid = #{acid}")
     CAccount getCAccountByAcid(String acId);
 
+    @Select("select * from vbox_channel_account where ac_remark = #{acRemark}")
+    CAccount getCAccountByAcRemark(String acRemark);
+
     @Update("update vbox_channel_account set sys_status = 0, sys_log = #{sysLog} where uid = #{uid}")
     void stopByUid(@Param("sysLog")String sysLog, @Param("uid") Integer uid);
 
