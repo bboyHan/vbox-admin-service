@@ -16,6 +16,7 @@ import org.springframework.web.multipart.MultipartHttpServletRequest;
 
 import javax.servlet.http.HttpServletRequest;
 import java.io.IOException;
+import java.io.UnsupportedEncodingException;
 import java.util.List;
 
 @RestController
@@ -61,7 +62,7 @@ public class ChannelPreController {
     }
 
     @PostMapping("/channel/pre")
-    public ResponseEntity<Result<Integer>> createChannelPre(@RequestBody ChannelPreParam param) {
+    public ResponseEntity<Result<Integer>> createChannelPre(@RequestBody ChannelPreParam param) throws Exception {
         int rl = channelPreService.createChannelPre(param);
         return Result.ok(rl);
     }

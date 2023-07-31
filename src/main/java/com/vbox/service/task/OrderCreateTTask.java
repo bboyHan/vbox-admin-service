@@ -25,8 +25,10 @@ import com.vbox.persistent.pojo.dto.*;
 import com.vbox.persistent.repo.*;
 import com.vbox.service.channel.PayService;
 import com.vbox.service.channel.TxPayService;
+import com.vbox.service.channel.impl.Gee4Service;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
@@ -177,202 +179,138 @@ public class OrderCreateTTask {
 
         CChannel channel = channelMapper.getChannelById(cid);
         if ("jx3".equals(channel.getCGame())) {
-            Object ele = redisUtil.rPop(CommonConstant.CHANNEL_ACCOUNT_QUEUE + cid);
-            if (ele == null) {
-                List<CAccount> randomTempList = cAccountMapper.selectList(new QueryWrapper<CAccount>()
-                        .eq("status", 1)
-                        .eq("sys_status", 1)
-                        .eq("cid", cid)
-                );
-                for (CAccount cAccount : randomTempList) {
-                    redisUtil.lPush(CommonConstant.CHANNEL_ACCOUNT_QUEUE + cid, cAccount);
+            if (channelId.equals("jx3_alipay_pre")) {
+                ChannelPre preDB;
+
+                Object ele = redisUtil.rPop(CommonConstant.CHANNEL_ACCOUNT_QUEUE+ reqMoney +":" + cid);
+                if (ele == null) {
+                    List<CAccount> randomTempList = cAccountMapper.selectList(new QueryWrapper<CAccount>()
+                            .eq("status", 1)
+                            .eq("sys_status", 1)
+                            .eq("cid", cid)
+                    );
+
+                    if (randomTempList == null || randomTempList.size() == 0) {
+                        log.error("库存账号不足");
+                        throw new ServiceException("库存账号不足，请联系管理员");
+                    }
+
+                    List<String> acidList = new ArrayList<>();
+                    for (CAccount ca : randomTempList) {
+                        acidList.add(ca.getAcid());
+                    }
+
+                    QueryWrapper<ChannelPre> queryWrapper = new QueryWrapper<>();
+                    queryWrapper.in("acid", acidList);
+                    queryWrapper.eq("status", 2);
+                    queryWrapper.eq("cid", cid);
+                    queryWrapper.eq("money", reqMoney);
+
+                    List<ChannelPre> channelPres = channelPreMapper.selectList(queryWrapper);
+                    removeSdoElements(channelPres);
+                    if (channelPres.size() == 0) {
+                        log.error("库存金额不足");
+                        throw new ServiceException("库存金额不足，请联系管理员");
+                    }
+
+                    for (ChannelPre pre : channelPres) {
+                        redisUtil.lPush(CommonConstant.CHANNEL_ACCOUNT_QUEUE+ reqMoney +":" + cid, pre);
+                    }
+
+                    int randomIndex = RandomUtil.randomInt(channelPres.size());
+                    preDB = channelPres.get(randomIndex);
+
+                } else {
+                    String text = ele.toString();
+                    try {
+                        preDB = JSONObject.parseObject(text, ChannelPre.class);
+                    } catch (Exception e) {
+                        log.error("ChannelPre queue解析异常, text: {}", text);
+                        return;
+                    }
                 }
+
+                log.info("【任务执行】资源池取出..po channel id {} .random preDB Info - {}", channelId, preDB);
+                String payUrl = null;
                 try {
-                    int randomIndex = RandomUtil.randomInt(randomTempList.size());
-                    c = randomTempList.get(randomIndex);
+                    try {
+                        payUrl = handelJx3PayUrl(preDB.getAddress(), userAgent);
+                    } catch (Exception e) {
+                        log.warn("handelJx3PayUrl 重试1次");
+                        payUrl = handelJx3PayUrl2(preDB.getAddress(), userAgent);
+                    }
                 } catch (Exception e) {
-                    log.error("库存金额不足，或库存账号不足");
-                    throw new ServiceException("库存金额不足，或库存账号不足，请联系管理员");
-                }
-            } else {
-                String text = ele.toString();
-                try {
-                    c = JSONObject.parseObject(text, CAccount.class);
-                } catch (Exception e) {
-                    log.error("CAccount queue解析异常, text: {}", text);
+                    log.error("预产链接异常: pay url -> {}", payUrl);
+//                    int row = channelPreMapper.deleteById(preDB.getId());
+                    int row = channelPreMapper.updateByPlatId(preDB.getPlatOid(), 1);
+                    log.error("预产链接异常删除处理: row -> {}, pre info: {}", row, preDB);
+                    pOrderMapper.updateOStatusByOidForQueue(po.getOrderId(), OrderStatusEnum.PAY_CREATING_ERROR.getCode());
+                    log.error("【预产任务执行】异常单，丢弃, {}", po);
                     return;
                 }
+                LocalDateTime asyncTime = LocalDateTime.now();
+                channelPreMapper.updateByPlatId(preDB.getPlatOid(), 1); // 1 - 已取码
+                pOrderMapper.updateInfoForQueue(orderId, preDB.getAcid(), OrderStatusEnum.NO_PAY.getCode(), preDB.getPlatOid(), payUrl, payIp, asyncTime);
+                pOrderEventMapper.updateInfoForQueue(orderId, "", preDB.getPlatOid(), preDB.getAddress());
+
+                PayOrder poDB = pOrderMapper.getPOrderByOid(orderId);
+                boolean b = redisUtil.lPush(CommonConstant.ORDER_QUERY_QUEUE, poDB);
+                if (b) {
+                    boolean has = redisUtil.hasKey(CommonConstant.ORDER_WAIT_QUEUE + orderId);
+                    if (has) redisUtil.del(CommonConstant.ORDER_WAIT_QUEUE + orderId);
+                    log.info("【任务执行】成功订单入查单回调池子, orderId: {}", orderId);
+                }
+            } else {
+                createOrderJx3(pa, orderId, payIp, reqMoney, userAgent, channelId, cid);
             }
+            return;
         } else if ("tx".equals(channel.getCGame())) {// tx
-            Object ele = redisUtil.rPop(CommonConstant.CHANNEL_ACCOUNT_QUEUE + cid);
-            if (ele == null) {
-                List<CAccount> randomTempList = cAccountMapper.selectList(new QueryWrapper<CAccount>()
-                        .eq("status", 1)
-                        .eq("sys_status", 1)
-                        .eq("cid", channel.getId())
-                );
-
-                List<TxWaterList> rl = new ArrayList<>();
-                // 使用HashMap来保存相同充值金额的充值账号
-                Map<Integer, List<String>> map = new HashMap<>();
-
-                for (CAccount cAccount : randomTempList) {
-                    String openID = cAccount.getAcPwd();
-                    String openKey = cAccount.getCk();
-                    List<TxWaterList> txWaterList = txPayService.queryOrderBy30(openID, openKey);
-//                log.warn("c- {}", txWaterList);
-                    rl.addAll(txWaterList);
-                }
-
-                LocalDateTime now = LocalDateTime.now();
-                // 遍历rechargeList进行充值金额的筛选
-                for (TxWaterList recharge : rl) {
-                    Integer payAmt = recharge.getPayAmt() / 100;
-                    String provideID = recharge.getProvideID();
-                    long payTime = recharge.getPayTime();
-                    Instant instant = Instant.ofEpochSecond(payTime);
-                    LocalDateTime payTimeLoc = LocalDateTime.ofInstant(instant, ZoneId.of("Asia/Shanghai"));
-                    LocalDateTime pre30min = now.plusMinutes(-30);
-                    // 如果该充值金额已存在于结果集中，则将充值账号添加进对应的列表中
-                    if (payTimeLoc.isAfter(pre30min)) {
-                        List<String> accountList = map.computeIfAbsent(payAmt, k -> new ArrayList<>());
-                        accountList.add(provideID);
-                    }
-                }
-
-                //获取已经有充值当前金额的账户，作去除处理
-                List<String> qqList = map.get(reqMoney);
-                log.warn("当前30分钟内 - 已支付的记录，金额: {},记录：{}", reqMoney, qqList);
-
-                removeTxElements(qqList, randomTempList, reqMoney);
-
-                try {
-                    int randomIndex = RandomUtil.randomInt(randomTempList.size());
-                    c = randomTempList.get(randomIndex);
-
-                    randomTempList.remove(randomIndex);
-
-                    for (CAccount cAccount : randomTempList) {
-                        redisUtil.lPush(CommonConstant.CHANNEL_ACCOUNT_QUEUE + cid, cAccount);
-                    }
-                } catch (Exception e) {
-                    log.error("库存金额不足，或库存账号不足");
-                    throw new ServiceException("库存金额不足，或库存账号不足，请联系管理员");
-                }
-            } else {
-                String text = ele.toString();
-                try {
-                    c = JSONObject.parseObject(text, CAccount.class);
-                } catch (Exception e) {
-                    log.error("CAccount queue解析异常, text: {}", text);
-                    return;
-                }
-            }
-            log.info("【任务执行】资源池取出..po channel id {} .randomACInfo - {}", channelId, c);
-
-            String payUrl = handelTxPayUrl(channel.getCChannelId(), reqMoney);
-            LocalDateTime asyncTime = LocalDateTime.now();
-            pOrderMapper.updateInfoForQueue(orderId, c.getAcid(), OrderStatusEnum.NO_PAY.getCode(), "QQ|" + c.getAcAccount(), payUrl, payIp, asyncTime);
-            pOrderEventMapper.updateInfoForQueue(orderId, "", "QQ|" + c.getAcAccount(), "");
-
-            PayOrder poDB = pOrderMapper.getPOrderByOid(orderId);
-            boolean b = redisUtil.lPush(CommonConstant.ORDER_QUERY_QUEUE, poDB);
-            if (b) {
-                boolean has = redisUtil.hasKey(CommonConstant.ORDER_WAIT_QUEUE + orderId);
-                if (has) redisUtil.del(CommonConstant.ORDER_WAIT_QUEUE + orderId);
-                log.info("【任务执行】成功订单入查单回调池子, orderId: {}", orderId);
-            }
-
+            createOrderTx(orderId, payIp, reqMoney, channelId, cid, channel);
             return;
         } else if ("sdo".equals(channel.getCGame())) { // sdo
-            if (reqMoney == 200) {
-                reqMoney = 204;
-            } else if (reqMoney == 1) {
-                reqMoney = 1;
-            } else if (reqMoney == 100) {
-                reqMoney = 102;
-            } else {
-                throw new ServiceException("仅支持100、200的固额设置");
-            }
-            ChannelPre preDB;
-
-            Object ele = redisUtil.rPop(CommonConstant.CHANNEL_ACCOUNT_QUEUE + cid);
-            if (ele == null) {
-                List<CAccount> randomTempList = cAccountMapper.selectList(new QueryWrapper<CAccount>()
-                        .eq("status", 1)
-                        .eq("sys_status", 1)
-                        .eq("cid", channel.getId())
-                );
-
-                if (randomTempList == null || randomTempList.size() == 0) {
-                    log.error("库存账号不足");
-                    throw new ServiceException("库存账号不足，请联系管理员");
-                }
-
-                List<String> acidList = new ArrayList<>();
-                for (CAccount ca : randomTempList) {
-                    acidList.add(ca.getAcid());
-                }
-
-                QueryWrapper<ChannelPre> queryWrapper = new QueryWrapper<>();
-                queryWrapper.in("acid", acidList);
-                queryWrapper.eq("status", 2);
-                queryWrapper.eq("money", reqMoney);
-
-                List<ChannelPre> channelPres = channelPreMapper.selectList(queryWrapper);
-                removeSdoElements(channelPres);
-                if (channelPres.size() == 0) {
-                    log.error("库存金额不足");
-                    throw new ServiceException("库存金额不足，请联系管理员");
-                }
-
-                for (ChannelPre pre : channelPres) {
-                    redisUtil.lPush(CommonConstant.CHANNEL_ACCOUNT_QUEUE + cid, pre);
-                }
-
-                int randomIndex = RandomUtil.randomInt(channelPres.size());
-                preDB = channelPres.get(randomIndex);
-
-            } else {
-                String text = ele.toString();
-                try {
-                    preDB = JSONObject.parseObject(text, ChannelPre.class);
-                } catch (Exception e) {
-                    log.error("ChannelPre queue解析异常, text: {}", text);
-                    return;
-                }
-            }
-
-            log.info("【任务执行】资源池取出..po channel id {} .random preDB Info - {}", channelId, preDB);
-            String payUrl = null;
-            try {
-                payUrl = handelSdoPayUrl(preDB.getAddress(), userAgent);
-            } catch (Exception e) {
-                log.error("预产链接异常: pay url -> {}", payUrl);
-                int row = channelPreMapper.deleteById(preDB.getId());
-                log.error("预产链接异常删除处理: row -> {}, pre info: {}", row, preDB);
-                throw e;
-            }
-            LocalDateTime asyncTime = LocalDateTime.now();
-            channelPreMapper.updateByPlatId(preDB.getPlatOid(), 1); // 1 - 已取码
-            pOrderMapper.updateInfoForQueue(orderId, preDB.getAcid(), OrderStatusEnum.NO_PAY.getCode(), preDB.getPlatOid(), payUrl, payIp, asyncTime);
-            pOrderEventMapper.updateInfoForQueue(orderId, "", preDB.getPlatOid(), preDB.getAddress());
-
-            PayOrder poDB = pOrderMapper.getPOrderByOid(orderId);
-            boolean b = redisUtil.lPush(CommonConstant.ORDER_QUERY_QUEUE, poDB);
-            if (b) {
-                boolean has = redisUtil.hasKey(CommonConstant.ORDER_WAIT_QUEUE + orderId);
-                if (has) redisUtil.del(CommonConstant.ORDER_WAIT_QUEUE + orderId);
-                log.info("【任务执行】成功订单入查单回调池子, orderId: {}", orderId);
-            }
-
+            createOrderSdo(orderId, payIp, reqMoney, userAgent, channelId, cid);
+            return;
+        } else if ("cy".equals(channel.getCGame())) {
+            createOrderCy(orderId, payIp, reqMoney, userAgent, channelId, cid);
             return;
         }
 
         log.info("handleAsyncCreateOrder.start");
 
-        log.info("【任务执行】资源池取出..po channel id {} .randomACInfo - {}", channelId, c);
+    }
 
+
+    private void createOrderJx3(String pa, String orderId, String payIp, Integer reqMoney, String userAgent, String channelId, Integer cid) throws Exception {
+        String account;
+        CAccount c;
+        Object ele = redisUtil.rPop(CommonConstant.CHANNEL_ACCOUNT_QUEUE+ reqMoney +":" + cid);
+        if (ele == null) {
+            List<CAccount> randomTempList = cAccountMapper.selectList(new QueryWrapper<CAccount>()
+                    .eq("status", 1)
+                    .eq("sys_status", 1)
+                    .eq("cid", cid)
+            );
+            for (CAccount cAccount : randomTempList) {
+                redisUtil.lPush(CommonConstant.CHANNEL_ACCOUNT_QUEUE+ reqMoney +":" + cid, cAccount);
+            }
+            try {
+                int randomIndex = RandomUtil.randomInt(randomTempList.size());
+                c = randomTempList.get(randomIndex);
+            } catch (Exception e) {
+                log.error("库存金额不足，或库存账号不足");
+                throw new ServiceException("库存金额不足，或库存账号不足，请联系管理员");
+            }
+        } else {
+            String text = ele.toString();
+            try {
+                c = JSONObject.parseObject(text, CAccount.class);
+            } catch (Exception e) {
+                log.error("CAccount queue解析异常, text: {}", text);
+                return;
+            }
+        }
+
+        log.info("【任务执行】资源池取出..po channel id {} .randomACInfo - {}", channelId, c);
 
         PayInfo payInfo = new PayInfo();
         CGatewayInfo cgi = cGatewayMapper.getGateWayInfoByCIdAndGId(c.getCid(), c.getGid());
@@ -452,14 +390,424 @@ public class OrderCreateTTask {
                     log.info("【任务执行】成功订单入查单回调池子, orderId: {}", orderId);
                 }
 
-//                pOrderMapper.sumPorderByCAID(c.getAcid());
-
             }
         } else {
             log.error("create order error, resp -> {}", orderResp);
             throw new ServiceException("订单创建失败，请联系管理员");
         }
+    }
 
+    private void createOrderSdo(String orderId, String payIp, Integer reqMoney, String userAgent, String channelId, Integer cid) {
+        if (reqMoney == 200) {
+            reqMoney = 204;
+        } else if (reqMoney == 1) {
+            reqMoney = 1;
+        } else if (reqMoney == 100) {
+            reqMoney = 102;
+        } else {
+            throw new ServiceException("仅支持100、200的固额设置");
+        }
+        ChannelPre preDB;
+
+        Object ele = redisUtil.rPop(CommonConstant.CHANNEL_ACCOUNT_QUEUE+ reqMoney +":" + cid);
+        if (ele == null) {
+            List<CAccount> randomTempList = cAccountMapper.selectList(new QueryWrapper<CAccount>()
+                    .eq("status", 1)
+                    .eq("sys_status", 1)
+                    .eq("cid", cid)
+            );
+
+            if (randomTempList == null || randomTempList.size() == 0) {
+                log.error("库存账号不足");
+                throw new ServiceException("库存账号不足，请联系管理员");
+            }
+
+            List<String> acidList = new ArrayList<>();
+            for (CAccount ca : randomTempList) {
+                acidList.add(ca.getAcid());
+            }
+
+            QueryWrapper<ChannelPre> queryWrapper = new QueryWrapper<>();
+            queryWrapper.in("acid", acidList);
+            queryWrapper.eq("status", 2);
+            queryWrapper.eq("cid", cid);
+            queryWrapper.eq("money", reqMoney);
+
+            List<ChannelPre> channelPres = channelPreMapper.selectList(queryWrapper);
+            removeSdoElements(channelPres);
+            if (channelPres.size() == 0) {
+                log.error("库存金额不足");
+                throw new ServiceException("库存金额不足，请联系管理员");
+            }
+
+            for (ChannelPre pre : channelPres) {
+                redisUtil.lPush(CommonConstant.CHANNEL_ACCOUNT_QUEUE+ reqMoney +":" + cid, pre);
+            }
+
+            int randomIndex = RandomUtil.randomInt(channelPres.size());
+            preDB = channelPres.get(randomIndex);
+
+
+        } else {
+            String text = ele.toString();
+            try {
+                preDB = JSONObject.parseObject(text, ChannelPre.class);
+            } catch (Exception e) {
+                log.error("ChannelPre queue解析异常, text: {}", text);
+                return;
+            }
+        }
+
+        //拿平台id做key
+        String orderKey = preDB.getPlatOid();
+        if (redisUtil.hasKey(orderKey)) {
+            throw new DuplicateKeyException("该订单已创建，请勿重复操作，order id: " + orderId);
+        }
+        redisUtil.set(orderKey, 1, 300L);
+
+        log.info("【任务执行】资源池取出..po channel id {} .random preDB Info - {}", channelId, preDB);
+        String payUrl = null;
+        try {
+            try {
+                payUrl = handelSdoPayUrl(preDB.getAddress(), userAgent);
+            } catch (Exception e) {
+                log.warn("handelSdoPayUrl 重试1次");
+                payUrl = handelSdoPayUrl2(preDB.getAddress(), userAgent);
+            }
+        } catch (Exception e) {
+            log.error("预产链接异常: pay url -> {}", payUrl);
+//            int row = channelPreMapper.deleteById(preDB.getId());
+                    int row = channelPreMapper.updateByPlatId(preDB.getPlatOid(), 1);
+            log.error("预产链接异常删除处理: row -> {}, pre info: {}", row, preDB);
+            pOrderMapper.updateOStatusByOidForQueue(orderId, OrderStatusEnum.PAY_CREATING_ERROR.getCode());
+            log.error("【预产任务执行】异常单，丢弃, {}", orderId);
+            return;
+        }
+        LocalDateTime asyncTime = LocalDateTime.now();
+        channelPreMapper.updateByPlatId(preDB.getPlatOid(), 1); // 1 - 已取码
+        pOrderMapper.updateInfoForQueue(orderId, preDB.getAcid(), OrderStatusEnum.NO_PAY.getCode(), preDB.getPlatOid(), payUrl, payIp, asyncTime);
+        pOrderEventMapper.updateInfoForQueue(orderId, "", preDB.getPlatOid(), preDB.getAddress());
+
+        PayOrder poDB = pOrderMapper.getPOrderByOid(orderId);
+        boolean b = redisUtil.lPush(CommonConstant.ORDER_QUERY_QUEUE, poDB);
+        if (b) {
+            boolean has = redisUtil.hasKey(CommonConstant.ORDER_WAIT_QUEUE + orderId);
+            if (has) redisUtil.del(CommonConstant.ORDER_WAIT_QUEUE + orderId);
+            log.info("【任务执行】成功订单入查单回调池子, orderId: {}", orderId);
+        }
+    }
+
+    private void createOrderCy(String orderId, String payIp, Integer reqMoney, String userAgent, String channelId, Integer cid) {
+
+        ChannelPre preDB;
+
+        Object ele = redisUtil.rPop(CommonConstant.CHANNEL_ACCOUNT_QUEUE+ reqMoney +":" + cid);
+        if (ele == null) {
+            List<CAccount> randomTempList = cAccountMapper.selectList(new QueryWrapper<CAccount>()
+                    .eq("status", 1)
+                    .eq("sys_status", 1)
+                    .eq("cid", cid)
+            );
+
+            if (randomTempList == null || randomTempList.size() == 0) {
+                log.error("库存账号不足");
+                throw new ServiceException("库存账号不足，请联系管理员");
+            }
+
+            List<String> acidList = new ArrayList<>();
+            for (CAccount ca : randomTempList) {
+                acidList.add(ca.getAcid());
+            }
+
+            QueryWrapper<ChannelPre> queryWrapper = new QueryWrapper<>();
+            queryWrapper.in("acid", acidList);
+            queryWrapper.eq("status", 2);
+            queryWrapper.eq("cid", cid);
+            queryWrapper.eq("money", reqMoney);
+
+            List<ChannelPre> channelPres = channelPreMapper.selectList(queryWrapper);
+            removeCyElements(channelPres);
+            if (channelPres.size() == 0) {
+                log.error("库存金额不足");
+                throw new ServiceException("库存金额不足，请联系管理员");
+            }
+
+            for (ChannelPre pre : channelPres) {
+                redisUtil.lPush(CommonConstant.CHANNEL_ACCOUNT_QUEUE+ reqMoney +":" + cid, pre);
+            }
+
+            int randomIndex = RandomUtil.randomInt(channelPres.size());
+            preDB = channelPres.get(randomIndex);
+
+        } else {
+            String text = ele.toString();
+            try {
+                preDB = JSONObject.parseObject(text, ChannelPre.class);
+            } catch (Exception e) {
+                log.error("ChannelPre queue解析异常, text: {}", text);
+                return;
+            }
+        }
+
+        log.info("【任务执行】资源池取出..po channel id {} .random preDB Info - {}", channelId, preDB);
+        String payUrl = null;
+        try {
+            try {
+                payUrl = handelCyPayUrl(preDB.getAddress(), userAgent);
+            } catch (Exception e) {
+                log.warn("handelCyPayUrl 重试1次");
+                payUrl = handelCyPayUrl(preDB.getAddress(), userAgent);
+            }
+        } catch (Exception e) {
+            log.error("预产链接异常: pay url -> {}", payUrl);
+//            int row = channelPreMapper.deleteById(preDB.getId());
+            int row = channelPreMapper.updateByPlatId(preDB.getPlatOid(), 1);
+            log.error("预产链接异常删除处理: row -> {}, pre info: {}", row, preDB);
+            pOrderMapper.updateOStatusByOidForQueue(orderId, OrderStatusEnum.PAY_CREATING_ERROR.getCode());
+            log.error("【预产任务执行】异常单，丢弃, {}", orderId);
+            return;
+        }
+        LocalDateTime asyncTime = LocalDateTime.now();
+        channelPreMapper.updateByPlatId(preDB.getPlatOid(), 1); // 1 - 已取码
+        pOrderMapper.updateInfoForQueue(orderId, preDB.getAcid(), OrderStatusEnum.NO_PAY.getCode(), preDB.getPlatOid(), payUrl, payIp, asyncTime);
+        pOrderEventMapper.updateInfoForQueue(orderId, "", preDB.getPlatOid(), preDB.getAddress());
+
+        PayOrder poDB = pOrderMapper.getPOrderByOid(orderId);
+        boolean b = redisUtil.lPush(CommonConstant.ORDER_QUERY_QUEUE, poDB);
+        if (b) {
+            boolean has = redisUtil.hasKey(CommonConstant.ORDER_WAIT_QUEUE + orderId);
+            if (has) redisUtil.del(CommonConstant.ORDER_WAIT_QUEUE + orderId);
+            log.info("【任务执行】成功订单入查单回调池子, orderId: {}", orderId);
+        }
+    }
+
+    private void createOrderTx(String orderId, String payIp, Integer reqMoney, String channelId, Integer cid, CChannel channel) {
+        CAccount c;
+        Object ele = redisUtil.rPop(CommonConstant.CHANNEL_ACCOUNT_QUEUE+ reqMoney +":" + cid);
+        if (ele == null) {
+            List<CAccount> randomTempList = cAccountMapper.selectList(new QueryWrapper<CAccount>()
+                    .eq("status", 1)
+                    .eq("sys_status", 1)
+                    .eq("cid", cid)
+            );
+
+            List<TxWaterList> rl = new ArrayList<>();
+            // 使用HashMap来保存相同充值金额的充值账号
+            Map<Integer, List<String>> map = new HashMap<>();
+
+            for (CAccount cAccount : randomTempList) {
+                String openID = cAccount.getAcPwd();
+                String openKey = cAccount.getCk();
+                List<TxWaterList> txWaterList = txPayService.queryOrderBy30(openID, openKey);
+                //                log.warn("c- {}", txWaterList);
+                rl.addAll(txWaterList);
+            }
+
+            LocalDateTime now = LocalDateTime.now();
+            // 遍历rechargeList进行充值金额的筛选
+            for (TxWaterList recharge : rl) {
+                Integer payAmt = recharge.getPayAmt() / 100;
+                String provideID = recharge.getProvideID();
+                long payTime = recharge.getPayTime();
+                Instant instant = Instant.ofEpochSecond(payTime);
+                LocalDateTime payTimeLoc = LocalDateTime.ofInstant(instant, ZoneId.of("Asia/Shanghai"));
+                LocalDateTime pre30min = now.plusMinutes(-30);
+                // 如果该充值金额已存在于结果集中，则将充值账号添加进对应的列表中
+                if (payTimeLoc.isAfter(pre30min)) {
+                    List<String> accountList = map.computeIfAbsent(payAmt, k -> new ArrayList<>());
+                    accountList.add(provideID);
+                }
+            }
+
+            //获取已经有充值当前金额的账户，作去除处理
+            List<String> qqList = map.get(reqMoney);
+            log.warn("当前30分钟内 - 已支付的记录，金额: {},记录：{}", reqMoney, qqList);
+
+            removeTxElements(qqList, randomTempList, reqMoney);
+
+            try {
+                int randomIndex = RandomUtil.randomInt(randomTempList.size());
+                c = randomTempList.get(randomIndex);
+
+                randomTempList.remove(randomIndex);
+
+                for (CAccount cAccount : randomTempList) {
+                    redisUtil.lPush(CommonConstant.CHANNEL_ACCOUNT_QUEUE+ reqMoney +":" + cid, cAccount);
+                }
+            } catch (Exception e) {
+                log.error("库存金额不足，或库存账号不足");
+                throw new ServiceException("库存金额不足，或库存账号不足，请联系管理员");
+            }
+        } else {
+            String text = ele.toString();
+            try {
+                c = JSONObject.parseObject(text, CAccount.class);
+            } catch (Exception e) {
+                log.error("CAccount queue解析异常, text: {}", text);
+                return;
+            }
+        }
+        log.info("【任务执行】资源池取出..po channel id {} .randomACInfo - {}", channelId, c);
+
+        String payUrl = handelTxPayUrl(channel.getCChannelId(), reqMoney);
+        LocalDateTime asyncTime = LocalDateTime.now();
+        pOrderMapper.updateInfoForQueue(orderId, c.getAcid(), OrderStatusEnum.NO_PAY.getCode(), asyncTime + "|QQ|" + c.getAcAccount(), payUrl, payIp, asyncTime);
+        pOrderEventMapper.updateInfoForQueue(orderId, "", asyncTime + "|QQ|" + c.getAcAccount(), "");
+
+        PayOrder poDB = pOrderMapper.getPOrderByOid(orderId);
+        boolean b = redisUtil.lPush(CommonConstant.ORDER_QUERY_QUEUE, poDB);
+        if (b) {
+            boolean has = redisUtil.hasKey(CommonConstant.ORDER_WAIT_QUEUE + orderId);
+            if (has) redisUtil.del(CommonConstant.ORDER_WAIT_QUEUE + orderId);
+            log.info("【任务执行】成功订单入查单回调池子, orderId: {}", orderId);
+        }
+    }
+
+    private String handelCyPayUrl(String address, String userAgent) {
+        String payUrl = "";
+        boolean isMob = CommonUtil.isMobileDevice(userAgent);
+        if (!isMob) {
+            userAgent = "Mozilla/5.0 (Linux; Android 8.0.0; SM-G955U Build/R16NW) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.141 Mobile Safari/537.36";
+        }
+        log.info("cy url 初始: {}", address);
+        HttpResponse execute = HttpRequest.post(address)
+                .setHttpProxy(ProxyInfoThreadHolder.getIpAddr(), ProxyInfoThreadHolder.getPort())
+                .header("Referer", "http://chong.changyou.com/")
+                .header("User-Agent", userAgent)
+                .execute();
+
+        String locUrl = execute.header("Location");
+        log.info("cy url 一次修正: {}", locUrl);
+
+        HttpResponse executeLoc = HttpRequest.get(locUrl)
+                .setHttpProxy(ProxyInfoThreadHolder.getIpAddr(), ProxyInfoThreadHolder.getPort())
+                .header("Referer", "http://chong.changyou.com/")
+                .header("User-Agent", userAgent)
+                .execute();
+
+        String cashierUrl = executeLoc.header("Location");
+        log.info("cy url 二次修正: {}", cashierUrl);
+
+        HttpResponse cashierResp = HttpRequest.get(cashierUrl)
+                .setHttpProxy(ProxyInfoThreadHolder.getIpAddr(), ProxyInfoThreadHolder.getPort())
+                .header("Referer", "http://chong.changyou.com/")
+                .header("User-Agent", userAgent)
+                .execute();
+
+        String htmlBody = cashierResp.body();
+        String qrCodeValue = CommonUtil.getQrCodeValue(htmlBody);
+
+        String starApp = "alipays://platformapi/startapp?appId=20000067&url=";
+
+        if (qrCodeValue == null) {
+            log.error("qrCodeValue ex， address： {}", address);
+            throw new ServiceException("当前通道无可用的pay地址");
+        }
+        payUrl = starApp + qrCodeValue;
+        log.info("cy url 最终值: {}", payUrl);
+        return payUrl;
+    }
+
+
+    private String handelJx3PayUrl(String address, String userAgent) {
+        String payUrl = "";
+        boolean isMob = CommonUtil.isMobileDevice(userAgent);
+        if (!isMob) {
+            userAgent = "Mozilla/5.0 (Linux; Android 8.0.0; SM-G955U Build/R16NW) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.141 Mobile Safari/537.36";
+        }
+
+        log.info("alipay url 初始: {}", address);
+        HttpResponse execute = HttpRequest.get(address)
+                .setHttpProxy(ProxyInfoThreadHolder.getIpAddr(), ProxyInfoThreadHolder.getPort())
+                .contentType("application/x-www-form-urlencoded")
+                .header("X-Requested-With", "com.seasun.gamemgr")
+                .header("User-Agent", userAgent)
+                .header("Origin", "https://m.xoyo.com")
+                .header("Referer", "https://m.xoyo.com")
+                .header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7")
+                .timeout(5000)
+                .execute();
+        String aliGateway = execute.header("Location");
+        log.info("alipay url 一次修正: {}", aliGateway);
+        HttpResponse cashierExecute = HttpRequest.get(aliGateway)
+                .setHttpProxy(ProxyInfoThreadHolder.getIpAddr(), ProxyInfoThreadHolder.getPort())
+                .contentType("application/x-www-form-urlencoded")
+                .header("X-Requested-With", "com.seasun.gamemgr")
+                .header("User-Agent", userAgent)
+                .header("Origin", "https://m.xoyo.com")
+                .header("Referer", "https://m.xoyo.com")
+                .header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7")
+                .timeout(5000)
+                .execute();
+        String cashier = cashierExecute.header("Location");
+        log.info("alipay 修正后 pay url: {}", cashier);
+
+        HttpResponse cashierResp = HttpRequest.get(cashier)
+                .setHttpProxy(ProxyInfoThreadHolder.getIpAddr(), ProxyInfoThreadHolder.getPort())
+                .header("User-Agent", userAgent)
+                .execute();
+
+        String htmlBody = cashierResp.body();
+        String qrCodeValue = CommonUtil.getQrCodeValue(htmlBody);
+
+        String starApp = "alipays://platformapi/startapp?appId=20000067&url=";
+
+        if (qrCodeValue == null) {
+            log.error("qrCodeValue ex， address： {}", address);
+            throw new ServiceException("当前通道无可用的pay地址");
+        }
+        payUrl = starApp + qrCodeValue;
+        log.info("alipay url 最终值: {}", payUrl);
+        return payUrl;
+    }
+
+    private String handelJx3PayUrl2(String address, String userAgent) {
+        String payUrl = "";
+        boolean isMob = CommonUtil.isMobileDevice(userAgent);
+        if (!isMob) {
+            userAgent = "Mozilla/5.0 (Linux; Android 8.0.0; SM-G955U Build/R16NW) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.141 Mobile Safari/537.36";
+        }
+
+        log.info("alipay url 初始: {}", address);
+        HttpResponse execute = HttpRequest.get(address)
+                .contentType("application/x-www-form-urlencoded")
+                .header("X-Requested-With", "com.seasun.gamemgr")
+                .header("User-Agent", userAgent)
+                .header("Origin", "https://m.xoyo.com")
+                .header("Referer", "https://m.xoyo.com")
+                .header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7")
+                .timeout(5000)
+                .execute();
+        String aliGateway = execute.header("Location");
+        log.info("alipay url 一次修正: {}", aliGateway);
+        HttpResponse cashierExecute = HttpRequest.get(aliGateway)
+                .contentType("application/x-www-form-urlencoded")
+                .header("X-Requested-With", "com.seasun.gamemgr")
+                .header("User-Agent", userAgent)
+                .header("Origin", "https://m.xoyo.com")
+                .header("Referer", "https://m.xoyo.com")
+                .header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7")
+                .timeout(5000)
+                .execute();
+        String cashier = cashierExecute.header("Location");
+        log.info("alipay 修正后 pay url: {}", cashier);
+
+        HttpResponse cashierResp = HttpRequest.get(cashier)
+                .header("User-Agent", userAgent)
+                .execute();
+
+        String htmlBody = cashierResp.body();
+        String qrCodeValue = CommonUtil.getQrCodeValue(htmlBody);
+
+        String starApp = "alipays://platformapi/startapp?appId=20000067&url=";
+
+        if (qrCodeValue == null) {
+            log.error("qrCodeValue ex， address： {}", address);
+            throw new ServiceException("当前通道无可用的pay地址");
+        }
+        payUrl = starApp + qrCodeValue;
+        log.info("alipay url 最终值: {}", payUrl);
+        return payUrl;
     }
 
     private String handelSdoPayUrl(String address, String userAgent) {
@@ -487,6 +835,45 @@ public class OrderCreateTTask {
 
         HttpResponse cashierResp = HttpRequest.get(cashierUrl)
                 .setHttpProxy(ProxyInfoThreadHolder.getIpAddr(), ProxyInfoThreadHolder.getPort())
+                .header("User-Agent", userAgent)
+                .execute();
+
+        String htmlBody = cashierResp.body();
+        String qrCodeValue = CommonUtil.getQrCodeValue(htmlBody);
+
+        String starApp = "alipays://platformapi/startapp?appId=20000067&url=";
+
+        if (qrCodeValue == null) {
+            log.error("qrCodeValue ex， address： {}", address);
+            throw new ServiceException("当前通道无可用的pay地址");
+        }
+        payUrl = starApp + qrCodeValue;
+        log.info("sdo url 最终值: {}", payUrl);
+        return payUrl;
+    }
+
+    private String handelSdoPayUrl2(String address, String userAgent) {
+        String payUrl = "";
+        boolean isMob = CommonUtil.isMobileDevice(userAgent);
+        if (!isMob) {
+            userAgent = "Mozilla/5.0 (Linux; Android 8.0.0; SM-G955U Build/R16NW) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.141 Mobile Safari/537.36";
+        }
+        log.info("sdo url 初始: {}", address);
+        HttpResponse execute = HttpRequest.get(address)
+                .header("User-Agent", userAgent)
+                .execute();
+
+        String locUrl = execute.header("Location");
+        log.info("sdo url 一次修正: {}", locUrl);
+
+        HttpResponse executeLoc = HttpRequest.get(locUrl)
+                .header("User-Agent", userAgent)
+                .execute();
+
+        String cashierUrl = executeLoc.header("Location");
+        log.info("sdo url 二次修正: {}", cashierUrl);
+
+        HttpResponse cashierResp = HttpRequest.get(cashierUrl)
                 .header("User-Agent", userAgent)
                 .execute();
 
@@ -629,6 +1016,21 @@ public class OrderCreateTTask {
             // 判断provideID是否包含在array1中的元素中
             if (qqList.contains(qq)) {
                 log.warn("当前tx官方半小时内已有 {} 金额存在, acid: {}, 作去除", money, acid);
+                iterator.remove();
+            }
+        }
+    }
+
+    public void removeCyElements(List<ChannelPre> sdoList) {
+        Iterator<ChannelPre> iterator = sdoList.iterator();
+        LocalDateTime now = LocalDateTime.now();
+
+        while (iterator.hasNext()) {
+            ChannelPre pre = iterator.next();
+            LocalDateTime createTime = pre.getCreateTime();
+            LocalDateTime pre30min = now.plusDays(-2);
+            if (createTime.isBefore(pre30min)) { //当前预产时间已经是半小时前的, remove并置为超时状态
+                channelPreMapper.updateByPlatId(pre.getPlatOid(), 3);
                 iterator.remove();
             }
         }

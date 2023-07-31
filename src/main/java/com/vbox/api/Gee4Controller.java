@@ -6,7 +6,7 @@ import com.vbox.persistent.pojo.dto.PayInfo;
 import com.vbox.persistent.pojo.param.GeeProdCodeParam;
 import com.vbox.persistent.pojo.param.GeeVerifyParam;
 import com.vbox.persistent.pojo.param.VOrderQueryParam;
-import com.vbox.service.task.Gee4Service;
+import com.vbox.service.channel.impl.Gee4Service;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;

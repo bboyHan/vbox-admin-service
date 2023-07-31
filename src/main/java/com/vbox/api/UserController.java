@@ -18,7 +18,7 @@ import java.util.List;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/api")
+@RequestMapping("/api") //http://10.0.0.1:8080/api/
 public class UserController {
 
     @Autowired

@@ -4,8 +4,6 @@ import cn.hutool.core.codec.Base64;
 import cn.hutool.core.date.DateUtil;
 import cn.hutool.core.util.DesensitizedUtil;
 import cn.hutool.core.util.IdUtil;
-import cn.hutool.core.util.URLUtil;
-import cn.hutool.http.HttpUtil;
 import com.vbox.common.ResultOfList;
 import com.vbox.common.constant.CommonConstant;
 import com.vbox.common.enums.PayTypeEnum;
@@ -27,16 +25,12 @@ import com.vbox.service.channel.ChannelService;
 import com.vbox.service.channel.PayService;
 import com.vbox.service.channel.SdoPayService;
 import com.vbox.service.channel.TxPayService;
-import com.vbox.service.task.Gee4Service;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
-import java.net.URL;
-import java.nio.charset.StandardCharsets;
-import java.rmi.ServerError;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -557,12 +551,14 @@ public class ChannelServiceImpl implements ChannelService {
             CChannel channel = channelMapper.getChannelById(caDB.getCid());
             if ("jx3".equals(channel.getCGame())) {
                 log.warn("jx3 验证开启...");
-                String ck = payService.getCKforQuery(caDB.getAcAccount(), Base64.decodeStr(caDB.getAcPwd()));
+                payService.addProxy(null, "127.0.0.1", null);
+
+                String ck = payService.getCK(caDB.getAcAccount(), Base64.decodeStr(caDB.getAcPwd()));
                 boolean expire = gee4Service.tokenCheck(ck, caDB.getAcAccount());
 
                 if (!expire) {
                     redisUtil.del(CommonConstant.ACCOUNT_CK + caDB.getAcAccount());
-                    ck = payService.getCKforQuery(caDB.getAcAccount(), Base64.decodeStr(caDB.getAcPwd()));
+                    ck = payService.getCK(caDB.getAcAccount(), Base64.decodeStr(caDB.getAcPwd()));
                     expire = gee4Service.tokenCheck(ck, caDB.getAcAccount());
                     if (!expire) {
                         throw new NotFoundException("ck问题，请联系管理员");
@@ -641,10 +637,14 @@ public class ChannelServiceImpl implements ChannelService {
     public String getTxQuery(String orderId) {
         PayOrder po = pOrderMapper.getPOrderByOid(orderId);
         String formUrl = "";
-
         if (po.getCChannelId().contains("jx3")) {
             formUrl = "https://charge.xoyo.com/charge-record";
-        }else {
+            if (po.getCChannelId().contains("jx3_alipay_pre")) {
+                formUrl = channelPreMapper.getAddressByPlatOid(po.getPlatformOid());
+            }
+        } else if (po.getCChannelId().contains("sdo")) {
+            formUrl = channelPreMapper.getAddressByPlatOid(po.getPlatformOid());
+        } else {
             CAccount ca = caMapper.getCAccountByAcid(po.getAcId());
             String openID = ca.getAcPwd();
             String openKey = ca.getCk();

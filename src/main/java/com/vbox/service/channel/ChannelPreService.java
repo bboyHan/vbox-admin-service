@@ -11,6 +11,8 @@ import com.vbox.persistent.pojo.param.ChannelPreParam;
 import com.vbox.persistent.pojo.param.ChannelShopParam;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
+import java.io.UnsupportedEncodingException;
 import java.util.List;
 
 public interface ChannelPreService {
@@ -21,7 +23,7 @@ public interface ChannelPreService {
 
     List<CAccount> listCAccount();
 
-    int createChannelPre(ChannelPreParam csParam);
+    int createChannelPre(ChannelPreParam csParam) throws Exception;
 
     ResultOfList<List<ChannelPre>> listChannelPre(ChannelPreParam csParam);
 

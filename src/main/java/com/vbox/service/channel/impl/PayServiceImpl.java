@@ -36,7 +36,6 @@ import com.vbox.persistent.pojo.vo.*;
 import com.vbox.persistent.repo.*;
 import com.vbox.service.channel.PayService;
 import com.vbox.service.task.DelayTask;
-import com.vbox.service.task.Gee4Service;
 import lombok.extern.slf4j.Slf4j;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.beans.BeanUtils;
@@ -1225,7 +1224,7 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
                 acIdList.add(acid);
             }
             queryWrapper.in("ac_id", acIdList);
-        }else if (!StringUtils.hasLength(queryParam.getAcAccount()) && StringUtils.hasLength(queryParam.getAcRemark())) {
+        } else if (!StringUtils.hasLength(queryParam.getAcAccount()) && StringUtils.hasLength(queryParam.getAcRemark())) {
             List<CAccount> acList = cAccountMapper.selectList(new QueryWrapper<CAccount>().like("ac_remark", queryParam.getAcRemark()));
             acIdList = new ArrayList<>();
             for (CAccount cAccount : acList) {
@@ -1233,7 +1232,7 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
                 acIdList.add(acid);
             }
             queryWrapper.in("ac_id", acIdList);
-        }else {
+        } else {
             queryWrapper.in("ac_id", acIdList);
         }
         if (StringUtils.hasLength(queryParam.getOrderId())) {
@@ -1292,7 +1291,6 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
         PayOrder po = pOrderMapper.getPOrderByOid(orderId);
         if (po == null) throw new NotFoundException("订单不存在");
 
-        //
 //        OrderCallbackVO vo = new OrderCallbackVO();
 
         Integer payStatus = callbackParam.getPay_status();
@@ -1588,7 +1586,13 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
                 String jsonResp = Gee4Service.parseGeeJson(resp.body());
 //                log.info(JSONObject.toJSONString(resp.headers()));
 //                log.info(JSONObject.toJSONString(resp.body()));
-                cookie = resp.headerList("Set-Cookie").get(0);
+                List<String> setCkList = resp.headerList("Set-Cookie");
+                for (String ck : setCkList) {
+                    if (ck.toLowerCase().contains("xoyokey")) {
+                        cookie = ck;
+                    }
+                }
+//                cookie = setCkList.get(0);
 
                 JSONObject obj = JSONObject.parseObject(jsonResp);
                 log.info("login ---- obj: {}", obj);
@@ -1603,6 +1607,8 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
         }
 
         redisUtil.set(CommonConstant.ACCOUNT_CK + acAccount, cookie, 7200); //2hour
+        log.info("login ---- ck: {}", cookie);
+
         return cookie;
     }
 
@@ -1664,7 +1670,6 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
 
                 JSONObject obj = JSONObject.parseObject(jsonResp);
                 log.info("login 取出ck ---- obj: {}", obj);
-                log.info("login 取出ck ---- ck: {}", cookie);
 //                System.out.println(obj);
 //                System.out.println(data);
             }
@@ -1676,6 +1681,8 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
         }
 
         redisUtil.set(CommonConstant.ACCOUNT_CK + acAccount, cookie, 7200); //2hour
+        log.info("login 取出ck ---- ck: {}", cookie);
+
         return cookie;
     }
 
@@ -1875,14 +1882,6 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
     }
 
     @Override
-    @Async("scheduleExecutor")
-    public String orderWxHtml(String orderId) {
-//        PayOrderEvent event = pOrderEventMapper.getPOrderEventByOid(orderId);
-        log.info(LocalDateTime.now().toString());
-        return LocalDateTime.now().toString();
-    }
-
-    @Override
     public Object handleRealOrder(HttpServletRequest request, String orderId) throws Exception {
         String ip = ProxyUtil.getIP(request);
         String region = CommonUtil.ip2region(ip);
@@ -1924,41 +1923,6 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
         return null;
     }
 
-    @Override
-    public Object ynForPayload(PayInfoParam param) throws Exception {
-
-        PayInfo payInfo = new PayInfo();
-        payInfo.setChannel("weixin_mobile");
-        payInfo.setRepeat_passport(param.getPassport());
-        payInfo.setGame("jx3");
-        payInfo.setGateway(param.getGateway());
-        payInfo.setRecharge_unit(param.getMoney());
-        payInfo.setRecharge_type(6);
-        payInfo.setCk(param.getCk());
-
-        log.info("yn 入参：{}", payInfo);
-
-        SecCode secCode = gee4Service.verifyGeeCapForQuery();
-
-//        payInfo.setChannel("weixin");
-//        payInfo.setGateway("z01");
-//        payInfo.setRecharge_type(6); //通宝type
-//        payInfo.setRecharge_unit(15);
-//        payInfo.setRepeat_passport("chenzhj11");
-//        payInfo.setGame("jx3");
-
-        String payload = gee4Service.getPayload(secCode, payInfo);
-
-//        GeeProdCodeParam prodCodeParam = new GeeProdCodeParam();
-//        prodCodeParam.setToken(payInfo.getCk());
-//        prodCodeParam.setPayload(payload);
-//        prodCodeParam.setEncrypt_fields("payload");
-//        prodCodeParam.setEncrypt_version("v1");
-//        prodCodeParam.setEncrypt_method("xoyo_combine");
-//        JSONObject resp = gee4Service.prodCodeForQuery(prodCodeParam);
-
-        return payload;
-    }
 
     @NotNull
     private List<CAccountInfo> compute(Integer channelId, String now, List<CAccountInfo> cAccountList, List<CAccountInfo> cAccountListToday) throws IOException {

@@ -1,43 +1,47 @@
 package com.vbox.service.channel.impl;
 
-import cn.hutool.core.util.NumberUtil;
+import cn.hutool.core.codec.Base64;
+import com.alibaba.fastjson2.JSONObject;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.vbox.common.ResultOfList;
 import com.vbox.common.util.CommonUtil;
+import com.vbox.common.util.RedisUtil;
+import com.vbox.config.exception.NotFoundException;
 import com.vbox.config.exception.ServiceException;
 import com.vbox.config.local.TokenInfoThreadHolder;
 import com.vbox.persistent.entity.CAccount;
 import com.vbox.persistent.entity.CChannel;
 import com.vbox.persistent.entity.ChannelPre;
+import com.vbox.persistent.pojo.dto.CGatewayInfo;
 import com.vbox.persistent.pojo.dto.ChannelPreCount;
 import com.vbox.persistent.pojo.dto.ChannelPreExcel;
-import com.vbox.persistent.pojo.dto.SdoWater;
+import com.vbox.persistent.pojo.dto.PayInfo;
 import com.vbox.persistent.pojo.param.ChannelPreParam;
-import com.vbox.persistent.repo.CAccountMapper;
-import com.vbox.persistent.repo.ChannelMapper;
-import com.vbox.persistent.repo.ChannelPreMapper;
-import com.vbox.persistent.repo.RelationUSMapper;
+import com.vbox.persistent.repo.*;
 import com.vbox.service.channel.ChannelPreService;
 import com.vbox.service.channel.PayService;
 import com.vbox.service.channel.SdoPayService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
-import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
+import javax.annotation.Resource;
 import java.io.IOException;
-import java.math.BigDecimal;
+import java.net.URLEncoder;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 @Service
 @Slf4j
 public class ChannelPreServiceImpl implements ChannelPreService {
-
+    @Resource
+    private RedisUtil redisUtil;
     @Autowired
     private ChannelPreMapper channelPreMapper;
     @Autowired
@@ -50,6 +54,11 @@ public class ChannelPreServiceImpl implements ChannelPreService {
     private PayService payService;
     @Autowired
     private SdoPayService sdoPayService;
+    @Autowired
+    private CGatewayMapper cGatewayMapper;
+    @Autowired
+    private Gee4Service gee4Service;
+
 
     @Override
     public int batchChannelPre(MultipartFile multipartFile) {
@@ -84,42 +93,159 @@ public class ChannelPreServiceImpl implements ChannelPreService {
 //                log.warn("{}",channelPre);
                 Integer money = channelPre.getMoney();
                 String platParam = channelPre.getPlatParam();
+                String platOid = preExcel.getPlatOid();
                 String remark = "";
-                if (money == 200) {
-                    money = 204;
-                    remark = "200|204," + "null|" + acid;
-                } else if (money == 1) {
-                    money = 1;
-                    remark = "1|1," + "null|" + acid + ",test";
-                } else if (money == 100) {
-                    money = 102;
-                    remark = "100|102," + "null|" + acid;
+                String url = "";
+                String address = "";
+                if (channelDB.getCChannelId().contains("sdo")) {
+                    if (money == 200) {
+                        money = 204;
+                        remark = "200|204," + "null|" + acid;
+                    } else if (money == 1) {
+                        money = 1;
+                        remark = "1|1," + "null|" + acid + ",test";
+                    } else if (money == 100) {
+                        money = 102;
+                        remark = "100|102," + "null|" + acid;
+                    }
+
+                    if (platParam.contains("_input_charset")) {
+                        url = "https://mapi.alipay.com/gateway.do?";
+                        boolean flag = platParam.startsWith("_input_charset");
+                        if (!flag) {
+                            throw new ServiceException("核对queryString参数,示例: _input_charset...或者 app_id=");
+                        }
+                    } else if ((platParam.contains("app_id"))) {
+                        url = "https://openapi.alipay.com/gateway.do?";
+                        boolean flag1 = platParam.startsWith("app_id");
+                        if (!flag1) {
+                            throw new ServiceException("核对queryString参数,示例: _input_charset...或者 app_id=");
+                        }
+                        boolean flag2 = platParam.endsWith("version=1.0");
+                        if (!flag2) {
+                            throw new ServiceException("核对queryString参数,示例: _input_charset...或者 app_id=");
+                        }
+                    } else {
+                        throw new ServiceException("核对queryString参数,示例: _input_charset...或者 app_id=");
+                    }
+
+                    address = url + platParam;
+                } else if (channelDB.getCChannelId().contains("cy")) {
+                    if (money == 1) {
+                        money = 1;
+                        remark = "1|1," + "null|" + acid + ",test";
+                    } else {
+                        remark = money + "|" + money + "," + "null|" + acid + ",test";
+                    }
+
+                    // 获取form标签中的action属性值
+                    Pattern actionPattern = Pattern.compile("<form[^>]*action=\"([^\"]*)\"");
+                    Matcher actionMatcher = actionPattern.matcher(platParam);
+                    String resource_url = "";
+                    String biz = "";
+                    if (actionMatcher.find()) {
+                        String actionValue = actionMatcher.group(1);
+                        log.warn("Action Value: {}", actionValue);
+
+                        resource_url = actionValue;
+                    }
+
+                    // 获取input标签中name为biz_content的value值
+                    Pattern inputPattern = Pattern.compile("<input[^>]*name=\"biz_content\"[^>]*value=\"([^\"]*)\"");
+                    Matcher inputMatcher = inputPattern.matcher(platParam);
+                    if (inputMatcher.find()) {
+                        String bizContentValue = inputMatcher.group(1);
+                        log.warn("biz_content Value: {}", bizContentValue);
+                        bizContentValue = bizContentValue.replaceAll("&quot;", "\"");
+                        biz = URLEncoder.encode(bizContentValue, "UTF-8");
+                        log.warn("biz_content encode Value: {}", biz);
+
+                        String keyword = "\"out_trade_no\":\"";
+                        int startIdx = bizContentValue.indexOf(keyword) + keyword.length();
+                        int endIdx = bizContentValue.indexOf("\"", startIdx);
+
+                        platOid = bizContentValue.substring(startIdx, endIdx);
+                    }
+
+                    address = resource_url + "&biz_content=" + biz;
+                } else if (channelDB.getCChannelId().contains("jx3_alipay_pre")) {
+                    if (money == 1) {
+                        money = 1;
+                        remark = "1|1," + "null|" + acid + ",test";
+                    } else {
+                        remark = money + "|" + money + "," + "null|" + acid + ",test";
+                    }
+
+                    PayInfo payInfo = new PayInfo();
+                    CAccount c = cAccountMapper.getCAccountByAcid(acid);
+                    CGatewayInfo cgi = cGatewayMapper.getGateWayInfoByCIdAndGId(c.getCid(), c.getGid());
+                    payInfo.setChannel(cgi.getCChannel());
+                    String account = c.getAcAccount();
+                    payInfo.setRepeat_passport(account);
+                    payInfo.setGame(cgi.getCGame());
+                    payInfo.setGateway(cgi.getCGateway());
+                    payInfo.setRecharge_unit(money);
+                    payInfo.setRecharge_type(6);
+                    String acPwd = c.getAcPwd();
+                    String cookie = "";
+
+                    payService.addProxy(null, "127.0.0.1", null);
+
+                    cookie = payService.getCK(account, Base64.decodeStr(acPwd));
+                    boolean expire = gee4Service.tokenCheck(cookie, account);
+                    if (!expire) {
+                        redisUtil.del("account:ck:" + account);
+                        cookie = payService.getCK(account, Base64.decodeStr(acPwd));
+                        expire = gee4Service.tokenCheck(cookie, account);
+                        if (!expire) {
+                            throw new NotFoundException("ck问题，请联系管理员");
+                        }
+                    }
+
+                    payInfo.setCk(cookie);
+
+                    JSONObject orderResp = gee4Service.createOrder(payInfo);
+//            orderResp = gee4Service.createOrderForQuery(payInfo);
+                    for (int i = 0; i < 10; i++) {
+                        if (orderResp != null) {
+                            String os = orderResp.toString();
+                            if (os.contains("验证码")) {
+                                log.warn("验证码不正确，重试 {} 次 : ", i + 1);
+                                orderResp = gee4Service.createOrder(payInfo);
+                            } else {
+                                break;
+                            }
+                        }
+                    }
+
+                    if (orderResp != null && orderResp.get("data") != null) {
+                        if (orderResp.getInteger("code") != 1) {
+                            String os = orderResp.toString();
+                            if (os.contains("冻结")) {
+                                log.warn("冻结关号: channel_account : {}", c);
+                                cAccountMapper.stopByCaId("账号冻结，请及时查看", c.getId());
+                            }
+                            throw new ServiceException(os);
+                        } else {
+                            JSONObject data = orderResp.getJSONObject("data");
+                            String platform_oid = data.getString("vouch_code");
+                            String resource_url = data.getString("resource_url");
+
+                            log.info("alipay url 初始: {}", resource_url);
+
+                            address = resource_url;
+                            platOid = platform_oid;
+                        }
+                    }
+
+
+                } else {
+                    throw new ServiceException("不支持的通道预产批量导入");
                 }
 
-                String url ="";
-                if (platParam.contains("_input_charset")) {
-                    url = "https://mapi.alipay.com/gateway.do?";
-                    boolean flag = platParam.startsWith("_input_charset");
-                    if (!flag) {
-                        throw new ServiceException("核对queryString参数,示例: _input_charset...或者 app_id=");
-                    }
-                }else if ((platParam.contains("app_id"))){
-                    url = "https://openapi.alipay.com/gateway.do?";
-                    boolean flag1 = platParam.startsWith("app_id");
-                    if (!flag1) {
-                        throw new ServiceException("核对queryString参数,示例: _input_charset...或者 app_id=");
-                    }
-                    boolean flag2 = platParam.endsWith("version=1.0");
-                    if (!flag2) {
-                        throw new ServiceException("核对queryString参数,示例: _input_charset...或者 app_id=");
-                    }
-                }else {
-                    throw new ServiceException("核对queryString参数,示例: _input_charset...或者 app_id=");
-                }
-
-                String address = url + platParam;
                 log.warn("创建预产地址: {}", address);
                 channelPre.setAddress(address);
+                channelPre.setPlatOid(platOid);
                 channelPre.setUid(uid);
                 channelPre.setAcid(acid);
                 channelPre.setMoney(money);
@@ -165,81 +291,187 @@ public class ChannelPreServiceImpl implements ChannelPreService {
     }
 
     @Override
-    public int createChannelPre(ChannelPreParam csParam) {
+    public int createChannelPre(ChannelPreParam csParam) throws Exception {
         Integer uid = TokenInfoThreadHolder.getToken().getId();
 
         CChannel channelDB = channelMapper.getChannelByChannelId(csParam.getChannel());
-
         ChannelPre channelPre = new ChannelPre();
         String platOid = csParam.getPlatOid();
-        channelPre.setPlatOid(platOid);
-        String platParam = csParam.getPlatParam().replaceAll("\"", "");
+        String address = "";
+        String remark = "";
+        String url = "";
+        Integer money = csParam.getMoney();
+
         String ckid = csParam.getCkid();
         String acid = csParam.getAcid();
+        String platParam = csParam.getPlatParam();
 
-        channelPre.setPlatParam(platParam);
-        Integer money = csParam.getMoney();
-        String remark = "";
-        if (money == 200) {
-            money = 204;
-            remark = "200|204," + ckid + "|" + acid;
-        } else if (money == 1) {
-            money = 1;
-            remark = "1|1," + ckid + "|" + acid + ",test";
-        } else if (money == 100) {
-            money = 102;
-            remark = "100|102," + ckid + "|" + acid;
-        }else {
-            throw new ServiceException("仅支持100、200的固额设置");
+        if (channelDB.getCChannelId().contains("sdo")) {
+            platParam = platParam.replaceAll("\"", "");
+
+            if (money == 200) {
+                money = 204;
+                remark = "200|204," + ckid + "|" + acid;
+            } else if (money == 1) {
+                money = 1;
+                remark = "1|1," + ckid + "|" + acid + ",test";
+            } else if (money == 100) {
+                money = 102;
+                remark = "100|102," + ckid + "|" + acid;
+            } else {
+                throw new ServiceException("仅支持100、200的固额设置");
+            }
+
+            if (platParam.contains("_input_charset")) {
+                url = "https://mapi.alipay.com/gateway.do?";
+                boolean flag = platParam.startsWith("_input_charset");
+                if (!flag) {
+                    throw new ServiceException("核对queryString参数,示例: _input_charset...或者 app_id=");
+                }
+            } else if ((platParam.contains("app_id"))) {
+                url = "https://openapi.alipay.com/gateway.do?";
+                boolean flag1 = platParam.startsWith("app_id");
+                if (!flag1) {
+                    throw new ServiceException("核对queryString参数,示例: _input_charset...或者 app_id=");
+                }
+                boolean flag2 = platParam.endsWith("version=1.0");
+                if (!flag2) {
+                    throw new ServiceException("核对queryString参数,示例: _input_charset...或者 app_id=");
+                }
+            } else {
+                throw new ServiceException("核对queryString参数,示例: _input_charset...或者 app_id=");
+            }
+
+            address = url + platParam;
+        } else if (channelDB.getCChannelId().contains("cy")) {
+            if (money == 1) {
+                remark = "1|1," + "null|" + acid + ",test";
+            } else {
+                remark = money + "|" + money + "," + "null|" + acid;
+            }
+
+            // 获取form标签中的action属性值
+            Pattern actionPattern = Pattern.compile("<form[^>]*action=\"([^\"]*)\"");
+            Matcher actionMatcher = actionPattern.matcher(platParam);
+            String resource_url = "";
+            String biz = "";
+            if (actionMatcher.find()) {
+                String actionValue = actionMatcher.group(1);
+                log.warn("Action Value: {}", actionValue);
+
+                resource_url = actionValue;
+            }
+
+            // 获取input标签中name为biz_content的value值
+            Pattern inputPattern = Pattern.compile("<input[^>]*name=\"biz_content\"[^>]*value=\"([^\"]*)\"");
+            Matcher inputMatcher = inputPattern.matcher(platParam);
+            if (inputMatcher.find()) {
+                String bizContentValue = inputMatcher.group(1);
+                log.warn("biz_content Value: {}", bizContentValue);
+                bizContentValue = bizContentValue.replaceAll("&quot;", "\"");
+                biz = URLEncoder.encode(bizContentValue, "UTF-8");
+                log.warn("biz_content encode Value: {}", biz);
+
+                String keyword = "\"out_trade_no\":\"";
+                int startIdx = bizContentValue.indexOf(keyword) + keyword.length();
+                int endIdx = bizContentValue.indexOf("\"", startIdx);
+
+                platOid = bizContentValue.substring(startIdx, endIdx);
+            }
+
+            address = resource_url + "&biz_content=" + biz;
+
+        } else if (channelDB.getCChannelId().contains("jx3_alipay_pre")) {
+            if (money == 1) {
+                remark = "1|1," + "null|" + acid + ",test";
+            } else {
+                remark = money + "|" + money + "," + "null|" + acid;
+            }
+//            int count = Integer.parseInt(platParam);
+
+            PayInfo payInfo = new PayInfo();
+            CAccount c = cAccountMapper.getCAccountByAcid(acid);
+            CGatewayInfo cgi = cGatewayMapper.getGateWayInfoByCIdAndGId(c.getCid(), c.getGid());
+            payInfo.setChannel(cgi.getCChannel());
+            String account = c.getAcAccount();
+            payInfo.setRepeat_passport(account);
+            payInfo.setGame(cgi.getCGame());
+            payInfo.setGateway(cgi.getCGateway());
+            payInfo.setRecharge_unit(money);
+            payInfo.setRecharge_type(6);
+            String acPwd = c.getAcPwd();
+            String cookie = "";
+//        if ("jx3_weixin".equals(channelId)) {
+//            redisUtil.del("account:ck:" + account);
+//            log.info("ck new : - del account {}", account);
+//        }
+
+            payService.addProxy(null, "127.0.0.1", null);
+
+            cookie = payService.getCK(account, Base64.decodeStr(acPwd));
+            boolean expire = gee4Service.tokenCheck(cookie, account);
+            if (!expire) {
+                redisUtil.del("account:ck:" + account);
+                cookie = payService.getCK(account, Base64.decodeStr(acPwd));
+                expire = gee4Service.tokenCheck(cookie, account);
+                if (!expire) {
+                    throw new NotFoundException("ck问题，请联系管理员");
+                }
+            }
+
+            payInfo.setCk(cookie);
+
+            JSONObject orderResp = gee4Service.createOrder(payInfo);
+//            orderResp = gee4Service.createOrderForQuery(payInfo);
+            for (int i = 0; i < 10; i++) {
+                if (orderResp != null) {
+                    String os = orderResp.toString();
+                    if (os.contains("验证码")) {
+                        log.warn("验证码不正确，重试 {} 次 : ", i + 1);
+                        orderResp = gee4Service.createOrder(payInfo);
+                    } else {
+                        break;
+                    }
+                }
+            }
+
+            if (orderResp != null && orderResp.get("data") != null) {
+                if (orderResp.getInteger("code") != 1) {
+                    String os = orderResp.toString();
+                    if (os.contains("冻结")) {
+                        log.warn("冻结关号: channel_account : {}", c);
+                        cAccountMapper.stopByCaId("账号冻结，请及时查看", c.getId());
+                    }
+                    throw new ServiceException(os);
+                } else {
+                    JSONObject data = orderResp.getJSONObject("data");
+                    String platform_oid = data.getString("vouch_code");
+                    String resource_url = data.getString("resource_url");
+
+                    log.info("alipay url 初始: {}", resource_url);
+
+                    address = resource_url;
+                    platOid = platform_oid;
+                }
+            }
+
+        } else {
+            throw new ServiceException("channel传参不在服务范围内");
         }
-        channelPre.setMoney(money);
 
-        String url ="";
-        if (platParam.contains("_input_charset")) {
-            url = "https://mapi.alipay.com/gateway.do?";
-            boolean flag = platParam.startsWith("_input_charset");
-            if (!flag) {
-                throw new ServiceException("核对queryString参数,示例: _input_charset...或者 app_id=");
-            }
-        }else if ((platParam.contains("app_id"))){
-            url = "https://openapi.alipay.com/gateway.do?";
-            boolean flag1 = platParam.startsWith("app_id");
-            if (!flag1) {
-                throw new ServiceException("核对queryString参数,示例: _input_charset...或者 app_id=");
-            }
-            boolean flag2 = platParam.endsWith("version=1.0");
-            if (!flag2) {
-                throw new ServiceException("核对queryString参数,示例: _input_charset...或者 app_id=");
-            }
-        }else {
-            throw new ServiceException("核对queryString参数,示例: _input_charset...或者 app_id=");
-        }
-
-        String address = url + platParam;
         log.warn("创建预产地址: {}", address);
 
         channelPre.setAddress(address);
 
         CAccount caDB = cAccountMapper.getCAccountByAcid(acid);
         String account = caDB.getAcAccount();
-        channelPre.setAcAccount(account);
-        if (!caDB.getAcAccount().equals(account)) {
-            log.warn("give other. {}, {}", caDB.getAcAccount(), account);
-            channelPre.setRemark("give other | " + account);
-        }
-//        CAccount ckAccount = cAccountMapper.getCAccountByAcid(ckid);
 
-//        List<SdoWater> sdoWaters = sdoPayService.queryOrderBy2Day(ckAccount.getAcPwd(), ckid);
-//        boolean flag = false;
-//        for (SdoWater sdoWater : sdoWaters) {
-//            if (sdoWater.getOrderId().equals(platOid)) {
-//                boolean moneyFlag = NumberUtil.equals(new BigDecimal(money), new BigDecimal(sdoWater.getOrderAmount()));
-//                if (moneyFlag) {
-//                    flag = true;
-//                }
-//            }
-//        }
-//        if (!flag) throw new ServiceException("核对订单金额");
+        LocalDateTime now = LocalDateTime.now();
+
+        channelPre.setAcAccount(account);
+        channelPre.setPlatOid(platOid);
+        channelPre.setPlatParam(platParam);
+        channelPre.setMoney(money);
 
         channelPre.setUid(uid);
         channelPre.setAcid(acid);
@@ -247,7 +479,7 @@ public class ChannelPreServiceImpl implements ChannelPreService {
         channelPre.setChannel(channelDB.getCChannelId());
         channelPre.setCid(channelDB.getId());
         channelPre.setRemark(remark);
-        channelPre.setCreateTime(LocalDateTime.now());
+        channelPre.setCreateTime(now);
         int row = channelPreMapper.insert(channelPre);
 
         return row;

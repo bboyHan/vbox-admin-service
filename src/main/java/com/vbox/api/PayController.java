@@ -1,12 +1,12 @@
 package com.vbox.api;
 
-import cn.hutool.core.io.IORuntimeException;
-import cn.hutool.core.util.IdUtil;
 import com.vbox.common.Result;
-import com.vbox.common.ResultOfList;
-import com.vbox.common.util.CommonUtil;
-import com.vbox.persistent.pojo.param.*;
-import com.vbox.persistent.pojo.vo.*;
+import com.vbox.persistent.pojo.param.OrderCreateExtParam;
+import com.vbox.persistent.pojo.param.OrderCreateParam;
+import com.vbox.persistent.pojo.param.OrderPreAuthParam;
+import com.vbox.persistent.pojo.param.OrderQueryParam;
+import com.vbox.persistent.pojo.vo.OrderQueryVO;
+import com.vbox.persistent.pojo.vo.PayOrderCreateVO;
 import com.vbox.persistent.repo.PAccountMapper;
 import com.vbox.persistent.repo.POrderMapper;
 import com.vbox.service.channel.PayService;
@@ -20,8 +20,6 @@ import org.springframework.web.bind.annotation.*;
 
 import javax.servlet.http.HttpServletRequest;
 import java.time.LocalDateTime;
-import java.util.List;
-import java.util.SortedMap;
 
 @RestController
 @RequestMapping("/api")
@@ -156,10 +154,11 @@ public class PayController {
     }
 
     @GetMapping("/channel/order/handle/{orderId}")
-    public ResponseEntity<Result<Object>> orderTest(HttpServletRequest request,@PathVariable String orderId) throws Exception {
+    public ResponseEntity<Result<Object>> orderTest(HttpServletRequest request, @PathVariable String orderId) throws Exception {
         Object rl = payService.handleRealOrder(request, orderId);
         return Result.ok(rl);
     }
+
     @GetMapping("/channel/order/create/test/{num}")
     public ResponseEntity<Result<Object>> orderTest(@PathVariable Integer num, String acid,
                                                     String channel, String area,
@@ -191,12 +190,6 @@ public class PayController {
     @GetMapping("/channel/order/code/{orderId}")
     public ResponseEntity<Result<Object>> orderQuery(@PathVariable String orderId) throws Exception {
         PayOrderCreateVO body = payService.orderQuery(orderId);
-        return Result.ok(body);
-    }
-
-    @GetMapping("/channel/order/code/wx/{orderId}")
-    public ResponseEntity<Result<Object>> orderWxHtml(@PathVariable String orderId) throws Exception {
-        String body = payService.orderWxHtml(orderId);
         return Result.ok(body);
     }
 

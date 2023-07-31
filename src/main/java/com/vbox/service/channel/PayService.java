@@ -56,9 +56,6 @@ public interface PayService extends IService<PAccount> {
 
     OrderQueryVO queryAndCallback(String orderId) throws Exception;
 
-    String orderWxHtml(String orderId);
-
     Object handleRealOrder(HttpServletRequest request, String orderId) throws Exception;
 
-    Object ynForPayload(PayInfoParam param) throws Exception;
 }

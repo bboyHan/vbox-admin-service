@@ -17,10 +17,9 @@ public class RedisDelayQueue<T> {
     private String delayQueueName = "delay_queue:order";
 
     private RedisTemplate redisTemplate;
- 
+
     // 传入redis客户端操作
-    public RedisDelayQueue(RedisTemplate redisTemplate, String delayQueueName)
-    {
+    public RedisDelayQueue(RedisTemplate redisTemplate, String delayQueueName) {
         this.redisTemplate = redisTemplate;
         this.delayQueueName = delayQueueName;
     }
@@ -33,9 +32,8 @@ public class RedisDelayQueue<T> {
         delayTask.setId(IdUtil.randomUUID());
         delayTask.setTask(msg);
         Boolean addResult = redisTemplate.opsForZSet().add(delayQueueName, JSONObject.toJSONString(delayTask), System.currentTimeMillis() + delayTime);
-        if(addResult)
-        {
-            System.out.println("添加任务成功！"+JSONObject.toJSONString(delayTask)+"当前时间为"+ LocalDateTime.now());
+        if (addResult) {
+            System.out.println("添加任务成功！" + JSONObject.toJSONString(delayTask) + "当前时间为" + LocalDateTime.now());
             return true;
         }
         return false;
@@ -50,7 +48,7 @@ public class RedisDelayQueue<T> {
         while (true) {
             // 获取一个到点的消息
             Set<String> set = redisTemplate.opsForZSet().rangeByScore(delayQueueName, 0, System.currentTimeMillis(), 0, 1);
- 
+
             // 如果没有，就等等
             if (set == null || set.isEmpty()) {
                 try {
@@ -68,7 +66,7 @@ public class RedisDelayQueue<T> {
                 // 拿到任务
                 DelayTask delayTask = JSONObject.parseObject(it, DelayTask.class);
                 // 后续处理
-                System.out.println("消息到期;"+delayTask.getTask().toString()+",到期时间为"+ LocalDateTime.now());
+                System.out.println("消息到期;" + delayTask.getTask().toString() + ",到期时间为" + LocalDateTime.now());
             }
         }
     }

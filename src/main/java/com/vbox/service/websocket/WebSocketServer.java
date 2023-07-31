@@ -53,7 +53,7 @@ public class WebSocketServer {
         webSocketSet.remove(this);  //从set中删除
         subOnlineCount();           //在线数减1
         //断开连接情况下，更新主板占用情况为释放
-        log.info("释放的sid为："+sid);
+        log.info("释放的sid为：" + sid);
         //这里写你 释放的时候，要处理的业务
         log.info("有一连接关闭！当前在线人数为" + getOnlineCount());
 
@@ -61,6 +61,7 @@ public class WebSocketServer {
 
     /**
      * 收到客户端消息后调用的方法
+     *
      * @ Param message 客户端发送过来的消息
      */
     @OnMessage
