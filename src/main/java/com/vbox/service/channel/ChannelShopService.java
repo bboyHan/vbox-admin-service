@@ -4,6 +4,7 @@ import com.vbox.common.ResultOfList;
 import com.vbox.persistent.entity.CChannel;
 import com.vbox.persistent.entity.Channel;
 import com.vbox.persistent.entity.ChannelShop;
+import com.vbox.persistent.pojo.dto.ChannelMultiShop;
 import com.vbox.persistent.pojo.param.CSEnableParam;
 import com.vbox.persistent.pojo.param.ChannelShopParam;
 
@@ -22,4 +23,8 @@ public interface ChannelShopService {
     int deleteChannelShop(Integer id);
 
     List<CChannel> getChannelShopTypes(ChannelShopParam channelShopParam);
+
+    ResultOfList<List<ChannelShop>> listManageChannelShop(String shopRemark);
+
+    ResultOfList<List<ChannelMultiShop>> listMultiChannelShop(ChannelShopParam ChannelShopParam);
 }
