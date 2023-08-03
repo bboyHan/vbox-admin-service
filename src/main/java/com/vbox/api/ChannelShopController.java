@@ -5,6 +5,7 @@ import com.vbox.common.ResultOfList;
 import com.vbox.persistent.entity.CChannel;
 import com.vbox.persistent.entity.Channel;
 import com.vbox.persistent.entity.ChannelShop;
+import com.vbox.persistent.pojo.dto.ChannelMultiShop;
 import com.vbox.persistent.pojo.param.*;
 import com.vbox.persistent.pojo.vo.CAccountVO;
 import com.vbox.persistent.pojo.vo.CGatewayVO;
@@ -34,6 +35,18 @@ public class ChannelShopController {
     @GetMapping("/channel/shop")
     public ResponseEntity<Result<Object>> listChannelShop(ChannelShopParam channelShopParam) {
         ResultOfList<List<ChannelShop>> rs = channelShopService.listChannelShop(channelShopParam);
+        return Result.ok(rs);
+    }
+
+    @GetMapping("/channel/shop/remark")
+    public ResponseEntity<Result<Object>> listManageChannelShop(String shopRemark) {
+        ResultOfList<List<ChannelShop>> rs = channelShopService.listManageChannelShop(shopRemark);
+        return Result.ok(rs);
+    }
+
+    @GetMapping("/channel/shop/multi/remark")
+    public ResponseEntity<Result<Object>> listMultiChannelShop(ChannelShopParam ChannelShopParam) {
+        ResultOfList<List<ChannelMultiShop>> rs = channelShopService.listMultiChannelShop(ChannelShopParam);
         return Result.ok(rs);
     }
 
