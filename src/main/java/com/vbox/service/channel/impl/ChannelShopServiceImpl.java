@@ -90,7 +90,7 @@ public class ChannelShopServiceImpl implements ChannelShopService {
     @Override
     public ResultOfList<List<ChannelShop>> listManageChannelShop(String shopRemark) {
         Integer uid = TokenInfoThreadHolder.getToken().getId();
-        System.out.println(uid);
+//        System.out.println(uid);
         QueryWrapper<ChannelShop> queryWrapper = new QueryWrapper<>();
         if (StringUtils.hasLength(shopRemark)) {
             queryWrapper.eq("shop_remark", shopRemark);
@@ -153,8 +153,32 @@ public class ChannelShopServiceImpl implements ChannelShopService {
                     return new ChannelMultiShop(shops.get(0).getUid(), shops.get(0).getChannel(), mark, money);
                 })
                 .collect(Collectors.toList());
-        ResultOfList rs = new ResultOfList(result, (int) page.getTotal());
+        ResultOfList rs = new ResultOfList(result, result.size());
         return rs;
+    }
+
+    @Override
+    public int multiEnableChannelShop(String shopRemark, Integer status) {
+        List<ChannelShop>  list = channelShopMapper.getChannelShopListByMark(shopRemark);
+        int rows = 0;
+        for (ChannelShop shop : list) {
+            shop.setStatus(status);
+            int row = channelShopMapper.updateById(shop);
+            if(row > 0){
+                rows ++;
+            }
+        }
+
+        return rows;
+    }
+
+    @Override
+    public int updateShopAddress(String address, Integer id) {
+        ChannelShop channelShop = new ChannelShop();
+        channelShop.setId(id);
+        channelShop.setAddress(address);
+        int row = channelShopMapper.updateById(channelShop);
+        return row;
     }
 
     @Override

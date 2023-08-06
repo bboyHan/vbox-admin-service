@@ -27,4 +27,8 @@ public interface ChannelShopService {
     ResultOfList<List<ChannelShop>> listManageChannelShop(String shopRemark);
 
     ResultOfList<List<ChannelMultiShop>> listMultiChannelShop(ChannelShopParam ChannelShopParam);
+
+    int multiEnableChannelShop(String shopRemark, Integer status);
+
+    int updateShopAddress(String address, Integer id);
 }

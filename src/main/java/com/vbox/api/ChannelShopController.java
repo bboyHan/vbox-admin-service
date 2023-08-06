@@ -74,4 +74,21 @@ public class ChannelShopController {
         return Result.ok(rl);
     }
 
+    @PutMapping("/channel/shop/address")
+    public ResponseEntity<Result<Integer>> updateShopAddress(@RequestBody UpdateAddrParam param) throws IOException {
+        String address = param.getAddress();
+        Integer id = param.getId();
+        int rl = channelShopService.updateShopAddress(address, id);
+        return Result.ok(rl);
+    }
+
+
+    @PutMapping("/channel/shop/multi/enable")
+    public ResponseEntity<Result<Integer>> multiEnableChannelShop(@RequestBody CSMultiEnableParam param) throws IOException {
+        String shopRemark = param.getShopRemark();
+        Integer status = param.getStatus();
+        int rl = channelShopService.multiEnableChannelShop(shopRemark, status);
+        return Result.ok(rl);
+    }
+
 }
