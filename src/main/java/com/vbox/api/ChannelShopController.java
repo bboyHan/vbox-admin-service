@@ -62,6 +62,12 @@ public class ChannelShopController {
         return Result.ok(rl);
     }
 
+    @DeleteMapping("/channel/shop/mark/{shopRemark}")
+    public ResponseEntity<Result<Integer>> deleteChannelShop(@PathVariable String shopRemark) {
+        int rl = channelShopService.deleteChannelShopByShopRemark(shopRemark);
+        return Result.ok(rl);
+    }
+
     @PutMapping("/channel/shop")
     public ResponseEntity<Result<Integer>> updateChannelShop(@RequestBody ChannelShopParam channelShopParam) throws IOException {
         int rl = channelShopService.updateChannelShop(channelShopParam);

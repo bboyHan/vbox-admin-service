@@ -13,8 +13,11 @@ import java.time.LocalDateTime;
 public class ChannelMultiShop {
 
     private Integer uid;
+
+    private Integer status;
     private String channel;
     private String shopRemark;
     private String money;
 
+    private String openAndClose;
 }

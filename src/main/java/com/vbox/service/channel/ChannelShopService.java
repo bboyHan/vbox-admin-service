@@ -31,4 +31,6 @@ public interface ChannelShopService {
     int multiEnableChannelShop(String shopRemark, Integer status);
 
     int updateShopAddress(String address, Integer id);
+
+    int deleteChannelShopByShopRemark(String shopRemark);
 }

@@ -2,6 +2,7 @@ package com.vbox.persistent.repo;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.vbox.persistent.entity.ChannelShop;
+import org.apache.ibatis.annotations.Delete;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Select;
 
@@ -18,4 +19,6 @@ public interface ChannelShopMapper extends BaseMapper<ChannelShop> {
 
     @Select("select * from vbox_channel_shop where uid = #{uid}")
     List<ChannelShop> queryByUid(Integer uid);
+    @Delete("delete from vbox_channel_shop where uid = #{uid} and shop_remark = #{shopRemark}")
+    int deleteByMark(Integer uid, String shopRemark);
 }

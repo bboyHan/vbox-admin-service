@@ -2,6 +2,7 @@ package com.vbox.service.channel.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.sun.corba.se.impl.oa.toa.TOA;
 import com.vbox.common.ResultOfList;
 import com.vbox.config.local.TokenInfoThreadHolder;
 import com.vbox.persistent.entity.CChannel;
@@ -123,7 +124,27 @@ public class ChannelShopServiceImpl implements ChannelShopService {
                             .sorted()
                             .map(String::valueOf)
                             .collect(Collectors.joining("-"));
-                    return new ChannelMultiShop(shops.get(0).getUid(), shops.get(0).getChannel(), mark, money);
+                    int  open = 0;
+                    int  total = 0;
+                    String openAndClose = "已启用【%s】个 , 共【%s】个";
+                    for (int i = 0; i < shops.size(); i++) {
+                        if (shops.get(i).getStatus() == 1){
+                            open ++;
+                        }
+                        total ++;
+                    }
+                    openAndClose = String.format(openAndClose, open, total);
+
+                    int status = 0;
+                    if (open > 0){
+                        status = 1;
+                    }
+                    return new ChannelMultiShop(shops.get(0).getUid(),
+                            status,
+                            shops.get(0).getChannel(),
+                            mark,
+                            money,
+                            openAndClose);
                 })
                 .collect(Collectors.toList());
         ResultOfList rs = new ResultOfList(result, result.size());
@@ -154,6 +175,8 @@ public class ChannelShopServiceImpl implements ChannelShopService {
         return row;
     }
 
+
+
     @Override
     public int updateChannelShop(ChannelShopParam param) {
         ChannelShop channelShop = new ChannelShop();
@@ -175,6 +198,13 @@ public class ChannelShopServiceImpl implements ChannelShopService {
     @Override
     public int deleteChannelShop(Integer id) {
         int row = channelShopMapper.deleteById(id);
+        return row;
+    }
+
+    @Override
+    public int deleteChannelShopByShopRemark(String shopRemark) {
+        Integer uid = TokenInfoThreadHolder.getToken().getId();
+        int row = channelShopMapper.deleteByMark(uid, shopRemark);
         return row;
     }
 
