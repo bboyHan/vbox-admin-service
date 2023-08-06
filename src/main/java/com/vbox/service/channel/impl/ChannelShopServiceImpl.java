@@ -108,35 +108,8 @@ public class ChannelShopServiceImpl implements ChannelShopService {
     @Override
     public ResultOfList<List<ChannelMultiShop>> listMultiChannelShop(ChannelShopParam queryParam) {
         Integer uid = TokenInfoThreadHolder.getToken().getId();
-        QueryWrapper<ChannelShop> queryWrapper = new QueryWrapper<>();
-        if (StringUtils.hasLength(queryParam.getShopRemark())) {
-            queryWrapper.eq("shop_remark", queryParam.getShopRemark());
-        }
-        if (StringUtils.hasLength(queryParam.getChannel())) {
-            queryWrapper.likeRight("channel", queryParam.getChannel());
-        }
-
-        if (queryParam.getStatus() != null) {
-            queryWrapper.eq("status", queryParam.getStatus());
-        }
-
-        if (queryParam.getMoney() != null) {
-            queryWrapper.eq("money", queryParam.getMoney());
-        }
-
-        queryWrapper.eq("uid", uid);
-        queryWrapper.orderByDesc("shop_remark");
-
-        Page<ChannelShop> page = null;
-        if (null != queryParam.getPage() && null != queryParam.getPageSize()) {
-            page = new Page<>(queryParam.getPage(), queryParam.getPageSize());
-        } else {
-            page = new Page<>(1, 20);
-        }
-
-
-        Page<ChannelShop> csPage = channelShopMapper.selectPage(page, queryWrapper);
-        List<ChannelShop> records = csPage.getRecords();
+        List<ChannelShop> records = channelShopMapper.queryByUid(uid);
+//        System.out.println(records.toString());
         List<ChannelMultiShop> result = records.stream()
                 .collect(Collectors.groupingBy(ChannelShop::getShopRemark))
                 .entrySet()

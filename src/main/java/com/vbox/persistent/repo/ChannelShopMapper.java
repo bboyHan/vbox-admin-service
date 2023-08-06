@@ -15,4 +15,7 @@ public interface ChannelShopMapper extends BaseMapper<ChannelShop> {
 
     @Select("select * from vbox_channel_shop where shop_remark = #{shopRemark}")
     List<ChannelShop> getChannelShopListByMark(String shopRemark);
+
+    @Select("select * from vbox_channel_shop where uid = #{uid}")
+    List<ChannelShop> queryByUid(Integer uid);
 }
