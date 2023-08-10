@@ -17,7 +17,7 @@ public interface SaleService {
     List<User> listSaleUser();
     ResultOfList listSaleRecharge(Integer page, Integer pageSize);
 
-    ResultOfList listSaleCAccount(Integer status, String saleName, String acRemark,Integer page, Integer pageSize);
+    ResultOfList listSaleCAccount(Integer status, String saleName, String acRemark, String channel,Integer page, Integer pageSize);
 
     int createSub(UserSubCreateOrUpdParam subCreateOrUpdParam) throws Exception;
 

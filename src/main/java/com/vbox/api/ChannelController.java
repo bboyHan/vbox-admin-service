@@ -2,9 +2,9 @@ package com.vbox.api;
 
 import com.vbox.common.Result;
 import com.vbox.common.ResultOfList;
-import com.vbox.persistent.pojo.param.CAEnableParam;
-import com.vbox.persistent.pojo.param.CAccountParam;
-import com.vbox.persistent.pojo.param.TxCAccountParam;
+import com.vbox.config.exception.ServiceException;
+import com.vbox.persistent.entity.CAccount;
+import com.vbox.persistent.pojo.param.*;
 import com.vbox.persistent.pojo.vo.CAccountVO;
 import com.vbox.persistent.pojo.vo.CGatewayVO;
 import com.vbox.persistent.pojo.vo.VboxUserVO;
@@ -12,7 +12,10 @@ import com.vbox.service.channel.ChannelService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.multipart.MultipartHttpServletRequest;
 
+import javax.servlet.http.HttpServletRequest;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -43,6 +46,17 @@ public class ChannelController {
         return Result.ok(rs);
     }
 
+    @PostMapping("/channel/CAccount/upload")
+    public ResponseEntity<Result<Integer>> batchChannelAccount(HttpServletRequest request) {
+        int rs = 0;
+        List<MultipartFile> files = ((MultipartHttpServletRequest) request).getFiles("file");
+        if (files.size() != 0) {
+            MultipartFile multipartFile = files.get(0);
+            rs = channelService.batchChannelAccount(multipartFile);
+        }
+        return Result.ok(rs);
+    }
+
     @PostMapping("/channel/CAccount")
     public ResponseEntity<Result<Integer>> createChannelAccount(@RequestBody CAccountParam caParam) {
         int rl = channelService.createChannelAccount(caParam);
@@ -65,9 +79,23 @@ public class ChannelController {
         return Result.ok(rl);
     }
 
+    @GetMapping("/channel/all/CAccount")
+    public ResponseEntity<Result<Object>> listChannelPreAccount() {
+        ChannelPreParam param = new ChannelPreParam();
+        List<CAccount> rs = channelService.listAllCAccount(param);
+        return Result.ok(rs);
+    }
+
     @DeleteMapping("/channel/CAccount/{cid}")
     public ResponseEntity<Result<Integer>> delCAccount(@PathVariable Integer cid) {
         int rl = channelService.deleteCAccount(cid);
+        return Result.ok(rl);
+    }
+
+    @DeleteMapping("/channel/CAccount/batch/acList")
+    public ResponseEntity<Result<Integer>> delBatchCAccount(@RequestBody ChannelBatchAcListParam param) {
+        if (param == null) Result.ok("000");
+        int rl = channelService.deleteBatchCAccount(param.getAcidList());
         return Result.ok(rl);
     }
 

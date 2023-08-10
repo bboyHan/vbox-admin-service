@@ -9,14 +9,12 @@ spring:
     #      username: root
     #      password: root
     druid:
-#      url: jdbc:mysql://vboxss-dev.rwlb.zhangbei.rds.aliyuncs.com:3306/vbox_admin?allowMultiQueries=true&useUnicode=true&characterEncoding=UTF-8&serverTimezone=GMT%2B8
-#      url: jdbc:mysql://vboxss.rwlb.rds.aliyuncs.com:3306/vbox_admin?allowMultiQueries=true&useUnicode=true&characterEncoding=UTF-8&serverTimezone=GMT%2B8
-#      url: jdbc:mysql://vboxsss.rwlb.rds.aliyuncs.com:3306/vbox_admin?allowMultiQueries=true&useUnicode=true&characterEncoding=UTF-8&serverTimezone=GMT%2B8
-#      username: vbox_admin
-#      password: Vbox123qwe
-      url: jdbc:mysql://47.110.9.162:3306/vbox_admin?allowMultiQueries=true&useUnicode=true&characterEncoding=UTF-8&serverTimezone=GMT%2B8
-      username: root
-      password: xiaobao
+      # cyf
+      url: jdbc:mysql://vboxsss.rwlb.rds.aliyuncs.com:3306/vbox_admin?allowMultiQueries=true&useUnicode=true&characterEncoding=UTF-8&serverTimezone=GMT%2B8
+      # hbz
+#      url: jdbc:mysql://rm-cn-pe33bubix0001wko.rwlb.rds.aliyuncs.com:3306/vbox_admin?allowMultiQueries=true&useUnicode=true&characterEncoding=UTF-8&serverTimezone=GMT%2B8
+      username: vbox_admin
+      password: Vbox123qwe
       # 初始化连接池 最小 最大
       initial-size: 10
       min-idle: 10
@@ -29,10 +27,12 @@ spring:
       min-evictable-idle-time-millis: 300000
 
   redis:
-    # 正式
-#    host: vboxredis.redis.rds.aliyuncs.com
-#    password: Vbox123qwe
-    host: 127.0.0.1
+    # 正式 - cyf
+    host: vboxredis.redis.rds.aliyuncs.com
+    # 正式 - hbz
+#    host: bp1ng21rn0oafucg7kpd.redis.rds.aliyuncs.com
+    password: Vbox123qwe
+#    host: 127.0.0.1
     port: 6379
 #    redisson: classpath:redisson.yml
 

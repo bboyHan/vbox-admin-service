@@ -63,6 +63,8 @@ public class SaleServiceImpl implements SaleService {
     private POrderMapper pOrderMapper;
     @Autowired
     private ChannelPreMapper channelPreMapper;
+    @Autowired
+    private ChannelMapper channelMapper;
 
     @Override
     public TotalVO totalOverView() {
@@ -328,7 +330,7 @@ public class SaleServiceImpl implements SaleService {
     }
 
     @Override
-    public ResultOfList listSaleCAccount(Integer status, String saleName, String acRemark, Integer page, Integer pageSize) {
+    public ResultOfList listSaleCAccount(Integer status, String saleName, String acRemark, String channel, Integer page, Integer pageSize) {
         Integer uid = TokenInfoThreadHolder.getToken().getId();
         List<Integer> sidList = usMapper.listSidByUid(uid);
 
@@ -338,12 +340,17 @@ public class SaleServiceImpl implements SaleService {
                 sidList = Collections.singletonList(account.getId());
             }
         }
+        Integer cid = null;
+        if (channel != null) {
+            CChannel chan = channelMapper.getChannelByChannelId(channel);
+            cid = chan.getId();
+        }
 
         pageSize = pageSize == null ? 20 : pageSize;
         page = page == null ? 0 : (page - 1) * pageSize;
         List<CAccount> caList;
         if (sidList == null || sidList.isEmpty()) caList = new ArrayList<>();
-        else caList = cAccountMapper.listACInUids(sidList, acRemark, status, page, pageSize);
+        else caList = cAccountMapper.listACInUids(sidList, acRemark, cid, status, page, pageSize);
 
         Integer count = cAccountMapper.countACInUids(sidList, status, page, pageSize);
         List<CAccountVO> acVOList = new ArrayList<>();

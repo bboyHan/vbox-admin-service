@@ -3,10 +3,7 @@ package com.vbox.persistent.repo;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.vbox.persistent.entity.ChannelPre;
 import com.vbox.persistent.pojo.dto.ChannelPreCount;
-import org.apache.ibatis.annotations.Mapper;
-import org.apache.ibatis.annotations.Param;
-import org.apache.ibatis.annotations.Select;
-import org.apache.ibatis.annotations.Update;
+import org.apache.ibatis.annotations.*;
 
 import java.util.List;
 
@@ -15,6 +12,12 @@ public interface ChannelPreMapper extends BaseMapper<ChannelPre> {
 
     @Update("update vbox_channel_pre_code set status = #{status} where plat_oid = #{platformOid}")
     int updateByPlatId(String platformOid, Integer status);
+
+    @Update("update vbox_channel_pre_code set status = 3 where acid = #{acid} and status = 2 and channel = #{channel}")
+    int stopPreLinkWhenStartAC(String acid, String channel);
+
+    @Update("update vbox_channel_pre_code set status = 2 where acid = #{acid} and status = 3 and channel = #{channel}")
+    int startPreLinkWhenStartAC(String acid, String channel);
 
     @Select("select * from vbox_channel_pre_code where ckid = #{ckid}")
     List<ChannelPre> listChannelPreByCKID(String ckid);
@@ -46,4 +49,9 @@ public interface ChannelPreMapper extends BaseMapper<ChannelPre> {
     @Select("SELECT COUNT(1) as count from vbox_channel_pre_code where status = 2 and acid = #{acid}")
     int countForPreByACID(String acid);
 
+    @Update("update vbox_channel_pre_code set status = 4 where acid = #{acid}")
+    int stopByACID(String acID);
+
+    @Delete("delete from vbox_channel_pre_code where acid = #{acid}")
+    int deleteByACID(String acid);
 }

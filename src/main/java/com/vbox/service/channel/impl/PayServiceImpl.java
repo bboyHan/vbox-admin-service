@@ -100,6 +100,8 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
     private ChannelShopMapper channelShopMapper;
     @Autowired
     private ChannelPreMapper channelPreMapper;
+    @Autowired
+    private VboxProxyMapper vboxProxyMapper;
 
     @Override
     public int createPAccount(PAccountParam param) {
@@ -404,7 +406,10 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
                 payOrder.setAcId(acId);
                 payOrder.setPlatformOid(platform_oid);
                 payOrder.setCChannelId(cChannelId);
-                String h5Url = CommonConstant.ENV_HOST_PAY_URL + orderId;
+
+                String envProxyUrl = vboxProxyMapper.getEnvUrl("loc");
+
+                String h5Url = envProxyUrl + CommonConstant.ENV_HOST_PAY_URL + orderId;
 //                String h5Url = "http://mng.vboxjjjxxx.info/#/code/pay?orderId=" + orderId;
                 payOrder.setResourceUrl(payUrl);
                 payOrder.setNotifyUrl(orderCreateParam.getNotify_url());
@@ -537,7 +542,7 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
         while (iterator.hasNext()) {
             ChannelPre pre = iterator.next();
             LocalDateTime createTime = pre.getCreateTime();
-            LocalDateTime pre30min = now.plusDays(-2);
+            LocalDateTime pre30min = now.plusDays(-1);
             if (createTime.isBefore(pre30min)) { //当前预产时间已经是一天前的, remove并置为超时状态
                 channelPreMapper.updateByPlatId(pre.getPlatOid(), 3);
                 iterator.remove();
@@ -663,7 +668,10 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
         String orderId = IdUtil.simpleUUID();
         orderCreateParam.setP_order_id(orderId);
         orderCreateParam.setMoney(num);
-        orderCreateParam.setNotify_url(CommonConstant.ENV_HOST + "/basic-api/test/callback");
+
+        String envProxyUrl = vboxProxyMapper.getEnvUrl("loc");
+
+        orderCreateParam.setNotify_url(envProxyUrl + "/basic-api/test/callback");
 //        orderCreateParam.setNotify_url("http://mng.vboxjjjxxx.info/basic-api/test/callback");
         orderCreateParam.setChannel_id(channel);
         orderCreateParam.setAcid(acid);
@@ -773,7 +781,10 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
 //        payOrder.setAcId(acId);
 //        payOrder.setPayIp(orderCreateParam.getPay_ip());
         payOrder.setCChannelId(orderCreateParam.getChannel_id());
-        String h5Url = CommonConstant.ENV_HOST_PAY_URL + orderId;
+
+        String envProxyUrl = vboxProxyMapper.getEnvUrl("loc");
+
+        String h5Url = envProxyUrl + CommonConstant.ENV_HOST_PAY_URL + orderId;
         payOrder.setNotifyUrl(orderCreateParam.getNotify_url());
         payOrder.setOrderStatus(OrderStatusEnum.PAY_CREATING.getCode()); //4 - 创建中
         payOrder.setCallbackStatus(OrderCallbackEnum.NOT_CALLBACK.getCode());
@@ -1365,7 +1376,8 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
             OrderQueryVO vo = new OrderQueryVO();
             vo.setStatus(2);
 //        vo.setPayUrl(pov.getResourceUrl());
-            vo.setPayUrl(CommonConstant.ENV_HOST_PAY_URL + pov.getOrderId());
+            String envProxyUrl = vboxProxyMapper.getEnvUrl("loc");
+            vo.setPayUrl(envProxyUrl + CommonConstant.ENV_HOST_PAY_URL + pov.getOrderId());
             vo.setCost(pov.getCost());
             vo.setOrderId(pov.getOrderId());
             vo.setNotifyUrl(pov.getNotifyUrl());
@@ -1454,7 +1466,10 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
         OrderQueryVO vo = new OrderQueryVO();
         vo.setStatus(pov.getOrderStatus());
 //        vo.setPayUrl(pov.getResourceUrl());
-        vo.setPayUrl(CommonConstant.ENV_HOST_PAY_URL + pov.getOrderId());
+
+        String envProxyUrl = vboxProxyMapper.getEnvUrl("loc");
+
+        vo.setPayUrl(envProxyUrl + CommonConstant.ENV_HOST_PAY_URL + pov.getOrderId());
         vo.setCost(pov.getCost());
         vo.setOrderId(pov.getOrderId());
         vo.setNotifyUrl(pov.getNotifyUrl());
@@ -1540,6 +1555,7 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
     public String getCK(String acAccount, String acPwd) throws IOException {
         Object v = redisUtil.get(CommonConstant.ACCOUNT_CK + acAccount);
         if (v != null) {
+            log.warn("缓存池取出 ck, {}", v);
             return v.toString();
         }
         String cookie = null;
@@ -1592,12 +1608,9 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
                         cookie = ck;
                     }
                 }
-//                cookie = setCkList.get(0);
 
                 JSONObject obj = JSONObject.parseObject(jsonResp);
                 log.info("login ---- obj: {}", obj);
-//                System.out.println(obj);
-//                System.out.println(data);
             }
         } catch (ScriptException e) {
             e.printStackTrace();
@@ -1774,7 +1787,15 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
         payOrderCreateVO.setChannelId(payOrder.getCChannelId());
         if (payOrder.getCChannelId().contains("tx")) {
             String platformOid = payOrder.getPlatformOid();
-            payOrderCreateVO.setPlatformOid(platformOid == null ? "QQ|order waiting" : platformOid.split("\\|")[1]);
+            String QQ = null;
+            try {
+                String[] split = platformOid.split("\\|");
+                QQ = split[2];
+                platformOid = QQ;
+            } catch (Exception e) {
+                platformOid = "QQ|order waiting";
+            }
+            payOrderCreateVO.setPlatformOid(platformOid);
         }
         return payOrderCreateVO;
     }
@@ -1872,7 +1893,8 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
             OrderQueryVO vo = new OrderQueryVO();
             vo.setStatus(pov.getOrderStatus());
 //            vo.setPayUrl(pov.getResourceUrl());
-            vo.setPayUrl(CommonConstant.ENV_HOST_PAY_URL + pov.getOrderId());
+            String envProxyUrl = vboxProxyMapper.getEnvUrl("loc");
+            vo.setPayUrl(envProxyUrl + CommonConstant.ENV_HOST_PAY_URL + pov.getOrderId());
             vo.setCost(pov.getCost());
             vo.setOrderId(pov.getOrderId());
             vo.setNotifyUrl(pov.getNotifyUrl());

@@ -3,12 +3,10 @@ package com.vbox.common.util;
 import cn.hutool.http.HttpUtil;
 import com.alibaba.fastjson2.JSON;
 import com.vbox.persistent.entity.ChannelPre;
+import com.vbox.persistent.pojo.dto.ChannelAccountExcel;
 import com.vbox.persistent.pojo.dto.ChannelPreExcel;
 import jodd.util.StringUtil;
-import org.apache.poi.ss.usermodel.Cell;
-import org.apache.poi.ss.usermodel.Row;
-import org.apache.poi.ss.usermodel.Sheet;
-import org.apache.poi.ss.usermodel.Workbook;
+import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.lionsoul.ip2region.xdb.Searcher;
 import org.springframework.util.StringUtils;
@@ -27,6 +25,26 @@ import java.util.regex.Pattern;
 
 public class CommonUtil {
 
+    public static List<ChannelAccountExcel> parseChannelAccountExcel(MultipartFile file) throws IOException {
+        Workbook workbook = new XSSFWorkbook(file.getInputStream());
+        Sheet sheet = workbook.getSheetAt(0);
+
+        List<ChannelAccountExcel> data = new ArrayList<>();
+
+        for (Row row : sheet) {
+            if (row.getRowNum() == 0) {
+                continue; // 跳过表头行
+            }
+            ChannelAccountExcel channelAccountExcel = new ChannelAccountExcel();
+            mapRowToClassAccount(row, channelAccountExcel);
+            data.add(channelAccountExcel);
+        }
+
+        workbook.close();
+
+        return data;
+    }
+
     public static List<ChannelPreExcel> parseChannelPreExcel(MultipartFile file) throws IOException {
         Workbook workbook = new XSSFWorkbook(file.getInputStream());
         Sheet sheet = workbook.getSheetAt(0);
@@ -38,7 +56,7 @@ public class CommonUtil {
                 continue; // 跳过表头行
             }
             ChannelPreExcel channelPre = new ChannelPreExcel();
-            mapRowToClass(row, channelPre);
+            mapRowToClassPre(row, channelPre);
             data.add(channelPre);
         }
 
@@ -47,7 +65,43 @@ public class CommonUtil {
         return data;
     }
 
-    public static  void mapRowToClass(Row row, ChannelPreExcel channelPre) {
+    public static  void mapRowToClassAccount(Row row, ChannelAccountExcel channelAccountExcel) {
+        Field[] fields = ChannelAccountExcel.class.getDeclaredFields();
+        for (int i = 0; i < fields.length; i++) {
+            Field field = fields[i];
+            field.setAccessible(true);
+            Cell cell = row.getCell(i);
+            Class<?> fieldType = field.getType();
+
+            try {
+                if (fieldType.equals(Integer.class)) {
+                    if (cell == null || cell.getCellType() == CellType.BLANK) {
+                        field.set(channelAccountExcel, null);
+                    } else if (cell.getCellType() == CellType.NUMERIC) {
+                        field.set(channelAccountExcel, (int) cell.getNumericCellValue());
+                    } else if (cell.getCellType() == CellType.STRING) {
+                        field.set(channelAccountExcel, Integer.parseInt(cell.getStringCellValue()));
+                    }
+                } else if (fieldType.equals(String.class)) {
+                    if (cell == null || cell.getCellType() == CellType.BLANK) {
+                        field.set(channelAccountExcel, null);
+                    } else if (cell.getCellType() == CellType.NUMERIC) {
+                        field.set(channelAccountExcel, String.valueOf((long) cell.getNumericCellValue()));
+                    } else if (cell.getCellType() == CellType.STRING) {
+                        field.set(channelAccountExcel, cell.getStringCellValue());
+                    }
+                } else if (fieldType.equals(LocalDateTime.class)) {
+                    // 处理 LocalDateTime 类型
+                    // ...
+                }
+                // 其他属性类型的处理...
+            } catch (IllegalAccessException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    public static  void mapRowToClassPre(Row row, ChannelPreExcel channelPre) {
         Field[] fields = ChannelPreExcel.class.getDeclaredFields();
         for (int i = 0; i < fields.length; i++) {
             Field field = fields[i];

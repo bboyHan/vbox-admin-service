@@ -14,4 +14,6 @@ public interface TxPayService {
     boolean tokenCheck(String openId, String openKey);
 
     List<TxWaterList> queryOrderBy30(String openId, String openKey);
+
+    List<TxWaterList> queryOrderTXACBy30(String acAccount);
 }

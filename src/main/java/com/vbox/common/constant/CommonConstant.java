@@ -1,6 +1,12 @@
 package com.vbox.common.constant;
 
 public interface CommonConstant {
+
+    /**
+     * channel_proxy
+     */
+    String CHANNEL_PROXY = "proxy:";
+
     /**
      * gee4
      */
@@ -42,7 +48,9 @@ public interface CommonConstant {
     String ENV_HOST = "http://101.42.16.241:10717";
 //    String ENV_HOST = "http://127.0.0.1:3100";
 //    String ENV_HOST_PAY_URL = "http://127.0.0.1:3100/#/code/pay?orderId=";
-    String ENV_HOST_PAY_URL = "http://101.42.16.241:10717/#/code/pay?orderId=";
+
+//    String ENV_HOST_PAY_URL = "http://101.42.16.241:10717/#/code/pay?orderId=";
+    String ENV_HOST_PAY_URL = "/#/code/pay?orderId=";
 //    String ENV_HOST_PAY_URL = "http://59.110.141.171/#/code/pay?orderId=";
 //    String ENV_HOST_PAY_URL = "http://mng.vboxjjjxxx.info/#/code/pay?orderId=";
 //    String ENV_HOST = "http://47.94.207.53";

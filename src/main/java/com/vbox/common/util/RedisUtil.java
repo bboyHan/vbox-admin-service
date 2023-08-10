@@ -30,7 +30,12 @@ public class RedisUtil {
         } catch (Exception var3) {
             System.out.println("redis 发布消息 err" + var3.getMessage());
         }
+    }
 
+
+    public Set<String> keys(String pattern) {
+        Set<String> keys = redisTemplate.keys(pattern);
+        return keys;
     }
 
     public void clearExpireGee4Keys() {
@@ -543,7 +548,6 @@ public class RedisUtil {
      *
      * @param key   键
      * @param value 值
-     * @return
      */
     public boolean lSet(String key, Object value) {
         try {
@@ -561,7 +565,6 @@ public class RedisUtil {
      * @param key   键
      * @param value 值
      * @param time  时间(秒)
-     * @return
      */
     public boolean lPush(String key, Object value, long time) {
         try {

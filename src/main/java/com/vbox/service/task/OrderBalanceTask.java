@@ -1,6 +1,7 @@
 package com.vbox.service.task;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.vbox.common.constant.CommonConstant;
 import com.vbox.common.util.RedisUtil;
 import com.vbox.persistent.entity.CAccount;
 import com.vbox.persistent.entity.User;
@@ -10,9 +11,11 @@ import com.vbox.service.channel.impl.Gee4Service;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.stereotype.Component;
 
 import javax.annotation.Resource;
 import java.util.List;
+import java.util.Set;
 
 //@Component
 @Slf4j
@@ -40,6 +43,8 @@ public class OrderBalanceTask {
     private CGatewayMapper cGatewayMapper;
     @Autowired
     private PAccountMapper pAccountMapper;
+    @Autowired
+    private ChannelPreMapper channelPreMapper;
 
     @Scheduled(cron = "0 */1 * * * ?")
     public void handleUserBalance() {
@@ -86,10 +91,22 @@ public class OrderBalanceTask {
 
             if (dailyLimit != null && dailyLimit > 0 && todayCost != null && todayCost >= dailyLimit) {
                 cAccountMapper.stopByCaId("已超出日内限额，账号关闭", acID);
+                channelPreMapper.stopByACID(ca.getAcid());
+//                Set<String> keys = redisUtil.keys(CommonConstant.CHANNEL_ACCOUNT_QUEUE + "*");
+//                for (String key : keys) {
+//                    log.warn("关闭账号时，清理通道keys: {}", key);
+//                    redisUtil.del(key);
+//                }
             }
 
             if (totalLimit != null && totalLimit > 0 && totalCost != null && totalCost >= totalLimit) {
                 cAccountMapper.stopByCaId("已超出总限额控制，账号关闭", acID);
+                channelPreMapper.stopByACID(ca.getAcid());
+//                Set<String> keys = redisUtil.keys(CommonConstant.CHANNEL_ACCOUNT_QUEUE + "*");
+//                for (String key : keys) {
+//                    log.warn("关闭账号时，清理通道keys: {}", key);
+//                    redisUtil.del(key);
+//                }
             }
         }
     }

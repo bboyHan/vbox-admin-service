@@ -38,6 +38,9 @@ dependencies {
     implementation 'net.java.dev.jna:jna-platform:5.9.0'
     implementation 'org.apache.poi:poi:5.0.0'
     implementation 'org.apache.poi:poi-ooxml:5.0.0'
+    implementation 'org.jsoup:jsoup:1.14.3'
+    implementation 'org.seleniumhq.selenium:selenium-java:4.1.0'
+    implementation 'io.github.bonigarcia:webdrivermanager:5.2.3'
 }
 
 tasks.named('test') {

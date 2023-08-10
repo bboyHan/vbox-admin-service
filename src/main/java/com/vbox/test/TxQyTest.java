@@ -11,6 +11,14 @@ import com.alibaba.fastjson2.JSONObject;
 import com.vbox.common.util.CommonUtil;
 import com.vbox.config.local.ProxyInfoThreadHolder;
 import com.vbox.persistent.pojo.dto.TxWaterList;
+import io.github.bonigarcia.wdm.WebDriverManager;
+import org.jsoup.Jsoup;
+import org.jsoup.nodes.Document;
+import org.jsoup.nodes.Element;
+import org.jsoup.select.Elements;
+import org.openqa.selenium.WebDriver;
+import org.openqa.selenium.chrome.ChromeDriver;
+import org.openqa.selenium.chrome.ChromeOptions;
 
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
@@ -33,11 +41,92 @@ public class TxQyTest {
     }
 
     public static void main(String[] args) {
-        String platParam = "_input_charsetsiuvhsiduhvversion=0version=1.0";
-        int index = platParam.indexOf("_input_charset");
-        boolean last = platParam.endsWith("version=1.0");
-        System.out.println(index);
-        System.out.println(last);
+        // 设置 ChromeDriver 路径
+        WebDriverManager.chromedriver().setup();
+        // 创建 ChromeOptions 对象并设置请求头信息
+        ChromeOptions options = new ChromeOptions();
+        options.addArguments("--headless");  // 启用无界面模式
+        options.addArguments("--no-sandbox");  // 防止在 Linux 下遇到的一些问题
+        options.addArguments("--disable-dev-shm-usage");
+        options.addArguments("--disable-gpu");  // 禁用 GPU 加速
+
+        // 添加请求头信息
+        options.addArguments("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.131 Safari/537.36");
+        options.addArguments("accept-language=en-US,en;q=0.9");
+        // 设置代理服务器（可选）
+         options.addArguments("--proxy-server=http://202.107.22.100:40021");
+
+        // 创建 ChromeDriver 实例
+        WebDriver driver = new ChromeDriver(options);
+
+        // 导航到指定网页
+        driver.get("https://pay.qq.com/h5/trade-record/trade-record.php?appid=1450000186&_wv=1024&pf=2199&sessionid=hy_gameid&sessiontype=st_dummy&openkey=openkey&openid=446794914#/");
+
+        // 系统等待页面加载完成
+        try {
+            Thread.sleep(5000);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+
+        // 获取网页内容
+        String html = driver.getPageSource();
+
+        // 关闭浏览器驱动
+        driver.quit();
+
+        // 使用 Jsoup 解析 HTML
+        try {
+            // 解析HTML内容
+            Document doc = Jsoup.parse(html);
+
+            // 获取class为list-record的元素
+            Elements elements = doc.getElementsByClass("list-record");
+
+            // 遍历元素并提取所需数据
+            for (Element element : elements) {
+                // 获取detail-title元素
+                Element titleElement = element.getElementsByClass("detail-title").first();
+
+                // 提取Q币数量
+                String qCoin = titleElement.getElementsByTag("h3").first().text();
+
+                // 提取支付时间和方式
+                Element pElement = titleElement.getElementsByTag("p").first();
+                String time = pElement.getElementsByTag("span").first().text();
+                String paymentMethod = pElement.getElementsByTag("span").last().text();
+
+                // 打印结果
+                System.out.println("Q币数量: " + qCoin);
+                System.out.println("支付时间: " + time);
+                System.out.println("支付方式: " + paymentMethod);
+                System.out.println("------------------------");
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    private static void jsoup() {
+        String url = "https://pay.qq.com/h5/trade-record/trade-record.php?appid=1450000186&_wv=1024&pf=2199&sessionid=hy_gameid&sessiontype=st_dummy&openkey=openkey&openid=446794914#/";
+
+        try {
+            Document doc = Jsoup.connect(url).get();
+            Elements detailTitles = doc.select(".detail-title");
+
+            for (Element title : detailTitles) {
+                String qbiQuantity = title.selectFirst("h3").text();
+                String time = title.selectFirst("p span:first-child").text();
+                String paymentMethod = title.selectFirst("p span:nth-child(2)").text();
+
+                System.out.println("Q币数量：" + qbiQuantity);
+                System.out.println("支付时间：" + time);
+                System.out.println("支付方式：" + paymentMethod);
+                System.out.println();
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 
     private static void test4() {
@@ -56,7 +145,8 @@ public class TxQyTest {
     }
 
     private static void test3() {
-        String address = "https://openapi.alipay.com/gateway.do?app_id=2017082908437947&biz_content=%7B%22business_params%22%3A%7B%22mc_create_trade_ip%22%3A%22180.102.115.133%22%2C%22mcCreateTradeIp%22%3A%22180.102.115.133%22%7D%2C%22timeout_express%22%3A%225m%22%2C%22product_code%22%3A%22FAST_INSTANT_TRADE_PAY%22%2C%22total_amount%22%3A%22199.92%22%2C%22out_trade_no%22%3A%22C1010127026167230724133740000001%22%2C%22quit_url%22%3A%22https%3A%2F%2Fpay.sdo.com%2F%22%2C%22goods_detail%22%3A%5B%7B%22price%22%3A%22199.92%22%2C%22goods_name%22%3A%22%E6%B8%B8%E6%88%8F%E5%85%85%E5%80%BC%7C%E8%B0%A8%E9%98%B2%E8%AF%88%E9%AA%97%22%2C%22quantity%22%3A1%2C%22goods_id%22%3A%221_39__1459%22%7D%5D%2C%22subject%22%3A%22%E6%B8%B8%E6%88%8F%E5%85%85%E5%80%BC%7C%E8%B0%A8%E9%98%B2%E8%AF%88%E9%AA%97%7C%E5%AE%A2%E6%9C%8D%E7%83%AD%E7%BA%BF021-50504724%22%7D&charset=utf-8&method=alipay.trade.page.pay&notify_url=https%3A%2F%2Fpaycallback.sdo.com%2Fcallback%2Falipaydirect&return_url=https%3A%2F%2Fpay.sdo.com%2Fcashier%2Fresult%2FresultAlipaydirect&sign=RrJNWzWAkFwMxc9cFNevbUcoJK%2BuC%2FoWm0%2F0p06XExjn3%2FEb3f1QbYH5Xw1hVEwKjRm1qKukvXEFk0dPirsbMhdgnylv9IeR3EKKK7VKu28ZwM%2BplXjlt7p6Nm3gv4bGkqP3HPIhaiiyi8Vu%2BbeelNFRRP7L5m73TDCJWfJWxPs%3D&sign_type=RSA&timestamp=2023-07-24+13%3A37%3A40&version=1.0";
+//        String address = "https://openapi.alipay.com/gateway.do?app_id=2017082908437947&biz_content=%7B%22business_params%22%3A%7B%22mc_create_trade_ip%22%3A%22180.102.115.133%22%2C%22mcCreateTradeIp%22%3A%22180.102.115.133%22%7D%2C%22timeout_express%22%3A%225m%22%2C%22product_code%22%3A%22FAST_INSTANT_TRADE_PAY%22%2C%22total_amount%22%3A%22199.92%22%2C%22out_trade_no%22%3A%22C1010127026167230724133740000001%22%2C%22quit_url%22%3A%22https%3A%2F%2Fpay.sdo.com%2F%22%2C%22goods_detail%22%3A%5B%7B%22price%22%3A%22199.92%22%2C%22goods_name%22%3A%22%E6%B8%B8%E6%88%8F%E5%85%85%E5%80%BC%7C%E8%B0%A8%E9%98%B2%E8%AF%88%E9%AA%97%22%2C%22quantity%22%3A1%2C%22goods_id%22%3A%221_39__1459%22%7D%5D%2C%22subject%22%3A%22%E6%B8%B8%E6%88%8F%E5%85%85%E5%80%BC%7C%E8%B0%A8%E9%98%B2%E8%AF%88%E9%AA%97%7C%E5%AE%A2%E6%9C%8D%E7%83%AD%E7%BA%BF021-50504724%22%7D&charset=utf-8&method=alipay.trade.page.pay&notify_url=https%3A%2F%2Fpaycallback.sdo.com%2Fcallback%2Falipaydirect&return_url=https%3A%2F%2Fpay.sdo.com%2Fcashier%2Fresult%2FresultAlipaydirect&sign=RrJNWzWAkFwMxc9cFNevbUcoJK%2BuC%2FoWm0%2F0p06XExjn3%2FEb3f1QbYH5Xw1hVEwKjRm1qKukvXEFk0dPirsbMhdgnylv9IeR3EKKK7VKu28ZwM%2BplXjlt7p6Nm3gv4bGkqP3HPIhaiiyi8Vu%2BbeelNFRRP7L5m73TDCJWfJWxPs%3D&sign_type=RSA&timestamp=2023-07-24+13%3A37%3A40&version=1.0";
+        String address = "https://openapi.alipay.com/gateway.do?charset=utf-8&method=alipay.trade.page.pay&sign=LyYlXZVGkcoMIdtgO5P%2FBiUZ6FBmCda7uQn%2Bld1l%2Bv2YGZiqtzpXRMpqxEH%2FjxclXovVslBdbK0a9%2BpGW3iCw%2FdwV5zqxaHCzRr9Gv0UKvqsqxU5Jdq0sGEKkixEOid7qc2FlyM4OeEs3Yr8eZ9wlc8329BELGs%2BajKY6Q0KpVJztBYQpDgBeKTj%2Fhh65Y0ymay1FR8IiLZPKlta8ozrq%2FHmsQNoubdIMkm0E%2FdB%2FZl1d97iLZ59P45ISBX%2B4W%2FLsICBnOjWXb%2FdCAnuMplOx6Xl5szs4bpDSxHIlkA3QVWUUojqj3Api5MX%2F3bLKtShwKI80QOofARKT7bjpOkHRA%3D%3D&notify_url=https%3A%2F%2Fpay-pf-api.xoyo.com%2Fpay%2Frecharge_api%2Fnotify_do_fill%2Falipay_qr%2Fjx3%2Fc3VuODAwMzc2Mg%3D%3D%2F5cf7d2f2e7da3d3f9c63b5f8b320ae9d%2F0&version=1.0&app_id=2017120500398486&sign_type=RSA2&timestamp=2023-08-01+21%3A27%3A57&alipay_sdk=alipay-sdk-java-4.35.154.ALL&format=json&biz_content={\"body\":\"西山居[剑网3]充值订单号:35016908964777879068-(仅限金山西山居旗下游戏充值)\",\"subject\":\"游戏充值|谨防诈骗|西山居[剑网3]\",\"out_trade_no\":\"35016908964777879068\",\"timeout_express\":\"2m\",\"goods_type\":\"0\",\"total_amount\":\"50.00\",\"qr_pay_mode\":\"4\",\"qrcode_width\":200,\"product_code\":\"FAST_INSTANT_TRADE_PAY\",\"business_params\":{\"mcCreateTradeIp\":\"183.17.66.55\",\"outTradeRiskInfo\":\"{\\\"extraAccountRiskLevel\\\":\\\"low\\\",\\\"mcCreateTradeTime\\\":\\\"2023-08-01 21:27:57\\\",\\\"extraAccountPhoneLastTwo\\\":\\\"20\\\",\\\"extraAccountCertnoLastSix\\\":\\\"128334\\\",\\\"desensitizedUid\\\":\\\"b94772fa8e759cca71a2c60f01e2307d\\\"}\"},\"promo_params\":{\"merchantpromo_tag\":\"hdyh\"}}";
         HttpResponse execute = HttpRequest.get(address)
                 .header("User-Agent", "Mozilla/5.0 (Linux; Android 8.0.0; SM-G955U Build/R16NW) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.141 Mobile Safari/537.36")
                 .execute();

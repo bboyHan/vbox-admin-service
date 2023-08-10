@@ -21,6 +21,9 @@ public interface CAccountMapper extends BaseMapper<CAccount> {
             " #{item}" +
             "</foreach>" +
             "</if>" +
+            "<if test='cid != null'>" +
+            " AND cid = #{cid}" +
+            "</if>" +
             "<if test='status != null'>" +
             " AND status = #{status}" +
             "</if>" +
@@ -29,7 +32,7 @@ public interface CAccountMapper extends BaseMapper<CAccount> {
             "</if>" +
             " order by id desc limit #{page}, #{pageSize}" +
             "</script>")
-    List<CAccount> listACInUids(@Param("sidList") List<Integer> sidList, String acRemark, Integer status, Integer page,  Integer pageSize);
+    List<CAccount> listACInUids(@Param("sidList") List<Integer> sidList, String acRemark, Integer cid, Integer status, Integer page,  Integer pageSize);
 
     @Select("<script>" +
             "SELECT count(1) FROM vbox_channel_account WHERE 1=1" +
@@ -110,4 +113,10 @@ public interface CAccountMapper extends BaseMapper<CAccount> {
 
     @Update("update vbox_channel_account set sys_status = 1, sys_log = #{sysLog} where uid = #{uid}")
     void startByUid(@Param("sysLog")String sysLog, @Param("uid") Integer uid);
+
+    @Update("update vbox_channel_account set sys_log = #{sysLog} where acid = #{acid}")
+    void updateSysLogByACID(@Param("sysLog")String sysLog, @Param("acid") String acid);
+
+    @Update("update vbox_channel_account set ck = #{cookie} where id = #{id}")
+    void updateCkByID(String cookie, Integer id);
 }

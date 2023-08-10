@@ -163,4 +163,62 @@ public class TxPayServiceImpl implements TxPayService {
 
         return txWaterListList;
     }
+
+    @Override
+    public List<TxWaterList> queryOrderTXACBy30(String acAccount) {
+
+        String formUrl = "https://api.unipay.qq.com/v1/r/1450000186/trade_record_query?" +
+                "CmdCode=query2&SubCmdCode=default&PageNum=1&PageSize=200" +
+                "&BeginUnixTime=1659803532&EndUnixTime=1691339532&SystemType=portal&pf=2199&pfkey=pfkey&from_h5=1" +
+                "&session_token=63F728D4-74CB-4817-9F5D-3C344573837F1691339532798" +
+                "&webversion=MidasTradeRecord1.0&r=0.10077481030292357" +
+                "&openid=1528494424&openkey=openkey" +
+                "&session_id=hy_gameid&session_type=st_dummy&__refer=" +
+                "&encrypt_msg=ab00dc01d7748d2ea42b2f24971b6c52ba4ecee8b4b741031ffea3e0775f5e06edb08110ebba54a8dcc93fc9a7ff0a4bee0eb4f6ad2033d3c3b2a90e5d9547d1aa96750a759652b9fe44dbcb0dce4d19" +
+                "&msg_len=76";
+
+        long pre_half_hour = 30 * 60 * 1000;
+        long entTime = System.currentTimeMillis() / 1000;
+        long startTime = entTime - pre_half_hour;
+
+        URL urlPay = URLUtil.url(formUrl);
+        Map<String, String> urlPayStringMap = HttpUtil.decodeParamMap(urlPay.getQuery(), StandardCharsets.UTF_8);
+        Map<String, Object> urlPayMap = new HashMap<>(urlPayStringMap);
+        urlPayMap.put("EndUnixTime", entTime);
+        urlPayMap.put("BeginUnixTime", startTime);
+//        urlPayMap.remove("EndUnixTime");
+//        urlPayMap.remove("BeginUnixTime");
+        urlPayMap.remove("SerialNo");
+        urlPayMap.put("openid", acAccount);
+
+        if (ProxyInfoThreadHolder.getProxy() == null || ProxyInfoThreadHolder.getIpAddr() == null) {
+            payService.addProxy(null, "127.0.0.1", null);
+        }
+        String payRs;
+
+        try {
+            payRs = HttpRequest.post("https://api.unipay.qq.com/v1/r/1450000490/trade_record_query")
+                    .form(urlPayMap)
+                    .setHttpProxy(ProxyInfoThreadHolder.getIpAddr(), ProxyInfoThreadHolder.getPort())
+                    .header("Referer", "https://pay.qq.com/")
+                    .header("Content-Type", "application/x-www-form-urlencoded")
+                    .execute().body();
+        } catch (Exception e) {
+            payService.addProxy(null, "127.0.0.1", null);
+            payRs = HttpRequest.post("https://api.unipay.qq.com/v1/r/1450000490/trade_record_query")
+                    .form(urlPayMap)
+                    .setHttpProxy(ProxyInfoThreadHolder.getIpAddr(), ProxyInfoThreadHolder.getPort())
+                    .header("Referer", "https://pay.qq.com/")
+                    .header("Content-Type", "application/x-www-form-urlencoded")
+                    .execute().body();
+        }
+
+//        log.warn("tx trade_record_query, : {}" ,payRs);
+
+        JSONObject jsonResp = JSONObject.parseObject(payRs);
+//        log.warn("tx trade_record_query, : {}", jsonResp.get("ret"));
+        List<TxWaterList> txWaterListList = jsonResp.getList("WaterList", TxWaterList.class);
+
+        return txWaterListList;
+    }
 }

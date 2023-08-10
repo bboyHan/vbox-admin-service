@@ -6,9 +6,7 @@ import com.vbox.persistent.entity.CChannel;
 import com.vbox.persistent.entity.ChannelPre;
 import com.vbox.persistent.entity.ChannelShop;
 import com.vbox.persistent.pojo.dto.ChannelPreCount;
-import com.vbox.persistent.pojo.param.CSEnableParam;
-import com.vbox.persistent.pojo.param.ChannelPreParam;
-import com.vbox.persistent.pojo.param.ChannelShopParam;
+import com.vbox.persistent.pojo.param.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
@@ -21,7 +19,7 @@ public interface ChannelPreService {
 
     List<ChannelPreCount> countForCAccounts(ChannelPreParam csParam);
 
-    List<CAccount> listCAccount();
+    List<CAccount> listCAccount(ChannelPreParam param);
 
     int createChannelPre(ChannelPreParam csParam) throws Exception;
 
@@ -32,4 +30,10 @@ public interface ChannelPreService {
     int deleteChannelPre(Integer id);
 
     List<CChannel> getChannelPreTypes(ChannelPreParam channelShopParam);
+
+    int batchCreateChannelPre(ChannelPreBatchParam param);
+
+    int batchCreateChannelPreForAcList(ChannelPreBatchAcListParam param);
+
+    int clearChannelPre(String acid);
 }

@@ -14,8 +14,10 @@ import com.vbox.config.exception.ServiceException;
 import com.vbox.config.local.TokenInfoThreadHolder;
 import com.vbox.persistent.entity.*;
 import com.vbox.persistent.pojo.dto.CGatewayInfo;
+import com.vbox.persistent.pojo.dto.ChannelAccountExcel;
 import com.vbox.persistent.pojo.param.CAEnableParam;
 import com.vbox.persistent.pojo.param.CAccountParam;
+import com.vbox.persistent.pojo.param.ChannelPreParam;
 import com.vbox.persistent.pojo.param.TxCAccountParam;
 import com.vbox.persistent.pojo.vo.CAccountVO;
 import com.vbox.persistent.pojo.vo.CGatewayVO;
@@ -27,8 +29,10 @@ import com.vbox.service.channel.SdoPayService;
 import com.vbox.service.channel.TxPayService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
+import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.time.LocalDateTime;
@@ -264,14 +268,15 @@ public class ChannelServiceImpl implements ChannelService {
 
         caMapper.insert(ca);
 
-        return 0;
+        return 1;
     }
 
     @Override
     public int createSdoChannelAccount(CAccountParam caParam) {
         log.warn("createSdoChannelAccount, param: {}", caParam);
         String ck = caParam.getCk();
-        String nsessionid = CommonUtil.getCookieValue(ck, "nsessionid");
+        String acPwd = Base64.encode(caParam.getAc_pwd());
+//        String nsessionid = CommonUtil.getCookieValue(ck, "nsessionid");
 
 //        boolean isValid = sdoPayService.tokenCheck(nsessionid);
 //        if (!isValid) throw new ServiceException("ck传值错误，请核对");
@@ -285,7 +290,7 @@ public class ChannelServiceImpl implements ChannelService {
         Integer uid = TokenInfoThreadHolder.getToken().getId();
         String payDesc = PayTypeEnum.of(caParam.getPayType());
         ca.setAcAccount(caParam.getAc_account());
-        ca.setAcPwd(nsessionid);
+        ca.setAcPwd(acPwd);
         ca.setAcRemark(caParam.getAc_remark());
         ca.setAcid(IdUtil.simpleUUID());
         ca.setUid(uid);
@@ -306,11 +311,11 @@ public class ChannelServiceImpl implements ChannelService {
 
         String ck = caParam.getCk();
         log.warn("param ck : {}", ck);
-        String openId = CommonUtil.getCookieValue(ck, "openid");
-        String openKey = CommonUtil.getCookieValue(ck, "openkey");
-
-        boolean isValid = txPayService.tokenCheck(openId, openKey);
-        if (!isValid) throw new ServiceException("openID、Key传值错误，请核对");
+//        String openId = CommonUtil.getCookieValue(ck, "openid");
+//        String openKey = CommonUtil.getCookieValue(ck, "openkey");
+//
+//        boolean isValid = txPayService.tokenCheck(openId, openKey);
+//        if (!isValid) throw new ServiceException("openID、Key传值错误，请核对");
 
         CAccount ca = new CAccount();
         BeanUtils.copyProperties(caParam, ca);
@@ -322,12 +327,12 @@ public class ChannelServiceImpl implements ChannelService {
         String payDesc = PayTypeEnum.of(caParam.getPayType());
         ca.setAcAccount(caParam.getAc_account());
         // ck - pwd - openID
-        ca.setAcPwd(openId);
+        ca.setAcPwd(caParam.getOpenKey());
         ca.setAcRemark(caParam.getAc_remark());
         ca.setAcid(IdUtil.simpleUUID());
         ca.setUid(uid);
         // ck - openKey
-        ca.setCk(openKey);
+        ca.setCk(ck);
         ca.setDailyLimit(caParam.getDaily_limit());
         ca.setTotalLimit(caParam.getTotal_limit());
         ca.setStatus(caParam.getStatus());
@@ -362,7 +367,14 @@ public class ChannelServiceImpl implements ChannelService {
         Integer pageSize = caParam.getPageSize() == null ? 20 : caParam.getPageSize();
         Integer page = caParam.getPage() == null ? 0 : (caParam.getPage() - 1) * pageSize;
 
-        List<CAccount> caList = caMapper.listACInUids(sidList, caParam.getAc_remark(), caParam.getStatus(), page, pageSize);
+        String cChannelId = caParam.getC_channel_id();
+        Integer cid = null;
+        if (cChannelId != null) {
+            CChannel chan = channelMapper.getChannelByChannelId(cChannelId);
+            cid = chan.getId();
+        }
+
+        List<CAccount> caList = caMapper.listACInUids(sidList, caParam.getAc_remark(), cid, caParam.getStatus(), page, pageSize);
         Integer count = caMapper.countACInUids(sidList, caParam.getStatus(), page, pageSize);
         List<CAccountVO> acVOList = new ArrayList<>();
         for (CAccount ca : caList) {
@@ -451,18 +463,18 @@ public class ChannelServiceImpl implements ChannelService {
         CAccount cAccount = new CAccount();
 
         String ck = param.getCk();
-        String openId = CommonUtil.getCookieValue(ck, "openid");
-        String openKey = CommonUtil.getCookieValue(ck, "openkey");
+//        String openId = CommonUtil.getCookieValue(ck, "openid");
+//        String openKey = CommonUtil.getCookieValue(ck, "openkey");
 
 //        String openId = param.getOpenId();
 //        String openKey = param.getOpenKey();
-//        String acAccount = param.getAc_account();
-        boolean isValid = txPayService.tokenCheck(openId, openKey);
-        if (!isValid) throw new ServiceException("openID、Key传值错误，请核对");
+        String acAccount = param.getAc_account();
+//        boolean isValid = txPayService.tokenCheck(openId, openKey);
+//        if (!isValid) throw new ServiceException("openID、Key传值错误，请核对");
 
         cAccount.setId(param.getId());
-        cAccount.setAcPwd(openId);
-        cAccount.setCk(openKey);
+        cAccount.setAcPwd(acAccount);
+        cAccount.setCk(ck);
 
         cAccount.setTotalLimit(param.getTotal_limit());
         cAccount.setDailyLimit(param.getDaily_limit());
@@ -498,13 +510,15 @@ public class ChannelServiceImpl implements ChannelService {
         CAccount cAccount = new CAccount();
 
         String ck = param.getCk();
-        String nsessionid = CommonUtil.getCookieValue(ck, "nsessionid");
+        String acPwd = Base64.encode(param.getAc_pwd());
+        ;
+//        String nsessionid = CommonUtil.getCookieValue(ck, "nsessionid");
 
-        boolean isValid = sdoPayService.tokenCheck(nsessionid);
-        if (!isValid) throw new ServiceException("ck传值错误，请核对");
+//        boolean isValid = sdoPayService.tokenCheck(ck);
+//        if (!isValid) throw new ServiceException("ck传值错误，请核对");
 
         cAccount.setId(param.getId());
-        cAccount.setAcPwd(nsessionid);
+        cAccount.setAcPwd(acPwd);
         cAccount.setCk(ck);
 
         cAccount.setTotalLimit(param.getTotal_limit());
@@ -545,10 +559,11 @@ public class ChannelServiceImpl implements ChannelService {
         cAccount.setStatus(status);
 
         CAccount caDB = caMapper.selectById(param.getId());
+        CChannel channel = channelMapper.getChannelById(caDB.getCid());
+        Integer cid = channel.getId();
 
         if (cAccount.getStatus() == 1) {
             //jx 走这个逻辑
-            CChannel channel = channelMapper.getChannelById(caDB.getCid());
             if ("jx3".equals(channel.getCGame())) {
                 log.warn("jx3 验证开启...");
                 payService.addProxy(null, "127.0.0.1", null);
@@ -569,15 +584,15 @@ public class ChannelServiceImpl implements ChannelService {
                 cAccount.setCk(ck);
             }
 
-            if ("tx".equals(channel.getCGame())) {
-                //TODO
-                log.warn("tx系 验证开启...");
-                String openID = caDB.getAcPwd();
-                String openKey = caDB.getCk();
-                boolean isValid = txPayService.tokenCheck(openID, openKey);
-                log.warn("tx系 验证结果... {}", isValid);
-                if (!isValid) throw new ServiceException("openID、Key传值错误，请核对");
-            }
+//            if ("tx".equals(channel.getCGame())) {
+//                //TODO
+//                log.warn("tx系 验证开启...");
+//                String openID = caDB.getAcPwd();
+//                String openKey = caDB.getCk();
+//                boolean isValid = txPayService.tokenCheck(openID, openKey);
+//                log.warn("tx系 验证结果... {}", isValid);
+//                if (!isValid) throw new ServiceException("openID、Key传值错误，请核对");
+//            }
 
 //            if ("sdo".equals(channel.getCGame())) {
 //                log.warn("sdo系 验证开启...");
@@ -596,11 +611,17 @@ public class ChannelServiceImpl implements ChannelService {
             Integer todayCost = vboxUserWalletMapper.getTodayOrderSumByCaid(acID);
             Integer totalCost = vboxUserWalletMapper.getTotalCostByCaid(acID);
 
+            boolean flag = false;
             if (dailyLimit != null && dailyLimit > 0 && todayCost != null && todayCost >= dailyLimit) {
                 cAccount.setSysStatus(0);
                 cAccount.setStatus(0);
                 cAccount.setSysLog("日内限额不足, 账户手动开启异常");
                 log.info("手动开启但限额不足，当前 daily cost: {}, 当前账号: {}", todayCost, caDB);
+            } else {
+                //开启账号时候
+                int row = channelPreMapper.startPreLinkWhenStartAC(caDB.getAcid(), channel.getCChannelId());
+                log.warn("开启账号时，预产记录置为可用, info : {}, ca : {}", row, caDB);
+                flag = true;
             }
 
             if (totalLimit != null && totalLimit > 0 && totalCost != null && totalCost >= totalLimit) {
@@ -608,26 +629,70 @@ public class ChannelServiceImpl implements ChannelService {
                 cAccount.setStatus(0);
                 cAccount.setSysLog("总限额不足, 账户手动开启异常");
                 log.info("手动开启但限额不足，当前 total cost: {}, 当前账号: {}", totalCost, caDB);
+            } else {
+                if (!flag) {
+                    //开启账号时候
+                    int row = channelPreMapper.startPreLinkWhenStartAC(caDB.getAcid(), channel.getCChannelId());
+                    log.warn("开启账号时，预产记录置为可用, info : {}, ca : {}", row, caDB);
+                }
             }
 
+        } else {
+            //关闭账号时候
+            int row = channelPreMapper.stopPreLinkWhenStartAC(caDB.getAcid(), channel.getCChannelId());
+            log.warn("关闭账号时，预产记录置为不可用, info : {}, ca : {}", row, caDB);
+            Set<String> keys = redisUtil.keys(CommonConstant.CHANNEL_ACCOUNT_QUEUE + cid + ":*");
+            for (String key : keys) {
+                log.warn("关闭账号时，清理通道keys: {}", key);
+                redisUtil.del(key);
+            }
         }
 
         return caMapper.updateById(cAccount);
     }
 
     @Override
-    public int deleteCAccount(Integer cid) {
+    public int deleteCAccount(Integer id) {
 
-        CAccount ca = caMapper.selectById(cid);
+        CAccount ca = caMapper.selectById(id);
 
-        Integer count = pOrderMapper.countPOrderByAcId(ca.getAcid());
+        String acid = ca.getAcid();
+        Integer count = pOrderMapper.countPOrderByAcId(acid);
         if (count == 0) {
-            return caMapper.deleteById(cid);
+            Integer chanId = ca.getCid();
+            CChannel channel = channelMapper.getChannelById(chanId);
+            if (channel.getCChannelId().contains("sdo_alipay") || channel.getCChannelId().contains("jx3_alipay_pre")) {
+                //删预产
+                int row = channelPreMapper.deleteByACID(acid);
+                log.warn("删除账号时，删预产记录, info : {}, ca : {}", row, ca);
+
+                Set<String> keys = redisUtil.keys(CommonConstant.CHANNEL_ACCOUNT_QUEUE + chanId + ":*");
+                for (String key : keys) {
+                    log.warn("删除账号时，清理通道keys: {}", key);
+                    redisUtil.del(key);
+                }
+            }
+            return caMapper.deleteById(id);
         } else { //有过订单，软删
             CAccountDel upd = new CAccountDel();
             BeanUtils.copyProperties(ca, upd);
             upd.setId(null);
-            caMapper.deleteById(cid);
+            caMapper.deleteById(id);
+
+            Integer chanId = ca.getCid();
+            CChannel channel = channelMapper.getChannelById(chanId);
+            if (channel.getCChannelId().contains("sdo_alipay") || channel.getCChannelId().contains("jx3_alipay_pre")) {
+                //删预产
+                int row = channelPreMapper.deleteByACID(acid);
+                log.warn("删除账号时，删预产记录, info : {}, ca : {}", row, ca);
+
+                Set<String> keys = redisUtil.keys(CommonConstant.CHANNEL_ACCOUNT_QUEUE + chanId + ":*");
+                for (String key : keys) {
+                    log.warn("删除账号时，清理通道keys: {}", key);
+                    redisUtil.del(key);
+                }
+            }
+
             return caDelMapper.insert(upd);
         }
     }
@@ -646,11 +711,165 @@ public class ChannelServiceImpl implements ChannelService {
             formUrl = channelPreMapper.getAddressByPlatOid(po.getPlatformOid());
         } else {
             CAccount ca = caMapper.getCAccountByAcid(po.getAcId());
-            String openID = ca.getAcPwd();
-            String openKey = ca.getCk();
-            formUrl = "https://pay.qq.com/h5/trade-record/trade-record.php?appid=1450000186&_wv=1024&pf=2199&sessionid=openid&sessiontype=kp_accesstoken&openid=" + openID + "&openkey=" + openKey + "#/";
+//            String openID = ca.getAcPwd();
+//            String openKey = ca.getCk();
+//            formUrl = "https://pay.qq.com/h5/trade-record/trade-record.php?appid=1450000186&_wv=1024&pf=2199&sessionid=openid&sessiontype=kp_accesstoken&openid=" + openID + "&openkey=" + openKey + "#/";
+            String qq = ca.getAcAccount();
+            formUrl = "https://pay.qq.com/h5/trade-record/trade-record.php?appid=1450000186&_wv=1024&pf=2199&sessionid=hy_gameid&sessiontype=st_dummy&openkey=openkey&openid="+qq+"#/";
         }
 
         return formUrl;
+    }
+
+    @Override
+    public int batchChannelAccount(MultipartFile multipartFile) {
+
+        Integer uid = TokenInfoThreadHolder.getToken().getId();
+        List<ChannelAccountExcel> preExcelList;
+        try {
+            preExcelList = CommonUtil.parseChannelAccountExcel(multipartFile);
+//            if (preExcelList.size() > 50) {
+//                log.error("batchChannelPre. 超出上限，一次最多50个");
+//                throw new ServiceException("文件解析异常");
+//            }
+        } catch (IOException e) {
+            log.error("batchChannelAccount. 上传文件解析异常");
+            throw new ServiceException("文件解析异常");
+        }
+        log.warn("本次批量导入 start ... uid: {}", uid);
+
+        int count = 0;
+        int errCount = 0;
+
+        for (ChannelAccountExcel caExcel : preExcelList) {
+            try {
+                CAccountParam caParam = new CAccountParam();
+
+                CAccount ca = new CAccount();
+                BeanUtils.copyProperties(caExcel, caParam);
+                log.warn("本次 caExcel ... {}", caExcel);
+
+                CGatewayInfo cgi = cgMapper.getGateWayInfoByCIdAndCG(caParam.getC_channel_id(), caParam.getC_gateway());
+                ca.setCid(cgi.getCid());
+                ca.setGid(cgi.getId());
+                String payDesc = PayTypeEnum.of(caParam.getPayType());
+                ca.setAcAccount(caParam.getAc_account());
+                ca.setAcPwd(Base64.encode(caParam.getAc_pwd()));
+                ca.setAcRemark(caParam.getAc_remark());
+                ca.setAcid(IdUtil.simpleUUID());
+                ca.setUid(uid);
+                ca.setCk(caParam.getCk());
+                ca.setDailyLimit(caParam.getDaily_limit());
+                ca.setTotalLimit(caParam.getTotal_limit());
+                ca.setStatus(caParam.getStatus());
+                ca.setPayType(caParam.getPayType());
+                ca.setPayDesc(payDesc);
+                ca.setSysLog("初始化，暂未开启");
+                ca.setSysStatus(2);
+
+                caMapper.insert(ca);
+
+                count++;
+            } catch (BeansException e) {
+                errCount++;
+                log.error("第 {} 行记录参数异常，跳过， info ： {}", count, caExcel, e);
+            }
+        }
+
+        log.warn("batchChannelAccount.共计本次批量导入总计： {} 条, : {} 条成功, : {} 条失败", preExcelList.size(), count, errCount);
+
+        return 1;
+    }
+
+    @Override
+    public int deleteBatchCAccount(List<String> acidList) {
+        Integer uid = TokenInfoThreadHolder.getToken().getId();
+        log.warn("本次批量删除 start ... uid: {}", uid);
+
+        int successCount = 0;
+        int errCount = 0;
+
+        Set<Integer> chanIdList = new HashSet<>();
+
+        for (String acid : acidList) {
+            try {
+                CAccount ca = caMapper.getCAccountByAcid(acid);
+                Integer id = ca.getId();
+                Integer count = pOrderMapper.countPOrderByAcId(acid);
+                Integer chanId = ca.getCid();
+                CChannel channel = channelMapper.getChannelById(chanId);
+                chanIdList.add(chanId);
+                if (count == 0) {
+                    if (channel.getCChannelId().contains("sdo_alipay") || channel.getCChannelId().contains("jx3_alipay_pre")) {
+                        //删预产
+                        int row = channelPreMapper.deleteByACID(acid);
+                        log.warn("批量删除账号时，删预产记录, info : {}, ca : {}", row, ca);
+                    }
+    //                Set<String> keys = redisUtil.keys(CommonConstant.CHANNEL_ACCOUNT_QUEUE + chanId + ":*");
+    //                for (String key : keys) {
+    //                    log.warn("删除账号时，清理通道keys: {}", key);
+    //                    redisUtil.del(key);
+    //                }
+                    int row = caMapper.deleteById(id);
+                    log.warn("无订单，直接删，row: {},  info {}", row, ca);
+                } else { //有过订单，软删
+                    CAccountDel upd = new CAccountDel();
+                    BeanUtils.copyProperties(ca, upd);
+                    upd.setId(null);
+                    int rowD = caMapper.deleteById(id);
+
+                    if (channel.getCChannelId().contains("sdo_alipay") || channel.getCChannelId().contains("jx3_alipay_pre")) {
+                        //删预产
+                        int row = channelPreMapper.deleteByACID(acid);
+                        log.warn("批量删除账号时，删预产记录, info : {}, ca : {}", row, ca);
+                    }
+    //                Set<String> keys = redisUtil.keys(CommonConstant.CHANNEL_ACCOUNT_QUEUE + chanId + ":*");
+    //                for (String key : keys) {
+    //                    log.warn("删除账号时，清理通道keys: {}", key);
+    //                    redisUtil.del(key);
+    //                }
+                    int rowI = caDelMapper.insert(upd);
+
+                    log.warn("有订单，软删，row: {},  info {}", rowD + rowI, ca);
+                }
+                successCount++;
+            } catch (BeansException e) {
+                errCount++;
+                log.error("第 {} 行记录参数异常，跳过， info ： {}", errCount, e);
+            }
+        }
+
+        for (Integer chanId : chanIdList) {
+            Set<String> keys = redisUtil.keys(CommonConstant.CHANNEL_ACCOUNT_QUEUE + chanId + ":*");
+            for (String key : keys) {
+                log.warn("批量删除账号时，清理通道keys: {}", key);
+                redisUtil.del(key);
+            }
+        }
+
+        log.warn("batchChannelAccount.共计本次批量删除总计： {} 条, : {} 条成功, : {} 条失败", acidList.size(), successCount, errCount);
+
+        return 0;
+    }
+
+    @Override
+    public List<CAccount> listAllCAccount(ChannelPreParam param) {
+        Integer currentUid = TokenInfoThreadHolder.getToken().getId();
+        List<Integer> sidList = relationUSMapper.listSidByUid(currentUid);
+
+        sidList.add(currentUid);
+
+        Integer cid = null;
+        Integer status = param.getStatus();
+
+        String channel = param.getChannel();
+        if (channel != null) {
+            CChannel chan = channelMapper.getChannelByChannelId(channel);
+            cid = chan.getId();
+        }
+
+        List<CAccount> caList = caMapper.listACInUids(sidList, null, cid, status, 0, 999);
+
+        return caList;
     }
 }
