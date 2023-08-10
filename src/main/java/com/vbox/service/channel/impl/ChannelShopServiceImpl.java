@@ -7,6 +7,7 @@ import com.vbox.config.local.TokenInfoThreadHolder;
 import com.vbox.persistent.entity.CChannel;
 import com.vbox.persistent.entity.ChannelShop;
 import com.vbox.persistent.pojo.dto.ChannelMultiShop;
+import com.vbox.persistent.pojo.dto.ChannelMultiTreeShop;
 import com.vbox.persistent.pojo.param.CSEnableParam;
 import com.vbox.persistent.pojo.param.ChannelShopParam;
 import com.vbox.persistent.repo.ChannelMapper;
@@ -18,8 +19,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
-import java.util.List;
+import java.util.*;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 @Service
 @Slf4j
@@ -110,6 +112,12 @@ public class ChannelShopServiceImpl implements ChannelShopService {
         Integer uid = TokenInfoThreadHolder.getToken().getId();
         List<ChannelShop> records = channelShopMapper.queryByUid(uid);
 //        System.out.println(records.toString());
+        List<ChannelMultiShop> result = getMultiList(records);
+        ResultOfList rs = new ResultOfList(result, result.size());
+        return rs;
+    }
+
+    private List<ChannelMultiShop> getMultiList(List<ChannelShop> records){
         List<ChannelMultiShop> result = records.stream()
                 .collect(Collectors.groupingBy(ChannelShop::getShopRemark))
                 .entrySet()
@@ -146,7 +154,50 @@ public class ChannelShopServiceImpl implements ChannelShopService {
                             openAndClose);
                 })
                 .collect(Collectors.toList());
-        ResultOfList rs = new ResultOfList(result, result.size());
+
+        return result;
+    }
+
+    @Override
+    public ResultOfList<List<ChannelMultiTreeShop>> listMultiTreeChannelShop(ChannelShopParam channelShopParam) {
+        List<ChannelMultiTreeShop> list = new ArrayList<>();
+
+        Integer uid = TokenInfoThreadHolder.getToken().getId();
+        List<ChannelShop> records = channelShopMapper.queryByUid(uid);
+        List<ChannelMultiShop> result = getMultiList(records);
+
+        Map<String, List<ChannelShop>> groupedRecords = records.stream()
+                .collect(Collectors.groupingBy(ChannelShop::getChannel));
+        List<ChannelShop> filteredRecords = new ArrayList<>();
+        for (List<ChannelShop> group : groupedRecords.values()) {
+            Optional<ChannelShop> minRecord = group.stream()
+                    .min(Comparator.comparing(ChannelShop::getCreateTime));
+            minRecord.ifPresent(filteredRecords::add);
+        }
+        for (int i = 0; i < filteredRecords.size(); i++) {
+            ChannelMultiTreeShop treeShop = new ChannelMultiTreeShop();
+            String channel = filteredRecords.get(i).getChannel();
+            List<ChannelMultiShop> filteredList = result.stream()
+                    .filter(item -> item.getChannel().equals(channel))
+                    .collect(Collectors.toList());
+            ChannelMultiShop multiShop = filteredList.get(0);
+            treeShop.setUid(uid);
+            treeShop.setStatus(multiShop.getStatus());
+            treeShop.setChannel(channel);
+            treeShop.setShopRemark(multiShop.getShopRemark());
+            treeShop.setMoney(multiShop.getMoney());
+            treeShop.setOpenAndClose(multiShop.getOpenAndClose());
+            if (filteredList.size() > 1){
+                List<ChannelMultiShop> childrenShops = IntStream.range(1, filteredList.size())
+                        .mapToObj(filteredList::get)
+                        .collect(Collectors.toList());
+                treeShop.setChildren(childrenShops);
+            }
+            list.add(treeShop);
+
+        }
+        ResultOfList rs = new ResultOfList(list, list.size());
+
         return rs;
     }
 
@@ -207,11 +258,14 @@ public class ChannelShopServiceImpl implements ChannelShopService {
         return row;
     }
 
+
     @Override
     public List<CChannel> getChannelShopTypes(ChannelShopParam channelShopParam) {
         List<CChannel> channels = channelMapper.getChannelShopTypes();
         return channels;
     }
+
+
 
 
 }

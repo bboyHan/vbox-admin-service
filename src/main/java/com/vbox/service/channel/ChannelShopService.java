@@ -5,6 +5,7 @@ import com.vbox.persistent.entity.CChannel;
 import com.vbox.persistent.entity.Channel;
 import com.vbox.persistent.entity.ChannelShop;
 import com.vbox.persistent.pojo.dto.ChannelMultiShop;
+import com.vbox.persistent.pojo.dto.ChannelMultiTreeShop;
 import com.vbox.persistent.pojo.param.CSEnableParam;
 import com.vbox.persistent.pojo.param.ChannelShopParam;
 
@@ -33,4 +34,6 @@ public interface ChannelShopService {
     int updateShopAddress(String address, Integer id);
 
     int deleteChannelShopByShopRemark(String shopRemark);
+
+    ResultOfList<List<ChannelMultiTreeShop>> listMultiTreeChannelShop(ChannelShopParam channelShopParam);
 }

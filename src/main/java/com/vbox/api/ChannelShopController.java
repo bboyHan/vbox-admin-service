@@ -3,20 +3,16 @@ package com.vbox.api;
 import com.vbox.common.Result;
 import com.vbox.common.ResultOfList;
 import com.vbox.persistent.entity.CChannel;
-import com.vbox.persistent.entity.Channel;
 import com.vbox.persistent.entity.ChannelShop;
 import com.vbox.persistent.pojo.dto.ChannelMultiShop;
+import com.vbox.persistent.pojo.dto.ChannelMultiTreeShop;
 import com.vbox.persistent.pojo.param.*;
-import com.vbox.persistent.pojo.vo.CAccountVO;
-import com.vbox.persistent.pojo.vo.CGatewayVO;
-import com.vbox.persistent.pojo.vo.VboxUserVO;
 import com.vbox.service.channel.ChannelShopService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.List;
 
 @RestController
@@ -47,6 +43,12 @@ public class ChannelShopController {
     @GetMapping("/channel/shop/multi/remark")
     public ResponseEntity<Result<Object>> listMultiChannelShop(ChannelShopParam ChannelShopParam) {
         ResultOfList<List<ChannelMultiShop>> rs = channelShopService.listMultiChannelShop(ChannelShopParam);
+        return Result.ok(rs);
+    }
+
+    @GetMapping("/channel/shop/multi/tree/remark")
+    public ResponseEntity<Result<Object>> listMultiTreeChannelShop(ChannelShopParam ChannelShopParam) {
+        ResultOfList<List<ChannelMultiTreeShop>> rs = channelShopService.listMultiTreeChannelShop(ChannelShopParam);
         return Result.ok(rs);
     }
 
