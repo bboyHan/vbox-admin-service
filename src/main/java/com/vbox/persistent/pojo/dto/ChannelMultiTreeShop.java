@@ -12,7 +12,7 @@ public class ChannelMultiTreeShop {
     public ChannelMultiTreeShop(){
 
     }
-
+    private String id;
     private Integer uid;
 
     private Integer status;

@@ -1,5 +1,6 @@
 package com.vbox.service.channel.impl;
 
+import com.alibaba.fastjson2.JSONObject;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.vbox.common.ResultOfList;
@@ -50,6 +51,44 @@ public class ChannelShopServiceImpl implements ChannelShopService {
 
         return row;
     }
+
+    @Override
+    public int batchCreateChannelShop(JSONObject data) {
+        Integer uid = TokenInfoThreadHolder.getToken().getId();
+        String channel = data.getString("channel");
+        String shopRemark = data.getString("shopRemark");
+
+        CChannel channelDB = channelMapper.getChannelByChannelId(channel);
+        String addrKey = "address";
+        int cnt = 0;
+
+        for (String key : data.keySet()) {
+
+            Integer money = 0;
+            String address = "";
+
+            if (key.matches("^money-\\d+$")) {
+                ChannelShop channelShop = new ChannelShop();
+                // 提取索引
+                String index = key.substring(6);
+                money = Integer.parseInt(data.getString(key));
+                address = data.getString(addrKey + "-" + index);
+                channelShop.setMoney(money);
+                channelShop.setAddress(address);
+                channelShop.setShopRemark(shopRemark);
+                channelShop.setUid(uid);
+                channelShop.setChannel(channelDB.getCChannelId());
+                channelShop.setCid(channelDB.getId());
+                channelShop.setCreateTime(LocalDateTime.now());
+                int row = channelShopMapper.insert(channelShop);
+                cnt += row;
+            }
+
+        }
+
+        return cnt;
+    }
+
 
     @Override
     public ResultOfList<List<ChannelShop>> listChannelShop(ChannelShopParam queryParam) {
@@ -163,8 +202,11 @@ public class ChannelShopServiceImpl implements ChannelShopService {
         List<ChannelMultiTreeShop> list = new ArrayList<>();
 
         Integer uid = TokenInfoThreadHolder.getToken().getId();
+//        log.info("uid:{}", uid);
         List<ChannelShop> records = channelShopMapper.queryByUid(uid);
+//        log.info("records:{}", records);
         List<ChannelMultiShop> result = getMultiList(records);
+//        log.info("result:{}", result);
 
         Map<String, List<ChannelShop>> groupedRecords = records.stream()
                 .collect(Collectors.groupingBy(ChannelShop::getChannel));
@@ -174,25 +216,32 @@ public class ChannelShopServiceImpl implements ChannelShopService {
                     .min(Comparator.comparing(ChannelShop::getCreateTime));
             minRecord.ifPresent(filteredRecords::add);
         }
+//        log.info("filteredRecords:{}", filteredRecords);
         for (int i = 0; i < filteredRecords.size(); i++) {
             ChannelMultiTreeShop treeShop = new ChannelMultiTreeShop();
             String channel = filteredRecords.get(i).getChannel();
+            System.out.println(channel);
             List<ChannelMultiShop> filteredList = result.stream()
                     .filter(item -> item.getChannel().equals(channel))
                     .collect(Collectors.toList());
-            ChannelMultiShop multiShop = filteredList.get(0);
-            treeShop.setUid(uid);
-            treeShop.setStatus(multiShop.getStatus());
-            treeShop.setChannel(channel);
-            treeShop.setShopRemark(multiShop.getShopRemark());
-            treeShop.setMoney(multiShop.getMoney());
-            treeShop.setOpenAndClose(multiShop.getOpenAndClose());
-            if (filteredList.size() > 1){
-                List<ChannelMultiShop> childrenShops = IntStream.range(1, filteredList.size())
-                        .mapToObj(filteredList::get)
-                        .collect(Collectors.toList());
-                treeShop.setChildren(childrenShops);
+            log.info("filteredList:{}", filteredList);
+            if (filteredList.size() > 0){
+                ChannelMultiShop multiShop = filteredList.get(0);
+                treeShop.setId(i + 1 + "");
+                treeShop.setUid(uid);
+                treeShop.setStatus(multiShop.getStatus());
+                treeShop.setChannel(channel);
+                treeShop.setShopRemark(multiShop.getShopRemark());
+                treeShop.setMoney(multiShop.getMoney());
+                treeShop.setOpenAndClose(multiShop.getOpenAndClose());
+                if (filteredList.size() > 1){
+                    List<ChannelMultiShop> childrenShops = IntStream.range(1, filteredList.size())
+                            .mapToObj(filteredList::get)
+                            .collect(Collectors.toList());
+                    treeShop.setChildren(childrenShops);
+                }
             }
+
             list.add(treeShop);
 
         }
@@ -200,6 +249,7 @@ public class ChannelShopServiceImpl implements ChannelShopService {
 
         return rs;
     }
+
 
     @Override
     public int multiEnableChannelShop(String shopRemark, Integer status) {

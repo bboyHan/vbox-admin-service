@@ -1,5 +1,6 @@
 package com.vbox.api;
 
+import com.alibaba.fastjson2.JSONObject;
 import com.vbox.common.Result;
 import com.vbox.common.ResultOfList;
 import com.vbox.persistent.entity.CChannel;
@@ -55,6 +56,13 @@ public class ChannelShopController {
     @PostMapping("/channel/shop")
     public ResponseEntity<Result<Integer>> createChannelShop(@RequestBody ChannelShopParam channelShopParam) {
         int rl = channelShopService.createChannelShop(channelShopParam);
+        return Result.ok(rl);
+    }
+
+    @PostMapping("/channel/shop/batch")
+    public ResponseEntity<Result<Integer>> batchCreateChannelShop(@RequestBody JSONObject data) {
+        System.out.println("batch: " + JSONObject.toJSONString(data));
+        int rl = channelShopService.batchCreateChannelShop(data);
         return Result.ok(rl);
     }
 

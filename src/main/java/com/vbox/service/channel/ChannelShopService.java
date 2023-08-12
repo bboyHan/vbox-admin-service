@@ -1,5 +1,6 @@
 package com.vbox.service.channel;
 
+import com.alibaba.fastjson2.JSONObject;
 import com.vbox.common.ResultOfList;
 import com.vbox.persistent.entity.CChannel;
 import com.vbox.persistent.entity.Channel;
@@ -36,4 +37,6 @@ public interface ChannelShopService {
     int deleteChannelShopByShopRemark(String shopRemark);
 
     ResultOfList<List<ChannelMultiTreeShop>> listMultiTreeChannelShop(ChannelShopParam channelShopParam);
+
+    int batchCreateChannelShop(JSONObject data);
 }
