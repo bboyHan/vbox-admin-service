@@ -46,7 +46,7 @@ public class ChannelController {
         return Result.ok(rs);
     }
 
-    @PostMapping("/channel/CAccount/upload")
+//    @PostMapping("/channel/CAccount/upload")
     public ResponseEntity<Result<Integer>> batchChannelAccount(HttpServletRequest request) {
         int rs = 0;
         List<MultipartFile> files = ((MultipartHttpServletRequest) request).getFiles("file");
@@ -86,7 +86,7 @@ public class ChannelController {
         return Result.ok(rs);
     }
 
-    @DeleteMapping("/channel/CAccount/{cid}")
+//    @DeleteMapping("/channel/CAccount/{cid}")
     public ResponseEntity<Result<Integer>> delCAccount(@PathVariable Integer cid) {
         int rl = channelService.deleteCAccount(cid);
         return Result.ok(rl);

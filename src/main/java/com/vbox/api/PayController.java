@@ -1,10 +1,7 @@
 package com.vbox.api;
 
 import com.vbox.common.Result;
-import com.vbox.persistent.pojo.param.OrderCreateExtParam;
-import com.vbox.persistent.pojo.param.OrderCreateParam;
-import com.vbox.persistent.pojo.param.OrderPreAuthParam;
-import com.vbox.persistent.pojo.param.OrderQueryParam;
+import com.vbox.persistent.pojo.param.*;
 import com.vbox.persistent.pojo.vo.OrderQueryVO;
 import com.vbox.persistent.pojo.vo.PayOrderCreateVO;
 import com.vbox.persistent.repo.PAccountMapper;
@@ -167,17 +164,17 @@ public class PayController {
         return Result.ok(rl);
     }
 
-    @GetMapping("/channel/order/callback/test/{orderId}")
+//    @GetMapping("/channel/order/callback/test/{orderId}")
     public ResponseEntity<Result<Object>> orderCallback(@PathVariable String orderId) throws Exception {
 
         String body = payService.testOrderCallback(orderId);
         return Result.ok(body);
     }
 
-    @GetMapping("/channel/order/callback/confirm/{orderId}")
-    public ResponseEntity<Result<Object>> callbackOrder(@PathVariable String orderId) throws Exception {
-
-        String body = payService.callbackOrder(orderId);
+    @GetMapping("/chan/order/callback/confirm/{orderId}")
+    public ResponseEntity<Result<Object>> callbackOrder(@PathVariable String orderId, UserLoginParam param) throws Exception {
+        String captcha = param.getCaptcha();
+        String body = payService.callbackOrder(orderId, captcha);
         return Result.ok(body);
     }
 

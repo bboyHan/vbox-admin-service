@@ -23,7 +23,48 @@ public class RedisUtil {
     public void setRedisTemplate(RedisTemplate<String, Object> redisTemplate) {
         this.redisTemplate = redisTemplate;
     }
+
+    //=============================proxy============================
+    // 设置键的值
+    public void setKey(String ip, int port) {
+        String key = generateKey(ip, port);
+        redisTemplate.opsForValue().set(key, 0, 120, TimeUnit.SECONDS); // 设置初始值为0，过期时间为120秒
+    }
+
+    // 模糊匹配获取键集合
+    public Set<String> getKeysByPattern(String pattern) {
+        return redisTemplate.keys(pattern);
+    }
+
+    // 判断键是否可用
+    public boolean isKeyAvailable(String key) {
+        Integer count = (Integer) redisTemplate.opsForValue().get(key);
+        log.warn("当前key ： {}， 消耗 count： {}", key, count);
+        boolean flag = count != null && count < 90; // 判断计数是否小于40
+        if (!flag) {
+            deleteKey(key);
+            log.warn("够{}次了，干掉key: {}", count, key);
+        }
+        return flag;
+    }
+
+    // 增加键的计数
+    public void incrementCount(String key) {
+        redisTemplate.opsForValue().increment(key, 1); // 计数加1
+    }
+
+    // 删除键
+    public void deleteKey(String key) {
+        redisTemplate.delete(key);
+    }
+
+    // 生成带前缀的键
+    private String generateKey(String ip, int port) {
+        return "proxy_key," + ip + ":" + port;
+    }
+
     //=============================common============================
+
     public void pub(Object msg) {
         try {
             this.redisTemplate.convertAndSend("vbox_order:message", msg.toString());
@@ -81,7 +122,7 @@ public class RedisUtil {
             Set<Object> earliest = zSetOps.range(key, 0, 0);
             if (earliest == null) {
                 return null;
-            }else {
+            } else {
                 Object value = earliest.iterator().next();
                 String ele = value.toString();
                 SecCode secCode = JSONObject.parseObject(ele, SecCode.class);
@@ -96,6 +137,37 @@ public class RedisUtil {
         }
     }
 
+    private static final String LOCK_KEY = "account_lock";
+    private static final int LOCK_EXPIRE_SECONDS = 10;
+    private static final int MAX_WAIT_TIME_SECONDS = 30;
+    public boolean acquireLock() {
+        // 使用SETNX命令尝试获取锁，设置过期时间防止死锁
+        Boolean success = redisTemplate.opsForValue().setIfAbsent(LOCK_KEY, "locked", LOCK_EXPIRE_SECONDS, TimeUnit.SECONDS);
+        return success != null && success;
+    }
+
+    public void releaseLock() {
+        // 释放锁
+        redisTemplate.delete(LOCK_KEY);
+    }
+
+    public boolean waitForLock() {
+        // 业务等待直到获取到锁或超时
+        long startTime = System.currentTimeMillis();
+        while (System.currentTimeMillis() - startTime < MAX_WAIT_TIME_SECONDS * 1000) {
+            if (acquireLock()) {
+                return true;
+            } else {
+                try {
+                    Thread.sleep(100); // 适当的休眠时间，避免过多消耗CPU
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    return false;
+                }
+            }
+        }
+        return false;
+    }
     //============================= queue sec end ============================
 
     /**

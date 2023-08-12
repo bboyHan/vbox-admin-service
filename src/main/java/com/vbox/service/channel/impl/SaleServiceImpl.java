@@ -333,7 +333,7 @@ public class SaleServiceImpl implements SaleService {
     public ResultOfList listSaleCAccount(Integer status, String saleName, String acRemark, String channel, Integer page, Integer pageSize) {
         Integer uid = TokenInfoThreadHolder.getToken().getId();
         List<Integer> sidList = usMapper.listSidByUid(uid);
-
+        sidList.add(uid);
         if (saleName != null) {
             User account = userMapper.selectOne(new QueryWrapper<User>().eq("id", saleName));
             if (sidList != null && sidList.size() > 0 && account != null && sidList.contains(account.getId())) {

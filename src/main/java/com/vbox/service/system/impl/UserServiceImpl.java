@@ -15,7 +15,9 @@ import com.vbox.common.ResultOfList;
 import com.vbox.common.enums.GenderEnum;
 import com.vbox.common.enums.LoginEnum;
 import com.vbox.common.util.DistinctKeyUtil;
+import com.vbox.common.util.GoogleAuthenticator;
 import com.vbox.common.util.RandomNameUtil;
+import com.vbox.config.exception.ServiceException;
 import com.vbox.config.local.TokenInfoThreadHolder;
 import com.vbox.persistent.entity.*;
 import com.vbox.persistent.pojo.param.UserLoginParam;
@@ -223,8 +225,12 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     public UserInfoVO login(UserLoginParam userLoginParam) throws Exception {
 
         //1. login check
+        String username = userLoginParam.getUsername();
+        String password = userLoginParam.getPassword();
+        String cap = userLoginParam.getCaptcha();
         UserLogin ul = new UserLogin();
-        ul.setUsername(userLoginParam.getUsername());
+        ul.setUsername(username);
+
         //2. login type
         LoginEnum loginEnum = LoginEnum.of(userLoginParam.getLoginType());
         ul.setLoginType(loginEnum.getType());
@@ -234,19 +240,21 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
             case WECHAT:
             case QQ:
             case GITHUB:
-                ul.setCaptcha(MD5.create().digestHex(userLoginParam.getPassword()));
+                ul.setCaptcha(MD5.create().digestHex(password));
                 break;
         }
 
         UserLogin userLogin = userLoginMapper.validateLogin(ul);
+        if (userLogin == null) throw new ServiceException("用户名、密码或验证码错误! ");
+        UserAuth userAuth = userAuthMapper.getAuthByUid(userLogin.getUid());
+        Boolean googleFlag = GoogleAuthenticator.authcode(cap, userAuth.getCap());
 
-        if (userLogin != null) {
+        if (googleFlag) {
 
             UserInfoVO rs = new UserInfoVO();
             BeanUtils.copyProperties(userLogin, rs);
 
             // create new token
-            UserAuth userAuth = userAuthMapper.getAuthByUid(userLogin.getUid());
             String secret = userAuth.getSecret();
             PrivateKey privateKey = SecureUtil.rsa(secret, null).getPrivateKey();
 
@@ -286,7 +294,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
             return rs;
         }
 
-        throw new Exception("user not exist! ");
+        throw new ServiceException("用户名、密码或验证码错误! ");
     }
 
     /**

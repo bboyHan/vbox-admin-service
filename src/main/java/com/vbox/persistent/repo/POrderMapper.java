@@ -101,6 +101,10 @@ public interface POrderMapper extends BaseMapper<PayOrder> {
 
 //    =========================================================
 
+    // 获取付方对接的通道
+    @Select("select distinct c_channel_id from vbox_pay_order where p_account = #{pAccount}")
+    List<String> listChannelByPAID(String pAccount);
+
     // =====================订单数=============================
     // 所有产单
     @Select("select count(1) from vbox_pay_order where p_account = #{pAccount}")
@@ -114,17 +118,33 @@ public interface POrderMapper extends BaseMapper<PayOrder> {
     @Select("SELECT count(1) from vbox_pay_order where p_account = #{pAccount} AND create_time between DATE_SUB(curdate(),INTERVAL 1 DAY) AND DATE_SUB(curdate(),INTERVAL 0 DAY)")
     Integer countPOrderYesterdayByPAID(String pAccount);
 
+    // 昨天某通道产单
+    @Select("SELECT count(1) from vbox_pay_order where p_account = #{pAccount} AND c_channel_id = #{channel} AND create_time between DATE_SUB(curdate(),INTERVAL 1 DAY) AND DATE_SUB(curdate(),INTERVAL 0 DAY)")
+    Integer countPOrderChannelYesterdayByPAID(String pAccount, String channel);
+
     // 昨天成单
     @Select("SELECT count(1) from vbox_pay_order where order_status = 1 and p_account = #{pAccount} AND create_time between DATE_SUB(curdate(),INTERVAL 1 DAY) AND DATE_SUB(curdate(),INTERVAL 0 DAY)")
     Integer countPOrderPayedYesterdayByPAID(String pAccount);
+
+    // 昨天成单某通道
+    @Select("SELECT count(1) from vbox_pay_order where order_status = 1 and p_account = #{pAccount} AND c_channel_id = #{channel} AND create_time between DATE_SUB(curdate(),INTERVAL 1 DAY) AND DATE_SUB(curdate(),INTERVAL 0 DAY)")
+    Integer countPOrderPayedChannelYesterdayByPAID(String pAccount, String channel);
 
     // 今天产单
     @Select("select count(1) from vbox_pay_order where p_account =  #{pAccount} AND create_time > DATE_SUB(curdate(),INTERVAL 0 DAY)")
     Integer countPOrderTodayByPAID(String pAccount);
 
+    // 今天产单某通道
+    @Select("select count(1) from vbox_pay_order where p_account =  #{pAccount} AND c_channel_id = #{channel} AND create_time > DATE_SUB(curdate(),INTERVAL 0 DAY)")
+    Integer countPOrderChannelTodayByPAID(String pAccount, String channel);
+
     // 今天成单
     @Select("select count(1) from vbox_pay_order where order_status = 1 and p_account =  #{pAccount} AND create_time > DATE_SUB(curdate(),INTERVAL 0 DAY)")
     Integer countPOrderPayedTodayByPAID(String pAccount);
+
+    // 今天成单某通道
+    @Select("select count(1) from vbox_pay_order where order_status = 1 and p_account =  #{pAccount} AND c_channel_id = #{channel} AND create_time > DATE_SUB(curdate(),INTERVAL 0 DAY)")
+    Integer countPOrderPayedChannelTodayByPAID(String pAccount, String channel);
 
     // =====================订单金额=============================
 //    // 所有产单金额
@@ -143,6 +163,10 @@ public interface POrderMapper extends BaseMapper<PayOrder> {
     @Select("SELECT sum(cost) from vbox_pay_order where p_account = #{pAccount} and order_status = 1 AND create_time between DATE_SUB(curdate(),INTERVAL 1 DAY) AND DATE_SUB(curdate(),INTERVAL 0 DAY)")
     Integer sumPOrderPayedYesterdayByPAID(String pAccount);
 
+    // 昨天成单金额某通道
+    @Select("SELECT sum(cost) from vbox_pay_order where p_account = #{pAccount} AND c_channel_id = #{channel} and order_status = 1 AND create_time between DATE_SUB(curdate(),INTERVAL 1 DAY) AND DATE_SUB(curdate(),INTERVAL 0 DAY)")
+    Integer sumPOrderPayedChannelYesterdayByPAID(String pAccount, String channel);
+
 //    // 今天产单金额
 //    @Select("select sum(cost) from vbox_pay_order where p_account =  #{pAccount} AND create_time > DATE_SUB(curdate(),INTERVAL 0 DAY)")
 //    int sumPOrderTodayByPAID(String pAccount);
@@ -151,6 +175,13 @@ public interface POrderMapper extends BaseMapper<PayOrder> {
     @Select("select sum(cost) from vbox_pay_order where order_status = 1 and p_account =  #{pAccount} AND create_time > DATE_SUB(curdate(),INTERVAL 0 DAY)")
     Integer sumPOrderPayedTodayByPAID(String pAccount);
 
+    // 今天成单金额某通道
+    @Select("select sum(cost) from vbox_pay_order where order_status = 1 and p_account =  #{pAccount} AND c_channel_id = #{channel} AND create_time > DATE_SUB(curdate(),INTERVAL 0 DAY)")
+    Integer sumPOrderPayedChannelTodayByPAID(String pAccount, String channel);
+
     @Select("select count(1) from vbox_pay_order where order_status = 2 and cost = #{money} and ac_id = #{acid}")
     Integer isExistPOrderByAcIdAndStatus(String acid, Integer money);
+
+    @Select("select count(1) from vbox_pay_order where platform_oid like '%' #{acAccount} '%' and cost = #{money} and create_time >= DATE_SUB(NOW(), INTERVAL 30 MINUTE)")
+    int getPOrderByPre30AndQQ(String acAccount, Integer reqMoney);
 }

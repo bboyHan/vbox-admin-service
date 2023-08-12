@@ -18,6 +18,7 @@ public enum ChannelEnum {
     TX_PDD("tx_pdd", "腾讯(拼多多)"),
     SDO_ALIPAY("sdo_alipay", "测试(支付宝)"),
     CY_ALIPAY("cy_alipay", "测试2(支付宝)"),
+    WME_ALIPAY("wme_alipay", "测试3(支付宝)"),
     UNKNOWN("unknown", "未知"),
     ;
 

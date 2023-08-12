@@ -17,6 +17,7 @@ public class UserAuth {
     private Integer status;
     private String secret;
     private String pub;
+    private String cap;
     private LocalDateTime createTime;
 
 }

@@ -2,7 +2,7 @@ package com.vbox.persistent.pojo.vo;
 
 import lombok.Data;
 
-import java.time.LocalDateTime;
+import java.util.List;
 
 @Data
 public class PAOverviewVO {
@@ -19,5 +19,6 @@ public class PAOverviewVO {
     private Integer sumPayed;
     private Integer sumPayedYesterday;
     private Integer sumPayedToday;
+    List<PAOverviewDetailVO> detailVOList;
 
 }

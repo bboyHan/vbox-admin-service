@@ -216,7 +216,7 @@ public class TxPayServiceImpl implements TxPayService {
 //        log.warn("tx trade_record_query, : {}" ,payRs);
 
         JSONObject jsonResp = JSONObject.parseObject(payRs);
-//        log.warn("tx trade_record_query, : {}", jsonResp.get("ret"));
+        log.warn("tx trade_record_query, : {}", jsonResp.get("ret"));
         List<TxWaterList> txWaterListList = jsonResp.getList("WaterList", TxWaterList.class);
 
         return txWaterListList;

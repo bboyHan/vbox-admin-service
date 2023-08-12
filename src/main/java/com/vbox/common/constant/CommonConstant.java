@@ -5,7 +5,7 @@ public interface CommonConstant {
     /**
      * channel_proxy
      */
-    String CHANNEL_PROXY = "proxy:";
+    String CHANNEL_PROXY = "proxy_key,";
 
     /**
      * gee4

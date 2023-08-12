@@ -2,6 +2,7 @@ package com.vbox.api;
 
 import com.vbox.common.Result;
 import com.vbox.common.ResultOfList;
+import com.vbox.config.annotation.AccessLimit;
 import com.vbox.persistent.pojo.param.UserLoginParam;
 import com.vbox.persistent.pojo.param.UserCreateOrUpdParam;
 import com.vbox.persistent.pojo.param.UserSubCreateOrUpdParam;
@@ -27,8 +28,8 @@ public class UserController {
     private SaleService saleService;
 
     @PostMapping("/login")
+    @AccessLimit(maxCount = 3)
     public ResponseEntity<Result<Object>> login(@RequestBody UserLoginParam userLogin) throws Exception {
-
         UserInfoVO rs = userService.login(userLogin);
         return Result.ok(rs);
     }

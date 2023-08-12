@@ -14,6 +14,7 @@ import com.vbox.persistent.entity.PAuth;
 import com.vbox.persistent.entity.Role;
 import com.vbox.persistent.pojo.param.PAOverviewParam;
 import com.vbox.persistent.pojo.param.PAccountParam;
+import com.vbox.persistent.pojo.vo.PAOverviewDetailVO;
 import com.vbox.persistent.pojo.vo.PAOverviewVO;
 import com.vbox.persistent.pojo.vo.PAccountVO;
 import com.vbox.persistent.repo.*;
@@ -161,28 +162,29 @@ public class PayerServiceImpl extends ServiceImpl<PAccountMapper, PAccount> impl
 
         List<PAOverviewVO> povList = new ArrayList<>();
         for (PAccount pa : paPage.getRecords()) {
+            String pAccount = pa.getPAccount();
             // 总产单
-            Integer countOrder = pOrderMapper.countPOrderByPAID(pa.getPAccount());
+            Integer countOrder = pOrderMapper.countPOrderByPAID(pAccount);
             // 总成单
-            Integer countPayed = pOrderMapper.countPOrderPayedByPAID(pa.getPAccount());
+            Integer countPayed = pOrderMapper.countPOrderPayedByPAID(pAccount);
             // 昨天产单
-            Integer countOrderYesterday = pOrderMapper.countPOrderYesterdayByPAID(pa.getPAccount());
+            Integer countOrderYesterday = pOrderMapper.countPOrderYesterdayByPAID(pAccount);
             // 昨天成单
-            Integer countPayedYesterday = pOrderMapper.countPOrderPayedYesterdayByPAID(pa.getPAccount());
+            Integer countPayedYesterday = pOrderMapper.countPOrderPayedYesterdayByPAID(pAccount);
             // 今天产单
-            Integer countOrderToday = pOrderMapper.countPOrderTodayByPAID(pa.getPAccount());
+            Integer countOrderToday = pOrderMapper.countPOrderTodayByPAID(pAccount);
             // 今天成单
-            Integer countPayedToday = pOrderMapper.countPOrderPayedTodayByPAID(pa.getPAccount());
+            Integer countPayedToday = pOrderMapper.countPOrderPayedTodayByPAID(pAccount);
 
             // 总成单 金额
-            Integer sumPayed = pOrderMapper.sumPOrderPayedByPAID(pa.getPAccount());
+            Integer sumPayed = pOrderMapper.sumPOrderPayedByPAID(pAccount);
             // 昨天成单 金额
-            Integer sumPayedYesterday = pOrderMapper.sumPOrderPayedYesterdayByPAID(pa.getPAccount());
+            Integer sumPayedYesterday = pOrderMapper.sumPOrderPayedYesterdayByPAID(pAccount);
             // 今天成单 金额
-            Integer sumPayedToday = pOrderMapper.sumPOrderPayedTodayByPAID(pa.getPAccount());
+            Integer sumPayedToday = pOrderMapper.sumPOrderPayedTodayByPAID(pAccount);
 
             PAOverviewVO pov = new PAOverviewVO();
-            pov.setPAccount(pa.getPAccount());
+            pov.setPAccount(pAccount);
             pov.setPRemark(pa.getPRemark());
             pov.setCountOrder(countOrder == null ? 0 : countOrder);
             pov.setCountPayed(countPayed == null ? 0 : countPayed);
@@ -194,6 +196,43 @@ public class PayerServiceImpl extends ServiceImpl<PAccountMapper, PAccount> impl
             pov.setSumPayed(sumPayed == null ? 0 : sumPayed);
             pov.setSumPayedToday(sumPayedToday == null ? 0 : sumPayedToday);
             pov.setSumPayedYesterday(sumPayedYesterday == null ? 0 : sumPayedYesterday);
+
+            List<String> channelList = pOrderMapper.listChannelByPAID(pAccount);
+            List<PAOverviewDetailVO> detailVOList = new ArrayList<>();
+            for (String channel : channelList) {
+                PAOverviewDetailVO detailVO = new PAOverviewDetailVO();
+                // 昨天产单某通道
+                Integer countOrderChannelYesterday = pOrderMapper.countPOrderChannelYesterdayByPAID(pAccount, channel);
+                // 昨天成单某通道
+                Integer countPayedChannelYesterday = pOrderMapper.countPOrderPayedChannelYesterdayByPAID(pAccount, channel);
+                // 今天产单某通道
+                Integer countOrderChannelToday = pOrderMapper.countPOrderChannelTodayByPAID(pAccount, channel);
+                // 今天成单某通道
+                Integer countPayedChannelToday = pOrderMapper.countPOrderPayedChannelTodayByPAID(pAccount, channel);
+                // 昨天成单 金额 某通道
+                Integer sumPayedChannelYesterday = pOrderMapper.sumPOrderPayedChannelYesterdayByPAID(pAccount, channel);
+                // 今天成单 金额 某通道
+                Integer sumPayedChannelToday = pOrderMapper.sumPOrderPayedChannelTodayByPAID(pAccount, channel);
+                countOrderChannelYesterday = countOrderChannelYesterday == null ? 0 : countOrderChannelYesterday;
+                countPayedChannelYesterday = countPayedChannelYesterday == null ? 0 : countPayedChannelYesterday;
+                countOrderChannelToday = countOrderChannelToday == null ? 0 : countOrderChannelToday;
+                countPayedChannelToday = countPayedChannelToday == null ? 0 : countPayedChannelToday;
+                sumPayedChannelYesterday = sumPayedChannelYesterday == null ? 0 : sumPayedChannelYesterday;
+                sumPayedChannelToday = sumPayedChannelToday == null ? 0 : sumPayedChannelToday;
+
+                detailVO.setCountOrderYesterday(countOrderChannelYesterday);
+                detailVO.setCountPayedYesterday(countPayedChannelYesterday);
+                detailVO.setCountOrderToday(countOrderChannelToday);
+                detailVO.setCountPayedToday(countPayedChannelToday);
+
+                detailVO.setSumPayedYesterday(sumPayedChannelYesterday);
+                detailVO.setSumPayedToday(sumPayedChannelToday);
+
+                detailVO.setChannel(channel);
+                detailVOList.add(detailVO);
+            }
+
+            pov.setDetailVOList(detailVOList);
             povList.add(pov);
         }
 

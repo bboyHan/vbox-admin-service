@@ -7,6 +7,7 @@ import cn.hutool.jwt.JWTUtil;
 import cn.hutool.jwt.JWTValidator;
 import cn.hutool.jwt.signers.JWTSignerUtil;
 import com.vbox.common.enums.ResultEnum;
+import com.vbox.common.util.ProxyUtil;
 import com.vbox.common.util.RedisUtil;
 import com.vbox.config.annotation.AccessLimit;
 import com.vbox.config.exception.AccessLimitException;
@@ -57,21 +58,22 @@ public class AccessLimitAspect {
             uri = uri.substring(uri.indexOf(contentPath) + contentPath.length());
         }
 
-        String token = request.getHeader("authorization");
-        JWTValidator.of(token).validateDate();
-
-        JWT jwt = JWT.of(token);
-        String account = jwt.getPayload("account").toString();
-        String pub = jwt.getPayload("pub").toString();
-
-        // check user token
-        PublicKey pubKey = SecureUtil.rsa(null, pub).getPublicKey();
-
-        boolean verify = JWTUtil.verify(token, JWTSignerUtil.rs256(pubKey));
-        if (!verify) throw new UnSupportException("访问频次过于频繁");
+//        String token = request.getHeader("authorization");
+//        JWTValidator.of(token).validateDate();
+//
+//        JWT jwt = JWT.of(token);
+//        String account = jwt.getPayload("account").toString();
+//        String pub = jwt.getPayload("pub").toString();
+//
+//        // check user token
+//        PublicKey pubKey = SecureUtil.rsa(null, pub).getPublicKey();
+//
+//        boolean verify = JWTUtil.verify(token, JWTSignerUtil.rs256(pubKey));
+//        if (!verify) throw new UnSupportException("访问频次过于频繁");
 
         // 访问限制
-        String key = "accessLimit:" + account + ":" + uri;
+        String ip = ProxyUtil.getIP(request);
+        String key = "accessLimit:" + ip + ":" + uri;
 
         long count = redisUtil.incr(key, 1);
         if (count == 1) { // 第一次
@@ -83,9 +85,9 @@ public class AccessLimitAspect {
             throw new AccessLimitException("access limit");
         }
 
-        log.info("account={}, uri={}, limit second={}, limit count={}", account, uri, limitSeconds, limitCount);
+        log.info("acc ip={}, uri={}, limit second={}, current count={}", ip, uri, limitSeconds, count);
 
-        PayerInfoThreadHolder.addPayer(new PayerInfo(pub, account));
+//        PayerInfoThreadHolder.addPayer(new PayerInfo(pub, account));
         try {
             return joinPoint.proceed();
         } catch (Throwable e) {

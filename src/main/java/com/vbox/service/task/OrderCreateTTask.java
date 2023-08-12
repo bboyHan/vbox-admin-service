@@ -27,6 +27,7 @@ import com.vbox.service.channel.PayService;
 import com.vbox.service.channel.TxPayService;
 import com.vbox.service.channel.impl.Gee4Service;
 import lombok.extern.slf4j.Slf4j;
+import org.jetbrains.annotations.Nullable;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.scheduling.annotation.Async;
@@ -51,7 +52,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
-//@Component
+@Component
 @Slf4j
 public class OrderCreateTTask {
 
@@ -113,7 +114,7 @@ public class OrderCreateTTask {
         }
     }
 
-    @Scheduled(cron = "0/1 * * * * ?")   //每 2s 执行一次, 接受订单创建的队列
+    @Scheduled(cron = "0/2 * * * * ?")   //每 2s 执行一次, 接受订单创建的队列
     @Async("scheduleExecutor")
     public void handleAsyncCreateOrder() throws Exception {
         Object ele = redisUtil.rPop(CommonConstant.ORDER_CREATE_QUEUE);
@@ -188,22 +189,134 @@ public class OrderCreateTTask {
                 payService.addProxy(area, payIp, pr);
                 createOrderJx3(pa, orderId, payIp, reqMoney, userAgent, channelId, cid);
             }
-            return;
         } else if ("tx".equals(channel.getCGame())) {// tx
             createOrderTx(orderId, payIp, reqMoney, channelId, cid, channel);
-            return;
         } else if ("sdo".equals(channel.getCGame())) { // sdo
             payService.addProxy(area, payIp, pr);
             createOrderSdo(orderId, payIp, reqMoney, userAgent, channelId, cid);
-            return;
         } else if ("cy".equals(channel.getCGame())) {
             payService.addProxy(area, payIp, pr);
             createOrderCy(orderId, payIp, reqMoney, userAgent, channelId, cid);
-            return;
+        } else if ("wme".equals(channel.getCGame())) {
+            payService.addProxy(area, payIp, pr);
+            createOrderWME(orderId, payIp, reqMoney, userAgent, channelId, cid);
+        }
+    }
+
+    private void createOrderWME(String orderId, String payIp, Integer reqMoney, String userAgent, String channelId, Integer cid) {
+        String account;
+        CAccount c;
+        boolean flag = false;
+
+        Object ele = redisUtil.rPop(CommonConstant.CHANNEL_ACCOUNT_QUEUE + cid + ":" + reqMoney);
+        if (ele == null) {
+            List<CAccount> randomTempList = cAccountMapper.selectList(new QueryWrapper<CAccount>()
+                    .eq("status", 1)
+                    .eq("sys_status", 1)
+                    .eq("cid", cid)
+            );
+
+            if (randomTempList.size() > 10) {
+                // 随机排序
+                Collections.shuffle(randomTempList);
+                // 截取前10个元素
+                randomTempList = randomTempList.subList(0, 10);
+            } else {
+                // 全部取出
+                randomTempList = new ArrayList<>(randomTempList);
+            }
+
+            for (CAccount cAccount : randomTempList) {
+                redisUtil.lPush(CommonConstant.CHANNEL_ACCOUNT_QUEUE + cid + ":" + reqMoney, cAccount);
+            }
+            try {
+                int randomIndex = RandomUtil.randomInt(randomTempList.size());
+                c = randomTempList.get(randomIndex);
+            } catch (Exception e) {
+                log.error("库存金额不足，或库存账号不足");
+                throw new ServiceException("库存金额不足，或库存账号不足，请联系管理员");
+            }
+        } else {
+            String text = ele.toString();
+            flag = true;
+            try {
+                c = JSONObject.parseObject(text, CAccount.class);
+            } catch (Exception e) {
+                log.error("CAccount queue解析异常, text: {}", text);
+                return;
+            }
         }
 
-        log.info("handleAsyncCreateOrder.start");
+        log.info("【任务执行】资源池取出..缓存池[{}],po channel id {} .random ac Info - {}", flag, channelId, c);
+        CGatewayInfo cgi = cGatewayMapper.getGateWayInfoByCIdAndGId(c.getCid(), c.getGid());
 
+        account = c.getAcAccount();
+        String acid = c.getAcid();
+        String gateway = cgi.getCGateway();
+
+        JSONObject orderJson = createWMorder(account, gateway, userAgent);
+        if (orderJson != null && orderJson.getInteger("status") == 0) {
+            String platOid = orderJson.getString("ordernumber");
+            String address = orderJson.getString("redirectUrl");
+
+            boolean isMob = CommonUtil.isMobileDevice(userAgent);
+            if (!isMob) {
+                userAgent = "Mozilla/5.0 (Linux; Android 8.0.0; SM-G955U Build/R16NW) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.141 Mobile Safari/537.36";
+            }
+            log.info("wme url 初始: {}", address);
+            HttpResponse execute = HttpRequest.post(address)
+                    .setHttpProxy(ProxyInfoThreadHolder.getIpAddr(), ProxyInfoThreadHolder.getPort())
+                    .header("Referer", "https://pay.wanmei.com/")
+                    .header("User-Agent", userAgent)
+                    .execute();
+
+            String locUrl = execute.header("Location");
+            log.info("wme url 一次修正: {}", locUrl);
+
+            String payUrl = handelWMEPayUrl(locUrl, userAgent);
+
+            LocalDateTime asyncTime = LocalDateTime.now();
+            pOrderMapper.updateInfoForQueue(orderId, acid, OrderStatusEnum.NO_PAY.getCode(), platOid, payUrl, payIp, asyncTime);
+            pOrderEventMapper.updateInfoForQueue(orderId, orderJson.toJSONString(), platOid, address);
+
+            PayOrder poDB = pOrderMapper.getPOrderByOid(orderId);
+            boolean b = redisUtil.lPush(CommonConstant.ORDER_QUERY_QUEUE, poDB);
+            if (b) {
+                boolean has = redisUtil.hasKey(CommonConstant.ORDER_WAIT_QUEUE + orderId);
+                if (has) redisUtil.del(CommonConstant.ORDER_WAIT_QUEUE + orderId);
+                log.info("【任务执行】成功订单入查单回调池子, orderId: {}", orderId);
+            }
+        } else {
+            log.error("create order error, resp -> {}", orderJson);
+            throw new ServiceException("订单创建失败，请联系管理员");
+        }
+    }
+
+    @Nullable
+    private static JSONObject createWMorder(String account, String gateway, String userAgent) {
+        boolean isMob = CommonUtil.isMobileDevice(userAgent);
+        if (!isMob) {
+            userAgent = "Mozilla/5.0 (Linux; Android 8.0.0; SM-G955U Build/R16NW) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.141 Mobile Safari/537.36";
+        }
+        String captchaInitBody = HttpRequest.get("https://pay.wanmei.com/new//ajax.do?op=captchasInit&r=0.9211014487987239")
+                .setHttpProxy(ProxyInfoThreadHolder.getIpAddr(), ProxyInfoThreadHolder.getPort())
+                .header("User-Agent", userAgent)
+                .execute().body();
+        JSONObject captchaJson = JSONObject.parseObject(captchaInitBody);
+        String captcha = captchaJson.getString("result");
+
+        String orderBody = HttpRequest
+                .post("https://pay.wanmei.com/new/newpay.do?op=pay&gametype=1" +
+                        "&exchange=150%7C%E5%88%86%E9%92%9F" +
+                        "&username=" + account + "&username2=" + account + "&zone=" + gateway +
+                        "&paytype=402&payway=yinhangka&mobery=&sptype=on&cardnumber=&cardpasswd=&sxcardnumber=&sxcardpasswd=&ivrcardnumber=&ivrcardpasswd=&dxcardnumber=&dxcardpasswd=" +
+                        "&capTicket=" + captcha +
+                        "&rand=&money=6")
+                .setHttpProxy(ProxyInfoThreadHolder.getIpAddr(), ProxyInfoThreadHolder.getPort())
+                .header("User-Agent", userAgent)
+                .execute().body();
+        JSONObject orderJson = JSONObject.parseObject(orderBody);
+        return orderJson;
     }
 
     private void createOrderJx3Pre(POrderQueue po, String orderId, String payIp, Integer reqMoney, String userAgent, String channelId, Integer cid) {
@@ -235,6 +348,15 @@ public class OrderCreateTTask {
             queryWrapper.eq("money", reqMoney);
 
             List<ChannelPre> channelPres = channelPreMapper.selectList(queryWrapper);
+            if (channelPres.size() > 30) {
+                // 随机排序
+                Collections.shuffle(channelPres);
+                // 截取前10个元素
+                channelPres = channelPres.subList(0, 30);
+            } else {
+                // 全部取出
+                channelPres = new ArrayList<>(channelPres);
+            }
             removeSdoElements(channelPres);
             if (channelPres.size() == 0) {
                 log.error("库存金额不足");
@@ -304,6 +426,17 @@ public class OrderCreateTTask {
                     .eq("sys_status", 1)
                     .eq("cid", cid)
             );
+
+            if (randomTempList.size() > 10) {
+                // 随机排序
+                Collections.shuffle(randomTempList);
+                // 截取前10个元素
+                randomTempList = randomTempList.subList(0, 10);
+            } else {
+                // 全部取出
+                randomTempList = new ArrayList<>(randomTempList);
+            }
+
             for (CAccount cAccount : randomTempList) {
                 redisUtil.lPush(CommonConstant.CHANNEL_ACCOUNT_QUEUE + cid + ":" + reqMoney, cAccount);
             }
@@ -441,6 +574,16 @@ public class OrderCreateTTask {
                 throw new ServiceException("库存账号不足，请联系管理员");
             }
 
+            if (randomTempList.size() > 10) {
+                // 随机排序
+                Collections.shuffle(randomTempList);
+                // 截取前10个元素
+                randomTempList = randomTempList.subList(0, 10);
+            } else {
+                // 全部取出
+                randomTempList = new ArrayList<>(randomTempList);
+            }
+
             List<String> acidList = new ArrayList<>();
             for (CAccount ca : randomTempList) {
                 acidList.add(ca.getAcid());
@@ -535,6 +678,16 @@ public class OrderCreateTTask {
                 throw new ServiceException("库存账号不足，请联系管理员");
             }
 
+            if (randomTempList.size() > 10) {
+                // 随机排序
+                Collections.shuffle(randomTempList);
+                // 截取前10个元素
+                randomTempList = randomTempList.subList(0, 10);
+            } else {
+                // 全部取出
+                randomTempList = new ArrayList<>(randomTempList);
+            }
+
             List<String> acidList = new ArrayList<>();
             for (CAccount ca : randomTempList) {
                 acidList.add(ca.getAcid());
@@ -576,7 +729,7 @@ public class OrderCreateTTask {
             try {
                 payUrl = handelCyPayUrl(preDB.getAddress(), userAgent);
             } catch (Exception e) {
-                log.warn("handelCyPayUrl 重试1次");
+                log.warn("handelCyPayUrl 重试1次"); //todo 做非代理处理
                 payUrl = handelCyPayUrl(preDB.getAddress(), userAgent);
             }
         } catch (Exception e) {
@@ -605,69 +758,184 @@ public class OrderCreateTTask {
     private void createOrderTx(String orderId, String payIp, Integer reqMoney, String channelId, Integer cid, CChannel channel) {
         CAccount c;
         boolean flag = false;
-        Object ele = redisUtil.rPop(CommonConstant.CHANNEL_ACCOUNT_QUEUE + cid + ":" + reqMoney);
-        if (ele == null) {
-            List<CAccount> randomTempList = cAccountMapper.selectList(new QueryWrapper<CAccount>()
-                    .eq("status", 1)
-                    .eq("sys_status", 1)
-                    .eq("cid", cid)
-            );
 
-            List<TxWaterList> rl = new ArrayList<>();
-            // 使用HashMap来保存相同充值金额的充值账号
-            Map<Integer, List<String>> map = new HashMap<>();
+        // 获取分布式锁
+        boolean locked = false;
+        try {
+            locked = redisUtil.acquireLock();
+            if (locked) {
+                log.warn("锁了...开始走账户获取...");
+                // 执行查询逻辑
+                Object ele = redisUtil.rPop(CommonConstant.CHANNEL_ACCOUNT_QUEUE + "tx:" + reqMoney);
+                if (ele == null) {
+                    List<CAccount> randomTempList = cAccountMapper.selectList(new QueryWrapper<CAccount>()
+                            .eq("status", 1)
+                            .eq("sys_status", 1)
+                            .eq("cid", cid)
+                    );
 
-            for (CAccount cAccount : randomTempList) {
-                List<TxWaterList> txWaterList = txPayService.queryOrderTXACBy30(cAccount.getAcAccount());
-                rl.addAll(txWaterList);
-            }
-            log.warn("tx 刷完一次记录, size: {}", rl.size());
+                    List<TxWaterList> rl = new ArrayList<>();
+                    // 使用HashMap来保存相同充值金额的充值账号
+                    Map<Integer, List<String>> map = new HashMap<>();
 
-            LocalDateTime now = LocalDateTime.now();
-            // 遍历rechargeList进行充值金额的筛选
-            for (TxWaterList recharge : rl) {
-                Integer payAmt = recharge.getPayAmt() / 100;
-                String provideID = recharge.getProvideID();
-                long payTime = recharge.getPayTime();
-                Instant instant = Instant.ofEpochSecond(payTime);
-                LocalDateTime payTimeLoc = LocalDateTime.ofInstant(instant, ZoneId.of("Asia/Shanghai"));
-                LocalDateTime pre30min = now.plusMinutes(-30);
-                // 如果该充值金额已存在于结果集中，则将充值账号添加进对应的列表中
-                if (payTimeLoc.isAfter(pre30min)) {
-                    List<String> accountList = map.computeIfAbsent(payAmt, k -> new ArrayList<>());
-                    accountList.add(provideID);
+                    if (randomTempList.size() > 10) {
+                        // 随机排序
+                        Collections.shuffle(randomTempList);
+                        // 截取前10个元素
+                        randomTempList = randomTempList.subList(0, 10);
+                    } else {
+                        // 全部取出
+                        randomTempList = new ArrayList<>(randomTempList);
+                    }
+                    for (CAccount cAccount : randomTempList) {
+                        List<TxWaterList> txWaterList = txPayService.queryOrderTXACBy30(cAccount.getAcAccount());
+                        rl.addAll(txWaterList);
+                    }
+                    log.warn("tx 刷完一次记录, size: {}", rl.size());
+
+                    LocalDateTime now = LocalDateTime.now();
+                    // 遍历rechargeList进行充值金额的筛选
+                    for (TxWaterList recharge : rl) {
+                        Integer payAmt = recharge.getPayAmt() / 100;
+                        String provideID = recharge.getProvideID();
+                        long payTime = recharge.getPayTime();
+                        Instant instant = Instant.ofEpochSecond(payTime);
+                        LocalDateTime payTimeLoc = LocalDateTime.ofInstant(instant, ZoneId.of("Asia/Shanghai"));
+                        LocalDateTime pre30min = now.plusMinutes(-30);
+                        // 如果该充值金额已存在于结果集中，则将充值账号添加进对应的列表中
+                        if (payTimeLoc.isAfter(pre30min)) {
+                            List<String> accountList = map.computeIfAbsent(payAmt, k -> new ArrayList<>());
+                            accountList.add(provideID);
+                        }
+                    }
+                    log.warn("处理前- map 集: {}", map);
+
+                    //获取已经有充值当前金额的账户，作去除处理
+                    List<String> qqList = map.get(reqMoney);
+                    log.warn("当前30分钟内 - 已支付的记录，金额: {} , 记录：{}", reqMoney, qqList);
+
+                    removeTxElements(qqList, randomTempList, reqMoney);
+
+                    try {
+                        int randomIndex = RandomUtil.randomInt(randomTempList.size());
+                        c = randomTempList.get(randomIndex);
+
+                        randomTempList.remove(randomIndex);
+
+                        for (CAccount cAccount : randomTempList) {
+                            redisUtil.lPush(CommonConstant.CHANNEL_ACCOUNT_QUEUE + "tx:" + reqMoney, cAccount);
+                        }
+                    } catch (Exception e) {
+                        log.error("库存金额不足，或库存账号不足");
+                        throw new ServiceException("库存金额不足，或库存账号不足，请联系管理员");
+                    }
+                } else {
+                    String text = ele.toString();
+                    flag = true;
+                    try {
+                        c = JSONObject.parseObject(text, CAccount.class);
+                    } catch (Exception e) {
+                        log.error("CAccount queue解析异常, text: {}", text);
+                        return;
+                    }
+                }
+            } else {
+                // 获取锁失败，进行业务等待
+                boolean success = redisUtil.waitForLock();
+                if (success) {
+                    log.warn("等锁成功... 拿数据");
+                    // 执行查询逻辑
+                    Object ele = redisUtil.rPop(CommonConstant.CHANNEL_ACCOUNT_QUEUE + "tx:" + reqMoney);
+                    if (ele == null) {
+                        List<CAccount> randomTempList = cAccountMapper.selectList(new QueryWrapper<CAccount>()
+                                .eq("status", 1)
+                                .eq("sys_status", 1)
+                                .eq("cid", cid)
+                        );
+
+                        List<TxWaterList> rl = new ArrayList<>();
+                        // 使用HashMap来保存相同充值金额的充值账号
+                        Map<Integer, List<String>> map = new HashMap<>();
+
+                        if (randomTempList.size() > 10) {
+                            // 随机排序
+                            Collections.shuffle(randomTempList);
+                            // 截取前10个元素
+                            randomTempList = randomTempList.subList(0, 10);
+                        } else {
+                            // 全部取出
+                            randomTempList = new ArrayList<>(randomTempList);
+                        }
+                        for (CAccount cAccount : randomTempList) {
+                            List<TxWaterList> txWaterList = txPayService.queryOrderTXACBy30(cAccount.getAcAccount());
+                            rl.addAll(txWaterList);
+                        }
+                        log.warn("tx 刷完一次记录, size: {}", rl.size());
+
+                        LocalDateTime now = LocalDateTime.now();
+                        // 遍历rechargeList进行充值金额的筛选
+                        for (TxWaterList recharge : rl) {
+                            Integer payAmt = recharge.getPayAmt() / 100;
+                            String provideID = recharge.getProvideID();
+                            long payTime = recharge.getPayTime();
+                            Instant instant = Instant.ofEpochSecond(payTime);
+                            LocalDateTime payTimeLoc = LocalDateTime.ofInstant(instant, ZoneId.of("Asia/Shanghai"));
+                            LocalDateTime pre30min = now.plusMinutes(-30);
+                            // 如果该充值金额已存在于结果集中，则将充值账号添加进对应的列表中
+                            if (payTimeLoc.isAfter(pre30min)) {
+                                List<String> accountList = map.computeIfAbsent(payAmt, k -> new ArrayList<>());
+                                accountList.add(provideID);
+                            }
+                        }
+
+                        //获取已经有充值当前金额的账户，作去除处理
+                        List<String> qqList = map.get(reqMoney);
+                        log.warn("当前30分钟内 - 已支付的记录，金额: {} , 记录：{}", reqMoney, qqList);
+
+                        removeTxElements(qqList, randomTempList, reqMoney);
+
+                        try {
+                            int randomIndex = RandomUtil.randomInt(randomTempList.size());
+                            c = randomTempList.get(randomIndex);
+
+                            randomTempList.remove(randomIndex);
+
+                            for (CAccount cAccount : randomTempList) {
+                                redisUtil.lPush(CommonConstant.CHANNEL_ACCOUNT_QUEUE + "tx:" + reqMoney, cAccount);
+                            }
+                        } catch (Exception e) {
+                            log.error("库存金额不足，或库存账号不足");
+                            throw new ServiceException("库存金额不足，或库存账号不足，请联系管理员");
+                        }
+                    } else {
+                        String text = ele.toString();
+                        flag = true;
+                        try {
+                            c = JSONObject.parseObject(text, CAccount.class);
+                        } catch (Exception e) {
+                            log.error("CAccount queue解析异常, text: {}", text);
+                            return;
+                        }
+                    }
+                } else {
+                    log.error("拿锁...超时了...");
+                    throw new ServiceException("资源等待...");
                 }
             }
-
-            //获取已经有充值当前金额的账户，作去除处理
-            List<String> qqList = map.get(reqMoney);
-            log.warn("当前30分钟内 - 已支付的记录，金额: {} , 记录：{}", reqMoney, qqList);
-
-            removeTxElements(qqList, randomTempList, reqMoney);
-
-            try {
-                int randomIndex = RandomUtil.randomInt(randomTempList.size());
-                c = randomTempList.get(randomIndex);
-
-                randomTempList.remove(randomIndex);
-
-                for (CAccount cAccount : randomTempList) {
-                    redisUtil.lPush(CommonConstant.CHANNEL_ACCOUNT_QUEUE + cid + ":" + reqMoney, cAccount);
-                }
-            } catch (Exception e) {
-                log.error("库存金额不足，或库存账号不足");
-                throw new ServiceException("库存金额不足，或库存账号不足，请联系管理员");
-            }
-        } else {
-            String text = ele.toString();
-            flag = true;
-            try {
-                c = JSONObject.parseObject(text, CAccount.class);
-            } catch (Exception e) {
-                log.error("CAccount queue解析异常, text: {}", text);
-                return;
+        } finally {
+            if (locked) {
+                // 释放锁
+                redisUtil.releaseLock();
             }
         }
+
+        //加一层保护
+        int costExist = pOrderMapper.getPOrderByPre30AndQQ(c.getAcAccount(), reqMoney);
+        if (costExist > 0){
+            log.error("当前账号半小时内已出单该金额订单，需切换账号, detail info : {}, money :{}", c.getAcAccount(), reqMoney);
+            throw new ServiceException("资源等待...");
+        }
+
         log.info("【任务执行】资源池取出..缓存池[{}],po channel id {} .random ac Info - {}", flag, channelId, c);
 
         String payUrl = handelTxPayUrl(channel.getCChannelId(), reqMoney);
@@ -726,6 +994,38 @@ public class OrderCreateTTask {
         }
         payUrl = starApp + qrCodeValue;
         log.info("cy url 最终值: {}", payUrl);
+        return payUrl;
+    }
+
+    private String handelWMEPayUrl(String address, String userAgent) {
+        String payUrl = "";
+
+        HttpResponse executeLoc = HttpRequest.get(address)
+                .setHttpProxy(ProxyInfoThreadHolder.getIpAddr(), ProxyInfoThreadHolder.getPort())
+                .header("Referer", "https://pay.wanmei.com/")
+                .header("User-Agent", userAgent)
+                .execute();
+
+        String cashierUrl = executeLoc.header("Location");
+        log.info("wme url 二次修正: {}", cashierUrl);
+
+        HttpResponse cashierResp = HttpRequest.get(cashierUrl)
+                .setHttpProxy(ProxyInfoThreadHolder.getIpAddr(), ProxyInfoThreadHolder.getPort())
+                .header("Referer", "https://pay.wanmei.com/")
+                .header("User-Agent", userAgent)
+                .execute();
+
+        String htmlBody = cashierResp.body();
+        String qrCodeValue = CommonUtil.getQrCodeValue(htmlBody);
+
+        String starApp = "alipays://platformapi/startapp?appId=20000067&url=";
+
+        if (qrCodeValue == null) {
+            log.error("qrCodeValue ex， address： {}", address);
+            throw new ServiceException("当前通道无可用的pay地址");
+        }
+        payUrl = starApp + qrCodeValue;
+        log.info("wme url 最终值: {}", payUrl);
         return payUrl;
     }
 

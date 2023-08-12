@@ -50,7 +50,7 @@ public interface PayService extends IService<PAccount> {
 
     String testOrderCallback(String orderId) throws IllegalAccessException;
 
-    String callbackOrder(String orderId) throws IllegalAccessException;
+    String callbackOrder(String orderId, String captcha) throws IllegalAccessException;
 
     PayOrderCreateVO orderQuery(String orderId);
 

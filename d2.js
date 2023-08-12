@@ -2746,7 +2746,7 @@ function get_w(param, user_resp) {
     lang: 'zh',
     ep: '123',
     jiws: '25fd',
-	aute: '1392940837',
+	ijqh: '344489013',
     em: {
       ph: 0,
       cp: 0,
