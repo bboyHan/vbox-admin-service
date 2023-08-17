@@ -78,6 +78,8 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
     @Autowired
     private CAccountMapper cAccountMapper;
     @Autowired
+    private UserMapper userMapper;
+    @Autowired
     private ChannelMapper channelMapper;
     @Autowired
     private CGatewayMapper cGatewayMapper;
@@ -1367,8 +1369,11 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
             target.setPa(p.getPAccount());
 
             CAccount ca = cAccountMapper.getCAccountByAcid(p.getAcId());
-            target.setAcRemark(ca == null ? null : ca.getAcRemark());
-            target.setAcAccount(ca == null ? null : ca.getAcAccount());
+            Integer uid = ca.getUid();
+            User user = userMapper.selectById(uid);
+            target.setUsername(user.getAccount());
+            target.setAcRemark(ca.getAcRemark());
+            target.setAcAccount(ca.getAcAccount());
             target.setChannel(ChannelEnum.of(p.getCChannelId()));
             target.setCallbackStatus(p.getCallbackStatus());
             voList.add(target);
@@ -1715,6 +1720,68 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
         return cookie;
     }
 
+    public String getBalance(String ck, String acPwd) throws IOException {
+//        Object v = redisUtil.get(CommonConstant.ACCOUNT_CK + acAccount);
+//        if (v != null) {
+//            log.info("redis中取出ck, v : {}", v);
+//            return v.toString();
+//        }
+//        String cookie = null;
+
+        ScriptEngineManager manager = new ScriptEngineManager();
+        ScriptEngine engine = manager.getEngineByName("javascript");
+//        File file = ResourceUtils.getFile("classpath:d4.js");
+//        ClassPathResource classPathResource = new ClassPathResource("d4.js");
+//        InputStream is = classPathResource.getInputStream();
+        String property = System.getProperty("user.dir");
+        String filePath = (property + File.separator + "d4.js");
+//        log.info("filePath ： {}", filePath);
+        File inputFile = new File(filePath);
+        InputStream is = Files.newInputStream(inputFile.toPath());
+        File file = new File("tmp");
+        CommonUtil.inputStreamToFile(is, file);
+        FileReader reader = new FileReader(file);   // 执行指定脚本
+        HttpResponse resp = null;
+        try {
+            engine.eval(reader);
+            if (engine instanceof Invocable) {
+                Invocable invoke = (Invocable) engine;    // 调用merge方法，并传入两个参数
+
+                String payload = (String) invoke.invokeFunction("test", acPwd);
+                String encode = URLEncoder.encode(payload, "UTF-8");
+//                System.out.println("pwd = " + encode);
+
+                SecCode secCode = gee4Service.capSecCodeForQuery();
+
+                resp = HttpRequest.get("https://pay-pf-api.xoyo.com/pay/query_api/get_balance")
+                        .form("product", "jx3")
+                        .form("gateway", "z05")
+                        .form("password", encode)
+                        .form("encrypt_method", "rsa")
+                        .form("captcha_id", secCode.getCaptcha_id())
+                        .form("lot_number", secCode.getLot_number())
+                        .form("pass_token", secCode.getPass_token())
+                        .form("gen_time", secCode.getGen_time())
+                        .form("captcha_output", secCode.getCaptcha_output())
+                        .form("callback", "jsonp_" + RandomUtil.randomNumbers(14))
+                        .cookie(ck)
+                        .execute();
+
+                String jsonResp = Gee4Service.parseGeeJson(resp.body());
+
+                JSONObject obj = JSONObject.parseObject(jsonResp);
+                log.info("get_balance ---- obj: {}", obj);
+            }
+        } catch (ScriptException e) {
+            e.printStackTrace();
+        } catch (Exception e) {
+            log.error("query_api/get_balance, err resp : {}", resp == null ? "无响应数据" : resp.body());
+            throw new RuntimeException(e);
+        }
+
+        return null;
+    }
+
     public String getCKforQuery(String acAccount, String acPwd) throws IOException {
         Object v = redisUtil.get(CommonConstant.ACCOUNT_CK + acAccount);
         if (v != null) {
@@ -2044,6 +2111,12 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
         }
 
 
+        return null;
+    }
+
+    @Override
+    public Object tttt() throws IOException {
+        getBalance("xoyokey=ZgzwL33ZL3eej0%3D%26%26xjarkI%3D%26%26a7Wko%3D%26%26r_U%3Dzg3zZggLLg%26WkawLL3e%26%26xkr%3DzZgLg%26%26%3DwlLZg_%3Deezcy%26oWgZee.WBm7gng.z%26raLk%3DZj3Zrco7.keBBz3z3cw3%26o; expires=Wed, 16-Aug-2023 19:08:19 GMT; path=/; domain=.xoyo.com; httponly", "wx12345678");
         return null;
     }
 

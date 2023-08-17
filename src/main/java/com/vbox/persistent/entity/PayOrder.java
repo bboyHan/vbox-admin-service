@@ -13,6 +13,7 @@ public class PayOrder {
 
     @TableId(type = IdType.AUTO)
     private Integer id;
+    private Integer uid;
     private String orderId;
     private String pAccount;
     private Integer cost;

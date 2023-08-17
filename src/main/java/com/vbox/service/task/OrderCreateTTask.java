@@ -52,7 +52,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
-@Component
+//@Component
 @Slf4j
 public class OrderCreateTTask {
 
@@ -254,7 +254,7 @@ public class OrderCreateTTask {
         String acid = c.getAcid();
         String gateway = cgi.getCGateway();
 
-        JSONObject orderJson = createWMorder(account, gateway, userAgent);
+        JSONObject orderJson = createWMorder(account, gateway, reqMoney, userAgent);
         if (orderJson != null && orderJson.getInteger("status") == 0) {
             String platOid = orderJson.getString("ordernumber");
             String address = orderJson.getString("redirectUrl");
@@ -276,7 +276,8 @@ public class OrderCreateTTask {
             String payUrl = handelWMEPayUrl(locUrl, userAgent);
 
             LocalDateTime asyncTime = LocalDateTime.now();
-            pOrderMapper.updateInfoForQueue(orderId, acid, OrderStatusEnum.NO_PAY.getCode(), platOid, payUrl, payIp, asyncTime);
+
+            pOrderMapper.updateInfoForQueue(orderId, c.getUid(), acid, OrderStatusEnum.NO_PAY.getCode(), platOid, payUrl, payIp, asyncTime);
             pOrderEventMapper.updateInfoForQueue(orderId, orderJson.toJSONString(), platOid, address);
 
             PayOrder poDB = pOrderMapper.getPOrderByOid(orderId);
@@ -293,7 +294,7 @@ public class OrderCreateTTask {
     }
 
     @Nullable
-    private static JSONObject createWMorder(String account, String gateway, String userAgent) {
+    private static JSONObject createWMorder(String account, String gateway, Integer money, String userAgent) {
         boolean isMob = CommonUtil.isMobileDevice(userAgent);
         if (!isMob) {
             userAgent = "Mozilla/5.0 (Linux; Android 8.0.0; SM-G955U Build/R16NW) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.141 Mobile Safari/537.36";
@@ -311,7 +312,7 @@ public class OrderCreateTTask {
                         "&username=" + account + "&username2=" + account + "&zone=" + gateway +
                         "&paytype=402&payway=yinhangka&mobery=&sptype=on&cardnumber=&cardpasswd=&sxcardnumber=&sxcardpasswd=&ivrcardnumber=&ivrcardpasswd=&dxcardnumber=&dxcardpasswd=" +
                         "&capTicket=" + captcha +
-                        "&rand=&money=6")
+                        "&rand=&money=" + money)
                 .setHttpProxy(ProxyInfoThreadHolder.getIpAddr(), ProxyInfoThreadHolder.getPort())
                 .header("User-Agent", userAgent)
                 .execute().body();
@@ -401,7 +402,7 @@ public class OrderCreateTTask {
         }
         LocalDateTime asyncTime = LocalDateTime.now();
         channelPreMapper.updateByPlatId(preDB.getPlatOid(), 1); // 1 - 已取码
-        pOrderMapper.updateInfoForQueue(orderId, preDB.getAcid(), OrderStatusEnum.NO_PAY.getCode(), preDB.getPlatOid(), payUrl, payIp, asyncTime);
+        pOrderMapper.updateInfoForQueue(orderId, preDB.getUid(), preDB.getAcid(), OrderStatusEnum.NO_PAY.getCode(), preDB.getPlatOid(), payUrl, payIp, asyncTime);
         pOrderEventMapper.updateInfoForQueue(orderId, "", preDB.getPlatOid(), preDB.getAddress());
 
         PayOrder poDB = pOrderMapper.getPOrderByOid(orderId);
@@ -527,7 +528,7 @@ public class OrderCreateTTask {
 
                 String payUrl = handelPayUrl(data, resource_url, userAgent);
                 LocalDateTime asyncTime = LocalDateTime.now();
-                pOrderMapper.updateInfoForQueue(orderId, c.getAcid(), OrderStatusEnum.NO_PAY.getCode(), platform_oid, payUrl, payIp, asyncTime);
+                pOrderMapper.updateInfoForQueue(orderId, c.getUid(), c.getAcid(), OrderStatusEnum.NO_PAY.getCode(), platform_oid, payUrl, payIp, asyncTime);
                 pOrderEventMapper.updateInfoForQueue(orderId, data.toJSONString(), platform_oid, event.getExt());
 
                 PayOrder poDB = pOrderMapper.getPOrderByOid(orderId);
@@ -649,7 +650,7 @@ public class OrderCreateTTask {
         }
         LocalDateTime asyncTime = LocalDateTime.now();
         channelPreMapper.updateByPlatId(preDB.getPlatOid(), 1); // 1 - 已取码
-        pOrderMapper.updateInfoForQueue(orderId, preDB.getAcid(), OrderStatusEnum.NO_PAY.getCode(), preDB.getPlatOid(), payUrl, payIp, asyncTime);
+        pOrderMapper.updateInfoForQueue(orderId, preDB.getUid(), preDB.getAcid(), OrderStatusEnum.NO_PAY.getCode(), preDB.getPlatOid(), payUrl, payIp, asyncTime);
         pOrderEventMapper.updateInfoForQueue(orderId, "", preDB.getPlatOid(), preDB.getAddress());
 
         PayOrder poDB = pOrderMapper.getPOrderByOid(orderId);
@@ -743,7 +744,7 @@ public class OrderCreateTTask {
         }
         LocalDateTime asyncTime = LocalDateTime.now();
         channelPreMapper.updateByPlatId(preDB.getPlatOid(), 1); // 1 - 已取码
-        pOrderMapper.updateInfoForQueue(orderId, preDB.getAcid(), OrderStatusEnum.NO_PAY.getCode(), preDB.getPlatOid(), payUrl, payIp, asyncTime);
+        pOrderMapper.updateInfoForQueue(orderId, preDB.getUid(), preDB.getAcid(), OrderStatusEnum.NO_PAY.getCode(), preDB.getPlatOid(), payUrl, payIp, asyncTime);
         pOrderEventMapper.updateInfoForQueue(orderId, "", preDB.getPlatOid(), preDB.getAddress());
 
         PayOrder poDB = pOrderMapper.getPOrderByOid(orderId);
@@ -760,13 +761,14 @@ public class OrderCreateTTask {
         boolean flag = false;
 
         // 获取分布式锁
-        boolean locked = false;
-        try {
-            locked = redisUtil.acquireLock();
-            if (locked) {
-                log.warn("锁了...开始走账户获取...");
+//        boolean locked = false;
+//        try {
+//            locked = redisUtil.acquireLock();
+//            if (locked) {
+//                log.warn("锁了...开始走账户获取...");
                 // 执行查询逻辑
-                Object ele = redisUtil.rPop(CommonConstant.CHANNEL_ACCOUNT_QUEUE + "tx:" + reqMoney);
+//                Object ele = redisUtil.rPop(CommonConstant.CHANNEL_ACCOUNT_QUEUE + "tx:" + reqMoney);
+                Object ele = redisUtil.rPop(CommonConstant.CHANNEL_ACCOUNT_QUEUE + cid + ":" + reqMoney);
                 if (ele == null) {
                     List<CAccount> randomTempList = cAccountMapper.selectList(new QueryWrapper<CAccount>()
                             .eq("status", 1)
@@ -823,7 +825,8 @@ public class OrderCreateTTask {
                         randomTempList.remove(randomIndex);
 
                         for (CAccount cAccount : randomTempList) {
-                            redisUtil.lPush(CommonConstant.CHANNEL_ACCOUNT_QUEUE + "tx:" + reqMoney, cAccount);
+//                            redisUtil.lPush(CommonConstant.CHANNEL_ACCOUNT_QUEUE + "tx:" + reqMoney, cAccount);
+                            redisUtil.lPush(CommonConstant.CHANNEL_ACCOUNT_QUEUE + cid + ":" + reqMoney, cAccount);
                         }
                     } catch (Exception e) {
                         log.error("库存金额不足，或库存账号不足");
@@ -839,7 +842,7 @@ public class OrderCreateTTask {
                         return;
                     }
                 }
-            } else {
+            /*} else {
                 // 获取锁失败，进行业务等待
                 boolean success = redisUtil.waitForLock();
                 if (success) {
@@ -921,26 +924,108 @@ public class OrderCreateTTask {
                     log.error("拿锁...超时了...");
                     throw new ServiceException("资源等待...");
                 }
-            }
-        } finally {
-            if (locked) {
-                // 释放锁
-                redisUtil.releaseLock();
-            }
-        }
+            }*/
+//        } finally {
+//            if (locked) {
+//                // 释放锁
+//                redisUtil.releaseLock();
+//            }
+//        }
 
         //加一层保护
         int costExist = pOrderMapper.getPOrderByPre30AndQQ(c.getAcAccount(), reqMoney);
         if (costExist > 0){
             log.error("当前账号半小时内已出单该金额订单，需切换账号, detail info : {}, money :{}", c.getAcAccount(), reqMoney);
-            throw new ServiceException("资源等待...");
+
+            log.warn("重新拿一次");
+//            ele = redisUtil.rPop(CommonConstant.CHANNEL_ACCOUNT_QUEUE + "tx:" + reqMoney);
+            ele = redisUtil.rPop(CommonConstant.CHANNEL_ACCOUNT_QUEUE + cid + ":" + reqMoney);
+            if (ele == null) {
+                List<CAccount> randomTempList = cAccountMapper.selectList(new QueryWrapper<CAccount>()
+                        .eq("status", 1)
+                        .eq("sys_status", 1)
+                        .eq("cid", cid)
+                );
+
+                List<TxWaterList> rl = new ArrayList<>();
+                // 使用HashMap来保存相同充值金额的充值账号
+                Map<Integer, List<String>> map = new HashMap<>();
+
+                if (randomTempList.size() > 10) {
+                    // 随机排序
+                    Collections.shuffle(randomTempList);
+                    // 截取前10个元素
+                    randomTempList = randomTempList.subList(0, 10);
+                } else {
+                    // 全部取出
+                    randomTempList = new ArrayList<>(randomTempList);
+                }
+                for (CAccount cAccount : randomTempList) {
+                    List<TxWaterList> txWaterList = txPayService.queryOrderTXACBy30(cAccount.getAcAccount());
+                    rl.addAll(txWaterList);
+                }
+                log.warn("tx 刷完一次记录, size: {}", rl.size());
+
+                LocalDateTime now = LocalDateTime.now();
+                // 遍历rechargeList进行充值金额的筛选
+                for (TxWaterList recharge : rl) {
+                    Integer payAmt = recharge.getPayAmt() / 100;
+                    String provideID = recharge.getProvideID();
+                    long payTime = recharge.getPayTime();
+                    Instant instant = Instant.ofEpochSecond(payTime);
+                    LocalDateTime payTimeLoc = LocalDateTime.ofInstant(instant, ZoneId.of("Asia/Shanghai"));
+                    LocalDateTime pre30min = now.plusMinutes(-30);
+                    // 如果该充值金额已存在于结果集中，则将充值账号添加进对应的列表中
+                    if (payTimeLoc.isAfter(pre30min)) {
+                        List<String> accountList = map.computeIfAbsent(payAmt, k -> new ArrayList<>());
+                        accountList.add(provideID);
+                    }
+                }
+                log.warn("处理前- map 集: {}", map);
+
+                //获取已经有充值当前金额的账户，作去除处理
+                List<String> qqList = map.get(reqMoney);
+                log.warn("当前30分钟内 - 已支付的记录，金额: {} , 记录：{}", reqMoney, qqList);
+
+                removeTxElements(qqList, randomTempList, reqMoney);
+
+                try {
+                    int randomIndex = RandomUtil.randomInt(randomTempList.size());
+                    c = randomTempList.get(randomIndex);
+
+                    randomTempList.remove(randomIndex);
+
+                    for (CAccount cAccount : randomTempList) {
+//                        redisUtil.lPush(CommonConstant.CHANNEL_ACCOUNT_QUEUE + "tx:" + reqMoney, cAccount);
+                        redisUtil.lPush(CommonConstant.CHANNEL_ACCOUNT_QUEUE + cid + ":" + reqMoney, cAccount);
+                    }
+                } catch (Exception e) {
+                    log.error("库存金额不足，或库存账号不足");
+                    throw new ServiceException("库存金额不足，或库存账号不足，请联系管理员");
+                }
+            } else {
+                String text = ele.toString();
+                flag = true;
+                try {
+                    c = JSONObject.parseObject(text, CAccount.class);
+                } catch (Exception e) {
+                    log.error("CAccount queue解析异常, text: {}", text);
+                    return;
+                }
+            }
+
+            costExist = pOrderMapper.getPOrderByPre30AndQQ(c.getAcAccount(), reqMoney);
+            if (costExist > 0){
+                log.error("拿第二次失败，当前账号半小时内已出单该金额订单，需切换账号, detail info : {}, money :{}", c.getAcAccount(), reqMoney);
+                throw new ServiceException("资源等待...");
+            }
         }
 
         log.info("【任务执行】资源池取出..缓存池[{}],po channel id {} .random ac Info - {}", flag, channelId, c);
 
         String payUrl = handelTxPayUrl(channel.getCChannelId(), reqMoney);
         LocalDateTime asyncTime = LocalDateTime.now();
-        pOrderMapper.updateInfoForQueue(orderId, c.getAcid(), OrderStatusEnum.NO_PAY.getCode(), asyncTime.toEpochSecond(ZoneOffset.UTC) + "|QQ|" + c.getAcAccount(), payUrl, payIp, asyncTime);
+        pOrderMapper.updateInfoForQueue(orderId, c.getUid(), c.getAcid(), OrderStatusEnum.NO_PAY.getCode(), asyncTime.toEpochSecond(ZoneOffset.UTC) + "|QQ|" + c.getAcAccount(), payUrl, payIp, asyncTime);
         pOrderEventMapper.updateInfoForQueue(orderId, "", asyncTime.toEpochSecond(ZoneOffset.UTC) + "|QQ|" + c.getAcAccount(), "");
 
         PayOrder poDB = pOrderMapper.getPOrderByOid(orderId);

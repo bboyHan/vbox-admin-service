@@ -58,4 +58,5 @@ public interface PayService extends IService<PAccount> {
 
     Object handleRealOrder(HttpServletRequest request, String orderId) throws Exception;
 
+    Object tttt() throws IOException;
 }

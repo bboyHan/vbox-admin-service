@@ -2,10 +2,7 @@ package com.vbox.service.channel;
 
 import com.vbox.common.ResultOfList;
 import com.vbox.persistent.entity.CAccount;
-import com.vbox.persistent.pojo.param.CAEnableParam;
-import com.vbox.persistent.pojo.param.CAccountParam;
-import com.vbox.persistent.pojo.param.ChannelPreParam;
-import com.vbox.persistent.pojo.param.TxCAccountParam;
+import com.vbox.persistent.pojo.param.*;
 import com.vbox.persistent.pojo.vo.CAccountVO;
 import com.vbox.persistent.pojo.vo.CGatewayVO;
 import com.vbox.persistent.pojo.vo.VboxUserVO;
@@ -40,6 +37,8 @@ public interface ChannelService {
 
     int enableCAccount(CAEnableParam param) throws IOException;
 
+    int enableBatchCAccount(List<String> acidList, Integer status) throws IOException ;
+
     int deleteCAccount(Integer cid);
 
     String getTxQuery(String orderId);
@@ -48,5 +47,7 @@ public interface ChannelService {
 
     int deleteBatchCAccount(List<String> acidList);
 
-    List<CAccount> listAllCAccount(ChannelPreParam param);
+    List<CAccount> listAllCAccount(CAccountParam param);
+
+    int enableCAccountList(ChannelBatchAcListParam param);
 }

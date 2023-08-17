@@ -261,21 +261,21 @@ public class SaleServiceImpl implements SaleService {
 
         for (User user : userList) {
             Integer sid = user.getId();
-            Integer totalCost = this.vboxUserWalletMapper.getTotalCostByUid(sid);
-            Integer totalCostNum = this.vboxUserWalletMapper.getTotalCostNumByUid(sid);
-            Integer totalProdOrderNum = this.vboxUserWalletMapper.getTotalProdOrderNum(sid);
+            Integer totalCost = vboxUserWalletMapper.getTotalCostByUid(sid);
+            Integer totalCostNum = vboxUserWalletMapper.getTotalCostNumByUid(sid);
+            Integer totalProdOrderNum = vboxUserWalletMapper.getTotalProdOrderNum(sid);
 
-            Integer todayProdOrderNum = this.vboxUserWalletMapper.getTodayProdOrderNum(sid);
-            Integer todayOrderNum = this.vboxUserWalletMapper.getTodayOrderNum(sid);
-            Integer todayOrderSum = this.vboxUserWalletMapper.getTodayOrderSum(sid);
+            Integer todayProdOrderNum = vboxUserWalletMapper.getTodayProdOrderNum(sid);
+            Integer todayOrderNum = vboxUserWalletMapper.getTodayOrderNum(sid);
+            Integer todayOrderSum = vboxUserWalletMapper.getTodayOrderSum(sid);
 
-            Integer yesterdayProdNum = this.vboxUserWalletMapper.getYesterdayProdOrderNum(sid);
-            Integer yesterdayNum = this.vboxUserWalletMapper.getYesterdayOrderNum(sid);
+            Integer yesterdayProdNum = vboxUserWalletMapper.getYesterdayProdOrderNum(sid);
+            Integer yesterdayNum = vboxUserWalletMapper.getYesterdayOrderNum(sid);
             Integer yesterdayOrderSum = this.vboxUserWalletMapper.getYesterdayOrderSum(sid);
 
-            Integer countCA = this.cAccountMapper.countByUid(sid);
-            Integer countEnableCA = this.cAccountMapper.countACEnableByUid(sid);
-            Integer totalRecharge = this.vboxUserWalletMapper.getTotalRechargeByUid(sid);
+            Integer countCA = cAccountMapper.countByUid(sid);
+            Integer countEnableCA = cAccountMapper.countACEnableByUid(sid);
+            Integer totalRecharge = vboxUserWalletMapper.getTotalRechargeByUid(sid);
             SaleVO saleVO = new SaleVO();
             saleVO.setId(sid);
             saleVO.setAccount(user.getAccount());

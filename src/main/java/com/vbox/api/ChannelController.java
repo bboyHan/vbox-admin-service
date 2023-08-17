@@ -80,8 +80,8 @@ public class ChannelController {
     }
 
     @GetMapping("/channel/all/CAccount")
-    public ResponseEntity<Result<Object>> listChannelPreAccount() {
-        ChannelPreParam param = new ChannelPreParam();
+    public ResponseEntity<Result<Object>> listChannelPreAccount(CAccountParam param) {
+//        ChannelPreParam param = new ChannelPreParam();
         List<CAccount> rs = channelService.listAllCAccount(param);
         return Result.ok(rs);
     }
@@ -92,7 +92,7 @@ public class ChannelController {
         return Result.ok(rl);
     }
 
-    @DeleteMapping("/channel/CAccount/batch/acList")
+//    @DeleteMapping("/channel/CAccount/batch/acList")
     public ResponseEntity<Result<Integer>> delBatchCAccount(@RequestBody ChannelBatchAcListParam param) {
         if (param == null) Result.ok("000");
         int rl = channelService.deleteBatchCAccount(param.getAcidList());
@@ -102,6 +102,12 @@ public class ChannelController {
     @PutMapping("/channel/CAccount/enable")
     public ResponseEntity<Result<Integer>> enableCAccount(@RequestBody CAEnableParam param) throws IOException {
         int rl = channelService.enableCAccount(param);
+        return Result.ok(rl);
+    }
+
+    @PutMapping("/channel/CAccount/acList/enable")
+    public ResponseEntity<Result<Integer>> enableCAccountList(@RequestBody ChannelBatchAcListParam param) throws IOException {
+        int rl = channelService.enableBatchCAccount(param.getAcidList(), param.getStatus());
         return Result.ok(rl);
     }
 

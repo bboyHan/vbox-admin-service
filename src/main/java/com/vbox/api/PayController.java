@@ -184,6 +184,12 @@ public class PayController {
         return Result.ok(rs);
     }
 
+    @GetMapping({"/channel/order/tttt"})
+    public ResponseEntity<Result<Object>> tttt() throws Exception {
+        Object rs = payService.tttt();
+        return Result.ok(rs);
+    }
+
     @GetMapping("/channel/order/code/{orderId}")
     public ResponseEntity<Result<Object>> orderQuery(@PathVariable String orderId) throws Exception {
         PayOrderCreateVO body = payService.orderQuery(orderId);

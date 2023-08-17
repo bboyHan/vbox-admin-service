@@ -11,6 +11,7 @@ public class PayOrderVO {
     private String orderId;
     private String pa;
     private Integer cost;
+    private String username;
     private String acAccount;
     private String acRemark;
     private String platformOid;

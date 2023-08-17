@@ -46,8 +46,8 @@ public interface POrderMapper extends BaseMapper<PayOrder> {
     @Select("select * from vbox_pay_order where order_status = 2 AND create_time < DATE_SUB(NOW(), INTERVAL 5 MINUTE)")
     List<PayOrder> listUnPay();
 
-    @Update("update vbox_pay_order set order_status = #{status},ac_id = #{acid}, code_use_status = 1, resource_url = #{payUrl}, platform_oid = #{platformOid}, pay_ip = #{payIp}, async_time = #{asyncTime} where order_id = #{orderId}")
-    int updateInfoForQueue(@Param("orderId") String orderId, @Param("acid") String acid, @Param("status") int status, @Param("platformOid") String platformOid, @Param("payUrl") String payUrl, @Param("payIp") String payIp, LocalDateTime asyncTime);
+    @Update("update vbox_pay_order set order_status = #{status},uid = #{uid},ac_id = #{acid}, code_use_status = 1, resource_url = #{payUrl}, platform_oid = #{platformOid}, pay_ip = #{payIp}, async_time = #{asyncTime} where order_id = #{orderId}")
+    int updateInfoForQueue(@Param("orderId") String orderId, @Param("uid") Integer uid, @Param("acid") String acid, @Param("status") int status, @Param("platformOid") String platformOid, @Param("payUrl") String payUrl, @Param("payIp") String payIp, LocalDateTime asyncTime);
 
     // ===================== 通道 订单数=============================
     // 通道 所有产单
@@ -183,5 +183,5 @@ public interface POrderMapper extends BaseMapper<PayOrder> {
     Integer isExistPOrderByAcIdAndStatus(String acid, Integer money);
 
     @Select("select count(1) from vbox_pay_order where platform_oid like '%' #{acAccount} '%' and cost = #{money} and create_time >= DATE_SUB(NOW(), INTERVAL 30 MINUTE)")
-    int getPOrderByPre30AndQQ(String acAccount, Integer reqMoney);
+    int getPOrderByPre30AndQQ(String acAccount, Integer money);
 }
