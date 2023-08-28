@@ -31,11 +31,11 @@ spring:
 
   redis:
     # 正式 - cyf
-#    host: vboxredis.redis.rds.aliyuncs.com
+    host: vboxredis.redis.rds.aliyuncs.com
     # 正式 - hbz
 #    host: bp1ng21rn0oafucg7kpd.redis.rds.aliyuncs.com
-#    password: Vbox123qwe
-    host: 127.0.0.1
+    password: Vbox123qwe
+#    host: 127.0.0.1
     port: 6379
 #    redisson: classpath:redisson.yml
 

@@ -1,5 +1,6 @@
 package com.vbox.service.task;
 
+import cn.hutool.core.codec.Base64;
 import cn.hutool.core.util.RandomUtil;
 import cn.hutool.http.HttpRequest;
 import cn.hutool.http.HttpResponse;
@@ -14,6 +15,7 @@ import com.vbox.common.util.RedisUtil;
 import com.vbox.config.exception.NotFoundException;
 import com.vbox.config.exception.ServiceException;
 import com.vbox.persistent.entity.*;
+import com.vbox.persistent.pojo.dto.CGatewayInfo;
 import com.vbox.persistent.pojo.dto.TxWaterList;
 import com.vbox.persistent.pojo.vo.PayNotifyVO;
 import com.vbox.persistent.repo.*;
@@ -71,59 +73,6 @@ public class OrderTask {
     @Autowired
     private TxPayService txPayService;
 
-    //    @Scheduled(cron = "0 */1 * * * ?")
-    public void handleUserBalance() {
-        List<User> users = userMapper.selectList(null);
-
-        for (User user : users) {
-            Integer uid = user.getId();
-            // 总账户充值
-            Integer totalRecharge = vboxUserWalletMapper.getTotalRechargeByUid(uid);
-
-            // 总订单充值（花费）
-            Integer totalCost = vboxUserWalletMapper.getTotalCostByUid(uid);
-
-            totalRecharge = totalRecharge == null ? 0 : totalRecharge;
-            totalCost = totalCost == null ? 0 : totalCost;
-            // 总余额
-            int balance = totalRecharge - totalCost;
-
-            if (balance <= 0) {
-                cAccountMapper.stopByUid("系统监测余额不足，请联系管理员确认", uid);
-            }
-
-            if (balance > 500 && balance < 5000) {
-                cAccountMapper.startByUid("账户余额不足5000，请注意使用", uid);
-            }
-
-            if (balance > 5000) {
-                cAccountMapper.startByUid("账户可正常使用，请随时查看状态", uid);
-            }
-        }
-
-        QueryWrapper<CAccount> queryWrapper = new QueryWrapper<>();
-//        queryWrapper.eq("status", 1);
-        queryWrapper.eq("sys_status", 1);
-        List<CAccount> acList = cAccountMapper.selectList(queryWrapper);
-
-        for (CAccount ca : acList) {
-            Integer dailyLimit = ca.getDailyLimit();
-            Integer totalLimit = ca.getTotalLimit();
-
-            Integer acID = ca.getId();
-            Integer todayCost = vboxUserWalletMapper.getTodayOrderSumByCaid(acID);
-            Integer totalCost = vboxUserWalletMapper.getTotalCostByCaid(acID);
-
-            if (dailyLimit != null && dailyLimit > 0 && todayCost != null && todayCost >= dailyLimit) {
-                cAccountMapper.stopByCaId("已超出日内限额，账号关闭", acID);
-            }
-
-            if (totalLimit != null && totalLimit > 0 && totalCost != null && totalCost >= totalLimit) {
-                cAccountMapper.stopByCaId("已超出总限额控制，账号关闭", acID);
-            }
-        }
-    }
-
     @Scheduled(cron = "0/1 * *  * * ? ")   //每 2秒执行一次, 处理成功订单的回调通知
     @Async("scheduleExecutor")
     public void handleCallbackOrder() throws IllegalAccessException {
@@ -135,88 +84,92 @@ public class OrderTask {
         log.info("handleCallbackOrder.start");
         for (Object nextOrder : set) {
             String orderId = nextOrder.toString();
-            PayOrder po = pOrderMapper.getPOrderByOid(orderId);
-
-//            try {
-//                //生产
-//                JSONObject resp = payService.queryOrder(orderId);
-//                JSONObject data = resp.getJSONObject("data");
-//                Integer code = data.getInteger("order_status");
-//                //测试
-//                //Integer code = 1;
-//                if (code == 0) { // 告知 支付成功，但查询平台，发现未支付，则改为支付失败 0
-//                    pOrderMapper.updateStatusByOIdWhenCall(orderId, OrderStatusEnum.PAY_FAILED.getCode(), CodeStatusEnum.PLATFORM_NOT_PAY.getCode());
-//                }
-//
-//                if (code == 2) { // 告知 支付成功，查询平台已支付，则改为支付成功 1
-//                    pOrderMapper.updateStatusByOIdWhenCall(orderId, OrderStatusEnum.PAY_FINISHED.getCode(), CodeStatusEnum.FINISHED.getCode());
-//
-//                    OrderCallbackVO vo = new OrderCallbackVO();
-//                    vo.setPay_status(OrderStatusEnum.PAY_FINISHED.getCode());
-//                    vo.setPay_desc(OrderStatusEnum.PAY_FINISHED.getMsg());
-//                    vo.setMsg(CodeStatusEnum.FINISHED.getMsg());
-//                    vo.setP_order_id(orderId);
-//
-//                    //支付入库 wallet
-//                    String acId = po.getAcId();
-//                    CAccount ca = cAccountMapper.selectOne(new QueryWrapper<CAccount>().eq("acid", acId));
-//
-//                    CAccountWallet w = new CAccountWallet();
-//                    w.setOid(orderId);
-//                    w.setCaid(ca.getId());
-//                    w.setCreateTime(LocalDateTime.now());
-//                    w.setCost(po.getCost());
-//                    cAccountWalletMapper.insert(w);
-//
-//
-//                }
-//            } catch (Exception e) {
-//                log.error("handleCallbackOrder", e);
-//            }finally {
-//                long row = redisUtil.setRemove(CommonConstant.ORDER_CALLBACK_QUEUE, orderId);
-//                if (row == 0) {
-//                    log.info("[call back success], order info: {}", po);
-//                }
-//            }
-
-            String notify = po.getNotifyUrl();
-            if (notify == null || "".equals(notify)) {
-                log.info("该订单未设置回调地址，放弃通知，orderID：{}", orderId);
-                redisUtil.setRemove(CommonConstant.ORDER_CALLBACK_QUEUE, orderId);
-                continue;
-            }
-
-            PayNotifyVO vo = new PayNotifyVO();
-            vo.setOrder_id(orderId);
-            vo.setStatus(1);
-            vo.setCost(po.getCost());
-            String account = po.getPAccount();
-            PAccount pa = pAccountMapper.selectOne(new QueryWrapper<PAccount>().eq("p_account", account));
-            vo.setP_account(account);
-            String sign = CommonUtil.encodeSign(CommonUtil.objToTreeMap(vo), pa.getPKey());
-            vo.setSign(sign);
-            HttpResponse resp = null;
             try {
-                String reqBody = JSONObject.toJSONString(vo);
-                log.info("回调请求消息：notify：{}，req body：{}", notify, reqBody);
-                this.redisUtil.pub(String.format("回调请求消息：notify：%s，req body：%s", notify, reqBody));
-                resp = HttpRequest.post(notify)
-                        .body(reqBody)
-                        .execute();
-                log.info("回调返回信息： http status： {}， resp： {}", resp.getStatus(), resp.body());
-                this.redisUtil.pub(String.format("回调返回信息： http status： %s， resp： %s", resp.getStatus(), resp.body()));
-                if (resp.getStatus() == 200) {
-                    LocalDateTime callTime = LocalDateTime.now();
-                    pOrderMapper.updateCallbackStatusByOIdForSys(orderId, callTime);
-                    redisUtil.setRemove(CommonConstant.ORDER_CALLBACK_QUEUE, orderId);
-                    log.info("该订单已回调成功，通知url：{}，orderID：{}", notify, orderId);
+                Boolean keyAvailable = redisUtil.isKeyAvailable(CommonConstant.CALLBACK_QUEUE + orderId, 3);
+
+                if (keyAvailable == null) {
+                    redisUtil.set0Key(CommonConstant.CALLBACK_QUEUE + orderId);
+
+                    PayOrder po = pOrderMapper.getPOrderByOid(orderId);
+
+                    String notify = po.getNotifyUrl();
+                    if (notify == null || "".equals(notify)) {
+                        log.info("该订单未设置回调地址，放弃通知，orderID：{}", orderId);
+                        redisUtil.setRemove(CommonConstant.ORDER_CALLBACK_QUEUE, orderId);
+                        continue;
+                    }
+
+                    PayNotifyVO vo = new PayNotifyVO();
+                    vo.setOrder_id(orderId);
+                    vo.setStatus(1);
+                    vo.setCost(po.getCost());
+                    String account = po.getPAccount();
+                    PAccount pa = pAccountMapper.selectOne(new QueryWrapper<PAccount>().eq("p_account", account));
+                    vo.setP_account(account);
+                    String sign = CommonUtil.encodeSign(CommonUtil.objToTreeMap(vo), pa.getPKey());
+                    vo.setSign(sign);
+                    HttpResponse resp = null;
+                    String reqBody = JSONObject.toJSONString(vo);
+                    log.info("回调请求消息：notify：{}，req body：{}", notify, reqBody);
+                    resp = HttpRequest.post(notify)
+                            .body(reqBody)
+//                            .timeout(5000)
+                            .execute();
+                    log.info("回调返回信息： http status： {}， resp： {}", resp.getStatus(), resp.body());
+//                    redisUtil.set0Key(CommonConstant.CALLBACK_QUEUE + orderId);
+
+                    if (resp.getStatus() == 200) {
+                        LocalDateTime callTime = LocalDateTime.now();
+                        pOrderMapper.updateCallbackStatusByOIdForSys(orderId, callTime);
+                        redisUtil.setRemove(CommonConstant.ORDER_CALLBACK_QUEUE, orderId);
+                        log.info("该订单已回调成功，通知url：{}，orderID：{}", notify, orderId);
+                    }
+                    log.warn("首次回调, order id -> {}", orderId);
+                } else if (keyAvailable) {
+                    redisUtil.incrementCount(CommonConstant.CALLBACK_QUEUE + orderId);
+                    log.warn("非首次回调当前order id - {}", orderId);
+                    PayOrder po = pOrderMapper.getPOrderByOid(orderId);
+
+                    String notify = po.getNotifyUrl();
+                    if (notify == null || "".equals(notify)) {
+                        log.info("该订单未设置回调地址，放弃通知，orderID：{}", orderId);
+                        redisUtil.setRemove(CommonConstant.ORDER_CALLBACK_QUEUE, orderId);
+                        continue;
+                    }
+
+                    PayNotifyVO vo = new PayNotifyVO();
+                    vo.setOrder_id(orderId);
+                    vo.setStatus(1);
+                    vo.setCost(po.getCost());
+                    String account = po.getPAccount();
+                    PAccount pa = pAccountMapper.selectOne(new QueryWrapper<PAccount>().eq("p_account", account));
+                    vo.setP_account(account);
+                    String sign = CommonUtil.encodeSign(CommonUtil.objToTreeMap(vo), pa.getPKey());
+                    vo.setSign(sign);
+                    HttpResponse resp = null;
+
+                    String reqBody = JSONObject.toJSONString(vo);
+                    log.info("回调请求消息：notify：{}，req body：{}", notify, reqBody);
+                    resp = HttpRequest.post(notify)
+                            .body(reqBody)
+//                            .timeout(5000)
+                            .execute();
+                    log.info("回调返回信息： http status： {}， resp： {}", resp.getStatus(), resp.body());
+
+                    if (resp.getStatus() == 200) {
+                        LocalDateTime callTime = LocalDateTime.now();
+                        pOrderMapper.updateCallbackStatusByOIdForSys(orderId, callTime);
+                        redisUtil.setRemove(CommonConstant.ORDER_CALLBACK_QUEUE, orderId);
+                        log.info("该订单已回调成功，通知url：{}，orderID：{}", notify, orderId);
+                    }
+                } else {
+                    log.warn("超限回调停止, order id -> {}", orderId);
                 }
             } catch (Exception e) {
-                log.error("回调失败，notify: {}, resp: {}, err: {}", notify, resp, e);
+                log.error("回调失败, order id : {}, err: {}", orderId, e);
             }
         }
         log.info("handleCallbackOrder.end");
-
     }
 
 //    @Scheduled(cron = "0/10 * * * * ? ")   //每 10秒执行一次, 超时处理
@@ -330,7 +283,7 @@ public class OrderTask {
                                     log.info("[task check] not pay order, check platform pay timeout, pay order: {}", po);
                                 }
                             } else {
-                                boolean b = redisUtil.lPush(CommonConstant.ORDER_QUERY_QUEUE, po);
+                                boolean b = redisUtil.sAdd(CommonConstant.ORDER_QUERY_QUEUE, po);
                                 log.error("【任务执行】handleUnPayOrder重新丢回队列, {}, push: {}", po.getOrderId(), b);
                             }
                         }
@@ -527,7 +480,7 @@ public class OrderTask {
                                 log.info("[task check] not pay order, check platform pay timeout, pay order: {}", po);
                             }
                         } else {
-                            boolean b = redisUtil.lPush(CommonConstant.ORDER_QUERY_QUEUE, po);
+                            boolean b = redisUtil.sAdd(CommonConstant.ORDER_QUERY_QUEUE, po);
                             log.error("【任务执行】handleUnPayOrder重新丢回队列, {}, push: {}", po.getOrderId(), b);
                         }
                     }
@@ -580,75 +533,6 @@ public class OrderTask {
         }
     }
 
-    public void collectTxAccList() {
-
-        List<Integer> cidList = channelMapper.listCID2tx();
-        for (Integer cid : cidList) {
-            CChannel cChannel = channelMapper.getChannelById(cid);
-            String channel = cChannel.getCChannelId();
-            List<CAccount> randomTempList = cAccountMapper.selectList(new QueryWrapper<CAccount>()
-                    .eq("status", 1)
-                    .eq("sys_status", 1)
-                    .eq("cid", cid)
-            );
-
-            List<TxWaterList> rl = new ArrayList<>();
-            // 使用HashMap来保存相同充值金额的充值账号
-            Map<Integer, List<String>> map = new HashMap<>();
-
-            if (randomTempList.size() > 20) {
-                // 随机排序
-                Collections.shuffle(randomTempList);
-                // 截取前20个元素
-                randomTempList = randomTempList.subList(0, 20);
-            } else {
-                // 全部取出
-                randomTempList = new ArrayList<>(randomTempList);
-            }
-
-            for (CAccount cAccount : randomTempList) {
-                List<TxWaterList> txWaterList = txPayService.queryOrderTXACBy30(cAccount.getAcAccount());
-                rl.addAll(txWaterList);
-            }
-
-            log.warn("tx 刷完一次记录, size: {}", rl.size());
-
-            LocalDateTime now = LocalDateTime.now();
-            // 遍历rechargeList进行充值金额的筛选
-            for (TxWaterList recharge : rl) {
-                Integer payAmt = recharge.getPayAmt() / 100;
-                String provideID = recharge.getProvideID();
-                long payTime = recharge.getPayTime();
-                Instant instant = Instant.ofEpochSecond(payTime);
-                LocalDateTime payTimeLoc = LocalDateTime.ofInstant(instant, ZoneId.of("Asia/Shanghai"));
-                LocalDateTime pre30min = now.plusMinutes(-30);
-                // 如果该充值金额已存在于结果集中，则将充值账号添加进对应的列表中
-                if (payTimeLoc.isAfter(pre30min)) {
-                    List<String> accountList = map.computeIfAbsent(payAmt, k -> new ArrayList<>());
-                    accountList.add(provideID);
-                }
-            }
-
-            log.warn("处理前- map 集: {}", map);
-
-            List<Integer> moneyList = channelShopMapper.getChannelShopMoneyList(channel);
-
-            for (Integer reqMoney : moneyList) {
-                ArrayList<CAccount> currentList = new ArrayList<>(randomTempList);
-                //获取已经有充值当前金额的账户，作去除处理
-                List<String> qqList = map.get(reqMoney);
-                log.warn("当前30分钟内 - 已支付的记录，金额: {} , 记录：{}", reqMoney, qqList);
-
-                removeTxElements(qqList, currentList, reqMoney);
-
-                for (CAccount cAccount : currentList) {
-                    redisUtil.lPush(CommonConstant.CHANNEL_ACCOUNT_QUEUE + cid + ":" + reqMoney, cAccount);
-                }
-            }
-        }
-
-    }
-
     public void removeTxElements(List<String> qqList, List<CAccount> txList, Integer money) {
         Iterator<CAccount> iterator = txList.iterator();
 
@@ -695,7 +579,7 @@ public class OrderTask {
 
     @Scheduled(cron = "0/3 * * * * ?")   //每 2s 执行一次, 未支付单子复核 redis 池子
     public void handleAsyncUnPayOrder() {
-        Object ele = redisUtil.rPop(CommonConstant.ORDER_QUERY_QUEUE);
+        Object ele = redisUtil.sPop(CommonConstant.ORDER_QUERY_QUEUE);
         if (ele == null) {
             return;
         }
@@ -751,7 +635,7 @@ public class OrderTask {
                                 log.info("[task check] not pay order, check platform pay timeout, pay order: {}", po);
                             }
                         } else {
-                            boolean b = redisUtil.lPush(CommonConstant.ORDER_QUERY_QUEUE, po);
+                            boolean b = redisUtil.sAdd(CommonConstant.ORDER_QUERY_QUEUE, po);
                             log.error("【任务执行】handleUnPayOrder重新丢回队列, {}, push: {}", po.getOrderId(), b);
                         }
                     }
@@ -802,9 +686,72 @@ public class OrderTask {
                                 log.info("【任务执行】 not pay order, 订单超时置为超时状态, pay order: {}, platform order info: {}", po, data);
                             }
                         } else {
-                            boolean b = redisUtil.lPush(CommonConstant.ORDER_QUERY_QUEUE, po);
+                            boolean b = redisUtil.sAdd(CommonConstant.ORDER_QUERY_QUEUE, po);
                             log.error("【任务执行】handleUnPayOrder重新丢回队列, {}, push: {}", po.getOrderId(), b);
                         }
+                    }
+                }
+            } else if (cChannelId.contains("xoy")) { // c_channel_id = xoy
+                log.warn("xoyo 自动查单任务开始执行- channel: {}", cChannelId);
+
+//                payService.addProxy(null, po.getPayIp(), null);
+                payService.addProxy(null, "127.0.0.1", null);
+
+                Integer money = po.getCost();
+//                String acAccount = caDB.getAcAccount();
+//                String acPwd = caDB.getAcPwd();
+//                String realPwd = Base64.decodeStr(acPwd);;
+//                String cookie = "";
+//                cookie = payService.getCK(acAccount, realPwd);
+//                boolean expire = gee4Service.tokenCheck(cookie, acAccount);
+//                if (!expire) {
+//                    redisUtil.del("account:ck:" + acAccount);
+//                    cookie = payService.getCK(acAccount, realPwd);
+//                    expire = gee4Service.tokenCheck(cookie, acAccount);
+//                    if (!expire) {
+////                        cAccountMapper.stopByCaId("ck或密码有误，请更新", caDB.getId());
+//                        throw new NotFoundException("ck问题，请联系管理员");
+//                    }
+//                }
+
+                CGatewayInfo cgi = cGatewayMapper.getGateWayInfoByCIdAndGId(caDB.getCid(), caDB.getGid());
+//                Integer currentBalance = payService.getBalance(cgi.getCGateway(), cookie, realPwd);
+                Integer currentBalance = payService.getBalance2JXAcc(cgi.getCGateway(), caDB);
+
+                Integer preBalance = (Integer) redisUtil.get(CommonConstant.CHANNEL_ACCOUNT_BALANCE + caDB.getAcid() + "|" + caDB.getAcAccount());
+                log.warn("preBalance - {}, current balance : {}, acc info : {}", preBalance, currentBalance, caDB.getAcAccount());
+                if (currentBalance - preBalance == money * 100) { // 判断为充值成功
+                    int row = pOrderMapper.updateOStatusByOId(orderId, OrderStatusEnum.PAY_FINISHED.getCode(), CodeUseStatusEnum.FINISHED.getCode());
+                    if (row == 1) {
+                        // 支付成功后 入库 wallet
+                        CAccountWallet w = new CAccountWallet();
+                        w.setCaid(caDB.getId());
+                        w.setCost(po.getCost());
+                        w.setOid(po.getOrderId());
+                        w.setCreateTime(nowTime);
+                        try {
+                            cAccountWalletMapper.insert(w);
+                        } catch (Exception ex) {
+                            log.warn("CAccountWallet 已经入库, err: {}", ex.getMessage());
+                        }
+                        log.info("[task check] 自动查单, 查询到该单在平台已支付成功，自动入库并入回调池: orderId - {}", po.getOrderId());
+                        long rowRedis = redisUtil.sSetAndTime(CommonConstant.ORDER_CALLBACK_QUEUE, 300, orderId);
+                        if (rowRedis == 1) {
+                            log.info("handleUnPayOrder, 查询未支付订单已完成支付，入回调通知池， 订单ID: {}", orderId);
+                        }
+                    }
+                }else {
+                    //没查到充值记录
+                    LocalDateTime orderTime = po.getCreateTime();
+                    LocalDateTime pre8min = nowTime.plusMinutes(-8);
+                    if (pre8min.isAfter(orderTime)) { //超8分钟了查到未支付，直接设置为失败单
+                        int row = pOrderMapper.updateOStatusByOId(orderId, OrderStatusEnum.PAY_TIMEOUT.getCode(), CodeUseStatusEnum.PLATFORM_NOT_PAY.getCode());
+                        if (row == 1) {
+                            log.info("[task check] not pay order, check platform pay timeout, pay order: {}", po);
+                        }
+                    } else {
+                        boolean b = redisUtil.sAdd(CommonConstant.ORDER_QUERY_QUEUE, po);
+                        log.error("【任务执行】handleUnPayOrder重新丢回队列, {}, push: {}", po.getOrderId(), b);
                     }
                 }
             } else if (cChannelId.contains("tx")) { // c_channel_id = tx
@@ -815,11 +762,8 @@ public class OrderTask {
                 payService.addProxy(null, "127.0.0.1", null);
 
                 Integer money = po.getCost();
-//                String openID = caDB.getAcPwd();
-//                String openKey = caDB.getCk();
                 String qq = caDB.getAcAccount();
 
-//                List<TxWaterList> txWaterLists = txPayService.queryOrderBy30(openID, openKey);
                 List<TxWaterList> txWaterLists = txPayService.queryOrderTXACBy30(qq);
 
                 // 使用HashMap来保存相同充值金额的充值账号
@@ -861,7 +805,7 @@ public class OrderTask {
                             log.info("[task check] not pay order, check platform pay timeout, pay order: {}", po);
                         }
                     } else {
-                        boolean b = redisUtil.lPush(CommonConstant.ORDER_QUERY_QUEUE, po);
+                        boolean b = redisUtil.sAdd(CommonConstant.ORDER_QUERY_QUEUE, po);
                         log.error("【任务执行】handleUnPayOrder重新丢回队列, {}, push: {}", po.getOrderId(), b);
                     }
                 } else {
@@ -895,7 +839,7 @@ public class OrderTask {
                                 log.info("[task check] not pay order, check platform pay timeout, pay order: {}", po);
                             }
                         } else {
-                            boolean b = redisUtil.lPush(CommonConstant.ORDER_QUERY_QUEUE, po);
+                            boolean b = redisUtil.sAdd(CommonConstant.ORDER_QUERY_QUEUE, po);
                             log.error("【任务执行】handleUnPayOrder重新丢回队列, {}, push: {}", po.getOrderId(), b);
                         }
                     }
@@ -939,7 +883,7 @@ public class OrderTask {
                             log.info("[task check] not pay order, check platform pay timeout, pay order: {}", po);
                         }
                     } else {
-                        boolean b = redisUtil.lPush(CommonConstant.ORDER_QUERY_QUEUE, po);
+                        boolean b = redisUtil.sAdd(CommonConstant.ORDER_QUERY_QUEUE, po);
                         log.error("【任务执行】handleUnPayOrder重新丢回队列, {}, push: {}", po.getOrderId(), b);
                     }
                 }
@@ -983,7 +927,7 @@ public class OrderTask {
                             log.info("[task check] not pay order, check platform pay timeout, pay order: {}", po);
                         }
                     } else {
-                        boolean b = redisUtil.lPush(CommonConstant.ORDER_QUERY_QUEUE, po);
+                        boolean b = redisUtil.sAdd(CommonConstant.ORDER_QUERY_QUEUE, po);
                         log.error("【任务执行】handleUnPayOrder重新丢回队列, {}, push: {}", po.getOrderId(), b);
                     }
                 }
@@ -1003,7 +947,7 @@ public class OrderTask {
                 log.error("【任务执行】handleUnPayOrder数据库置为异常单, orderId : {}", po.getOrderId());
             } else {
                 if (po != null) {
-                    boolean b = redisUtil.lPush(CommonConstant.ORDER_QUERY_QUEUE, po);
+                    boolean b = redisUtil.sAdd(CommonConstant.ORDER_QUERY_QUEUE, po);
                     log.error("【任务执行】handleUnPayOrder重新丢回队列, {}, push: {}", po.getOrderId(), b);
                 }
             }

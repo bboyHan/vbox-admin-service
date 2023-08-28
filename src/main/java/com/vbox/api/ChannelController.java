@@ -86,7 +86,7 @@ public class ChannelController {
         return Result.ok(rs);
     }
 
-//    @DeleteMapping("/channel/CAccount/{cid}")
+    @DeleteMapping("/channel/CAccount/{cid}")
     public ResponseEntity<Result<Integer>> delCAccount(@PathVariable Integer cid) {
         int rl = channelService.deleteCAccount(cid);
         return Result.ok(rl);
@@ -129,6 +129,12 @@ public class ChannelController {
         return Result.ok(rl);
     }
 
+    @PutMapping("/channel/xoyCAccount")
+    public ResponseEntity<Result<Integer>> updateXoyCAccount(@RequestBody CAccountParam param) throws IOException {
+        int rl = channelService.updateXoyCAccount(param);
+        return Result.ok(rl);
+    }
+
     @GetMapping("/channel/gateway")
     public ResponseEntity<Result<List<CGatewayVO>>> getGatewayList(@RequestParam(value = "c_channel_id", required = false) String c_channel_id) {
         List<CGatewayVO> rl = new ArrayList<>();
@@ -144,7 +150,13 @@ public class ChannelController {
 
     @GetMapping("/channel/txQuery/{id}")
     public ResponseEntity<Result<Object>> getTxQuery(@PathVariable String id) {
-        String rl = channelService.getTxQuery(id);
+        Object rl = channelService.getTxQuery(id);
+        return Result.ok(rl);
+    }
+
+    @GetMapping("/channel/accQuery/{id}")
+    public ResponseEntity<Result<Object>> getAccQuery(@PathVariable String id) {
+        Object rl = channelService.getAccQuery(id);
         return Result.ok(rl);
     }
 }

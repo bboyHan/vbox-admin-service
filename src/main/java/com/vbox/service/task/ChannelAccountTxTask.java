@@ -117,7 +117,7 @@ public class ChannelAccountTxTask {
 
                 for (Integer reqMoney : moneyList) {
                     //确保数据不要超过150个
-                    long size = redisUtil.lGetListSize(CommonConstant.CHANNEL_ACCOUNT_QUEUE + cid + ":" + reqMoney);
+                    long size = redisUtil.sSize(CommonConstant.CHANNEL_ACCOUNT_QUEUE + cid + ":" + reqMoney);
                     log.warn("当前cid的 money - {}, acc池子个数: {}", reqMoney, size);
                     if (size > 200) {
                         redisUtil.del(CommonConstant.CHANNEL_ACCOUNT_QUEUE + cid + ":" + reqMoney);
@@ -137,7 +137,7 @@ public class ChannelAccountTxTask {
                         if (costExist > 0) {
                             log.warn("当前账号库中已有订单，不入缓存池, acc: {}", cAccount.getAcAccount());
                         }else {
-                            redisUtil.lPush(CommonConstant.CHANNEL_ACCOUNT_QUEUE + cid + ":" + reqMoney, cAccount);
+                            redisUtil.sAdd(CommonConstant.CHANNEL_ACCOUNT_QUEUE + cid + ":" + reqMoney, cAccount);
                         }
                     }
                 }

@@ -3,6 +3,7 @@ package com.vbox.service.channel;
 import com.alibaba.fastjson2.JSONObject;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.vbox.common.ResultOfList;
+import com.vbox.persistent.entity.CAccount;
 import com.vbox.persistent.entity.PAccount;
 import com.vbox.persistent.pojo.dto.PayInfo;
 import com.vbox.persistent.pojo.param.*;
@@ -59,4 +60,9 @@ public interface PayService extends IService<PAccount> {
     Object handleRealOrder(HttpServletRequest request, String orderId) throws Exception;
 
     Object tttt() throws IOException;
+
+    Integer getBalance(String gateway, String ck, String acPwd) throws IOException;
+
+    Integer getBalance2JXAcc(String gateway, CAccount c);
+    JSONObject getBalanceJson2JXAcc(String gateway, CAccount c);
 }

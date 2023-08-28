@@ -278,7 +278,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
 
             // setting expire time
             Calendar calendar = Calendar.getInstance();
-            calendar.add(Calendar.HOUR, 1);
+            calendar.add(Calendar.HOUR, 3);
 
             String token = JWT.create()
                     .addHeaders(new HashMap<>())

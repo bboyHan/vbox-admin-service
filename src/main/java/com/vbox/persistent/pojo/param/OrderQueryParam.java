@@ -10,6 +10,7 @@ public class OrderQueryParam extends PageParam {
     private String orderStatus;
     private String callbackStatus;
     private String orderId;    //付方订单号
+    private String platformOid;    //付方订单号
     private String p_account;  //付方ID
     private String cChannelId;
     private String acAccount;

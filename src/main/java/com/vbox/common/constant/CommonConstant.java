@@ -18,6 +18,16 @@ public interface CommonConstant {
     String CHANNEL_ACCOUNT_QUEUE = "channel_account_queue:";
 
     /**
+     * 回调
+     */
+    String CALLBACK_QUEUE = "order_callback_queue:";
+
+    /**
+     * 通道账户余额记录
+     */
+    String CHANNEL_ACCOUNT_BALANCE = "channel_account_balance:";
+
+    /**
      * 超时队列
      */
     String ORDER_DELAY_QUEUE = "order_delay_queue";

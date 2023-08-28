@@ -13,6 +13,9 @@ public interface POrderMapper extends BaseMapper<PayOrder> {
     @Select("select count(1) from vbox_pay_order where ac_id = #{acId}")
     Integer countPOrderByAcId(String acId);
 
+    @Select("select count(1) from vbox_pay_order where ac_id = #{acId} AND create_time > DATE_SUB(curdate(),INTERVAL 0 DAY)")
+    Integer countPOrderByAcIdToday(String acId);
+
     @Select("select * from vbox_pay_order where order_id = #{orderId}")
     @Options(flushCache = Options.FlushCachePolicy.TRUE)
     PayOrder getPOrderByOid(String orderId);
@@ -184,4 +187,7 @@ public interface POrderMapper extends BaseMapper<PayOrder> {
 
     @Select("select count(1) from vbox_pay_order where platform_oid like '%' #{acAccount} '%' and cost = #{money} and create_time >= DATE_SUB(NOW(), INTERVAL 30 MINUTE)")
     int getPOrderByPre30AndQQ(String acAccount, Integer money);
+
+    @Select("select count(1) from vbox_pay_order where order_status != 1 and platform_oid like '%' #{acAccount} '%' and create_time >= DATE_SUB(NOW(), INTERVAL 8 MINUTE)")
+    int getPOrderByPre8AndXoyAcc(String acAccount);
 }

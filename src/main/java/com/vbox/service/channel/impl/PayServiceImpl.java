@@ -42,7 +42,6 @@ import org.jetbrains.annotations.NotNull;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DuplicateKeyException;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
@@ -168,8 +167,9 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
                     ProxyInfoThreadHolder.addProxy(proxyInfo);
 
                     CommonUtil.ip2region(ipAddr);
-                }else {
-                    String bodyRandom = HttpRequest.get("http://api.shenlongip.com/ip?key=iah0c7fo&sign=94f84cf83d512b135be2a82f9028d353&mr=1&protocol=2&count=1&rip=1&pattern=json").execute().body();
+                } else {
+//                    String bodyRandom = HttpRequest.get("http://api.shenlongip.com/ip?key=iah0c7fo&sign=94f84cf83d512b135be2a82f9028d353&mr=1&protocol=2&count=1&rip=1&pattern=json").execute().body();
+                    String bodyRandom = HttpRequest.get("http://api.shenlongip.com/ip?key=r3zigii5&sign=70d160af41d5a0d87477c3beb7dbd50d&mr=1&protocol=2&count=1&rip=1&pattern=json").execute().body();
                     log.info("127随机 - 全国area，获取代理 resp: {}", bodyRandom);
                     JSONObject resp = null;
                     try {
@@ -198,7 +198,8 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
                 }
 
             } else {
-                String bodyRandom = HttpRequest.get("http://api.shenlongip.com/ip?key=iah0c7fo&sign=94f84cf83d512b135be2a82f9028d353&mr=1&protocol=2&count=1&rip=1&pattern=json").execute().body();
+//                String bodyRandom = HttpRequest.get("http://api.shenlongip.com/ip?key=iah0c7fo&sign=94f84cf83d512b135be2a82f9028d353&mr=1&protocol=2&count=1&rip=1&pattern=json").execute().body();
+                String bodyRandom = HttpRequest.get("http://api.shenlongip.com/ip?key=r3zigii5&sign=70d160af41d5a0d87477c3beb7dbd50d&mr=1&protocol=2&count=1&rip=1&pattern=json").execute().body();
                 log.info("127随机 - 全国area，获取代理 resp: {}", bodyRandom);
                 JSONObject resp = null;
                 try {
@@ -227,7 +228,7 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
             }
 
 
-        }else {
+        } else {
             // shenlong
             if (StringUtils.hasLength(payIp)) {
                 String location = CommonUtil.ip2region(payIp);
@@ -250,7 +251,8 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
                 }
 
                 if (StringUtils.hasLength(areaCity)) {
-                    String bodyCity = HttpRequest.get("http://api.shenlongip.com/ip?key=iah0c7fo&sign=94f84cf83d512b135be2a82f9028d353&mr=1&protocol=1&count=1&rip=1&pattern=json&area=" + areaCity).execute().body();
+//                    String bodyCity = HttpRequest.get("http://api.shenlongip.com/ip?key=iah0c7fo&sign=94f84cf83d512b135be2a82f9028d353&mr=1&protocol=1&count=1&rip=1&pattern=json&area=" + areaCity).execute().body();
+                    String bodyCity = HttpRequest.get("http://api.shenlongip.com/ip?key=r3zigii5&sign=70d160af41d5a0d87477c3beb7dbd50d&mr=1&protocol=1&count=1&rip=1&pattern=json&area=" + areaCity).execute().body();
 //                String bodyCity = HttpRequest.get("http://ip.quanminip.com/ip?secret=n7VuiYE6&num=1&port=1&type=json&cs=1&mr=1&sign=27ec7a99aa182aa07192281bbcb652d3&region=" + areaCity).execute().body();
                     log.info("1- 市区area传入，获取代理 resp: {}", bodyCity);
                     JSONObject resp = null;
@@ -264,7 +266,8 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
                     } catch (Exception e) { //省区
                         log.info("1- 代理解析失败 msg: {}", e.getMessage());
                         if (StringUtils.hasLength(area)) {
-                            String body = HttpRequest.get("http://api.shenlongip.com/ip?key=iah0c7fo&sign=94f84cf83d512b135be2a82f9028d353&mr=1&protocol=2&count=1&rip=1&pattern=json&area=" + area).execute().body();
+//                            String body = HttpRequest.get("http://api.shenlongip.com/ip?key=iah0c7fo&sign=94f84cf83d512b135be2a82f9028d353&mr=1&protocol=2&count=1&rip=1&pattern=json&area=" + area).execute().body();
+                            String body = HttpRequest.get("http://api.shenlongip.com/ip?key=r3zigii5&sign=70d160af41d5a0d87477c3beb7dbd50d&mr=1&protocol=2&count=1&rip=1&pattern=json&area=" + area).execute().body();
 //                        String body = HttpRequest.get("http://ip.quanminip.com/ip?secret=n7VuiYE6&num=1&port=1&type=json&cs=1&mr=1&sign=27ec7a99aa182aa07192281bbcb652d3&region=" + area).execute().body();
                             log.info("2- 从省区area，获取代理 resp: {}", body);
                             try {
@@ -276,7 +279,8 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
                                 port = data.getInteger("port");
                             } catch (Exception ex) {
                                 log.info("2- 代理解析失败 msg: {}", ex.getMessage());
-                                String bodyRandom = HttpRequest.get("http://api.shenlongip.com/ip?key=iah0c7fo&sign=94f84cf83d512b135be2a82f9028d353&mr=1&protocol=2&count=1&rip=1&pattern=json").execute().body();
+//                                String bodyRandom = HttpRequest.get("http://api.shenlongip.com/ip?key=iah0c7fo&sign=94f84cf83d512b135be2a82f9028d353&mr=1&protocol=2&count=1&rip=1&pattern=json").execute().body();
+                                String bodyRandom = HttpRequest.get("http://api.shenlongip.com/ip?key=r3zigii5&sign=70d160af41d5a0d87477c3beb7dbd50d&mr=1&protocol=2&count=1&rip=1&pattern=json").execute().body();
                                 log.info("3- 全国area，获取代理 resp: {}", bodyRandom);
                                 try {
                                     resp = JSONObject.parseObject(bodyRandom);
@@ -293,7 +297,8 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
 
                     }
                 } else if (!StringUtils.hasLength(areaCity) && StringUtils.hasLength(area)) {
-                    String body = HttpRequest.get("http://api.shenlongip.com/ip?key=iah0c7fo&sign=94f84cf83d512b135be2a82f9028d353&mr=1&protocol=2&count=1&rip=1&pattern=json&area=" + area).execute().body();
+//                    String body = HttpRequest.get("http://api.shenlongip.com/ip?key=iah0c7fo&sign=94f84cf83d512b135be2a82f9028d353&mr=1&protocol=2&count=1&rip=1&pattern=json&area=" + area).execute().body();
+                    String body = HttpRequest.get("http://api.shenlongip.com/ip?key=r3zigii5&sign=70d160af41d5a0d87477c3beb7dbd50d&mr=1&protocol=2&count=1&rip=1&pattern=json&area=" + area).execute().body();
 //                String body = HttpRequest.get("http://ip.quanminip.com/ip?secret=n7VuiYE6&num=1&port=1&type=json&cs=1&mr=1&sign=27ec7a99aa182aa07192281bbcb652d3&region=" + area).execute().body();
                     log.info("11- 从省区area，获取代理 resp: {}", body);
                     JSONObject resp = null;
@@ -306,7 +311,8 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
                         port = data.getInteger("port");
                     } catch (Exception ex) {
                         log.info("11- 代理解析失败 msg: {}", ex.getMessage());
-                        String bodyRandom = HttpRequest.get("http://api.shenlongip.com/ip?key=iah0c7fo&sign=94f84cf83d512b135be2a82f9028d353&mr=1&protocol=2&count=1&rip=1&pattern=json").execute().body();
+//                        String bodyRandom = HttpRequest.get("http://api.shenlongip.com/ip?key=iah0c7fo&sign=94f84cf83d512b135be2a82f9028d353&mr=1&protocol=2&count=1&rip=1&pattern=json").execute().body();
+                        String bodyRandom = HttpRequest.get("http://api.shenlongip.com/ip?key=r3zigii5&sign=70d160af41d5a0d87477c3beb7dbd50d&mr=1&protocol=2&count=1&rip=1&pattern=json").execute().body();
 //                    String bodyRandom = HttpRequest.get("http://ip.quanminip.com/ip?secret=n7VuiYE6&num=1&port=1&type=json&cs=1&mr=1&sign=27ec7a99aa182aa07192281bbcb652d3").execute().body();
                         log.info("22- 全国area，获取代理 resp: {}", bodyRandom);
                         try {
@@ -322,7 +328,8 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
                     }
 
                 } else {
-                    String bodyRandom = HttpRequest.get("http://api.shenlongip.com/ip?key=iah0c7fo&sign=94f84cf83d512b135be2a82f9028d353&mr=1&protocol=2&count=1&rip=1&pattern=json").execute().body();
+//                    String bodyRandom = HttpRequest.get("http://api.shenlongip.com/ip?key=iah0c7fo&sign=94f84cf83d512b135be2a82f9028d353&mr=1&protocol=2&count=1&rip=1&pattern=json").execute().body();
+                    String bodyRandom = HttpRequest.get("http://api.shenlongip.com/ip?key=r3zigii5&sign=70d160af41d5a0d87477c3beb7dbd50d&mr=1&protocol=2&count=1&rip=1&pattern=json").execute().body();
 //                String bodyRandom = HttpRequest.get("http://ip.quanminip.com/ip?secret=n7VuiYE6&num=1&port=1&type=json&cs=1&mr=1&sign=27ec7a99aa182aa07192281bbcb652d3").execute().body();
                     log.info("111- 全国area，获取代理 resp: {}", bodyRandom);
                     JSONObject resp = null;
@@ -438,6 +445,7 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
             cookie = this.getCK(account, Base64.decodeStr(acPwd));
             expire = this.gee4Service.tokenCheck(cookie, account);
             if (!expire) {
+//                cAccountMapper.stopByCaId("ck或密码有误，请更新", randomACInfo.getId());
                 throw new NotFoundException("ck问题，请联系管理员");
             }
         }
@@ -1341,6 +1349,9 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
         if (StringUtils.hasLength(queryParam.getOrderId())) {
             queryWrapper.likeRight("order_id", queryParam.getOrderId());
         }
+        if (StringUtils.hasLength(queryParam.getPlatformOid())) {
+            queryWrapper.like("platform_oid", queryParam.getPlatformOid());
+        }
         if (StringUtils.hasLength(queryParam.getOrderStatus())) {
             queryWrapper.eq("order_status", queryParam.getOrderStatus());
         }
@@ -1720,22 +1731,14 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
         return cookie;
     }
 
-    public String getBalance(String ck, String acPwd) throws IOException {
-//        Object v = redisUtil.get(CommonConstant.ACCOUNT_CK + acAccount);
-//        if (v != null) {
-//            log.info("redis中取出ck, v : {}", v);
-//            return v.toString();
-//        }
-//        String cookie = null;
+    @Override
+    public Integer getBalance(String gateway, String ck, String acPwd) throws IOException {
 
         ScriptEngineManager manager = new ScriptEngineManager();
         ScriptEngine engine = manager.getEngineByName("javascript");
-//        File file = ResourceUtils.getFile("classpath:d4.js");
-//        ClassPathResource classPathResource = new ClassPathResource("d4.js");
-//        InputStream is = classPathResource.getInputStream();
+
         String property = System.getProperty("user.dir");
         String filePath = (property + File.separator + "d4.js");
-//        log.info("filePath ： {}", filePath);
         File inputFile = new File(filePath);
         InputStream is = Files.newInputStream(inputFile.toPath());
         File file = new File("tmp");
@@ -1749,13 +1752,14 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
 
                 String payload = (String) invoke.invokeFunction("test", acPwd);
                 String encode = URLEncoder.encode(payload, "UTF-8");
-//                System.out.println("pwd = " + encode);
 
-                SecCode secCode = gee4Service.capSecCodeForQuery();
+                SecCode secCode = gee4Service.capSecCode();
 
                 resp = HttpRequest.get("https://pay-pf-api.xoyo.com/pay/query_api/get_balance")
+                        .setHttpProxy(ProxyInfoThreadHolder.getIpAddr(), ProxyInfoThreadHolder.getPort())
                         .form("product", "jx3")
-                        .form("gateway", "z05")
+//                        .form("gateway", "z05")
+                        .form("gateway", gateway)
                         .form("password", encode)
                         .form("encrypt_method", "rsa")
                         .form("captcha_id", secCode.getCaptcha_id())
@@ -1768,18 +1772,68 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
                         .execute();
 
                 String jsonResp = Gee4Service.parseGeeJson(resp.body());
+                log.info("get_balance ---- obj: {}", jsonResp);
 
                 JSONObject obj = JSONObject.parseObject(jsonResp);
-                log.info("get_balance ---- obj: {}", obj);
+
+                if (obj.getInteger("code") == 1) {
+                    JSONObject data = obj.getJSONObject("data");
+                    JSONObject seeb = data.getJSONObject("seeb");
+                    Integer leftcoin = seeb.getInteger("leftcoin");
+
+                    log.info("当前acc 通宝 coin : {}", leftcoin);
+                    return leftcoin;
+                } else {
+                    log.error("code err, query_api/get_balance, err resp : {}", resp.body());
+                    throw new ServiceException(resp.body());
+                }
             }
         } catch (ScriptException e) {
             e.printStackTrace();
         } catch (Exception e) {
             log.error("query_api/get_balance, err resp : {}", resp == null ? "无响应数据" : resp.body());
-            throw new RuntimeException(e);
+            throw new ServiceException(e.toString());
         }
 
         return null;
+    }
+
+    @Override
+    public Integer getBalance2JXAcc(String gateway, CAccount c) {
+      //https://security.seasungame.com/security_extend_server/helper/balance/queryBalance?gameCode=jx3&account=chu8038873&accountType=&zoneCode=z05&SN=98710485560&remark=&sign=D8199F85E045C85CAC6373153EFF6620
+        String formUrl = "https://security.seasungame.com/security_extend_server/helper/balance/queryBalance?gameCode=jx3" +
+                "&account=" + URLEncoder.encode(c.getAcAccount()) +
+                "&accountType=&zoneCode="+ gateway +
+                "&SN=" + Base64.decodeStr(c.getAcPwd()) +
+                "&remark=" +
+                "&sign=" + c.getCk();
+        String body = HttpRequest.post(formUrl)
+                .setHttpProxy(ProxyInfoThreadHolder.getIpAddr(), ProxyInfoThreadHolder.getPort())
+                .header("User-Agent", "Mozilla/5.0 (Linux; Android 8.0.0; SM-G955U Build/R16NW) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.141 Mobile Safari/537.36")
+                .execute().body();
+        log.warn("getBalance2JXAcc info : {}", body);
+        JSONObject jsonObject = JSONObject.parseObject(body);
+        JSONObject data = jsonObject.getJSONObject("data");
+        Integer balance = data.getInteger("leftCoins");
+        return balance;
+    }
+
+    public JSONObject getBalanceJson2JXAcc(String gateway, CAccount c) {
+        //https://security.seasungame.com/security_extend_server/helper/balance/queryBalance?gameCode=jx3&account=chu8038873&accountType=&zoneCode=z05&SN=98710485560&remark=&sign=D8199F85E045C85CAC6373153EFF6620
+        String formUrl = "https://security.seasungame.com/security_extend_server/helper/balance/queryBalance?gameCode=jx3" +
+                "&account=" + URLEncoder.encode(c.getAcAccount()) +
+                "&accountType=&zoneCode="+ gateway +
+                "&SN=" + Base64.decodeStr(c.getAcPwd()) +
+                "&remark=" +
+                "&sign=" + c.getCk();
+        String body = HttpRequest.post(formUrl)
+//                .setHttpProxy(ProxyInfoThreadHolder.getIpAddr(), ProxyInfoThreadHolder.getPort())
+                .header("User-Agent", "Mozilla/5.0 (Linux; Android 8.0.0; SM-G955U Build/R16NW) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.141 Mobile Safari/537.36")
+                .execute().body();
+        log.warn("getBalance2JXAcc json : {}", body);
+        JSONObject jsonObject = JSONObject.parseObject(body);
+        JSONObject data = jsonObject.getJSONObject("data");
+        return data;
     }
 
     public String getCKforQuery(String acAccount, String acPwd) throws IOException {
@@ -1965,6 +2019,17 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
                 platformOid = "QQ|order waiting";
             }
             payOrderCreateVO.setPlatformOid(platformOid);
+        } else if (payOrder.getCChannelId().contains("xoy")) {
+            String platformOid = payOrder.getPlatformOid();
+            String ACC = null;
+            try {
+                String[] split = platformOid.split("\\|");
+                ACC = split[2];
+                platformOid = ACC;
+            } catch (Exception e) {
+                platformOid = "JX3|order waiting";
+            }
+            payOrderCreateVO.setPlatformOid(platformOid);
         }
         return payOrderCreateVO;
     }
@@ -2103,7 +2168,7 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
 //                pOrderQueue.setArea(area);
 //            pOrderQueue.setAcid(poDB.getAcId());
 //                pOrderQueue.setPr(pr);
-            redisUtil.lPush(CommonConstant.ORDER_CREATE_QUEUE, pOrderQueue);
+            redisUtil.sAdd(CommonConstant.ORDER_CREATE_QUEUE, pOrderQueue);
 
             pOrderMapper.updateRegionByOIdForSys(orderId, region);
 //                createAsyncOrder()
@@ -2116,7 +2181,7 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
 
     @Override
     public Object tttt() throws IOException {
-        getBalance("xoyokey=ZgzwL33ZL3eej0%3D%26%26xjarkI%3D%26%26a7Wko%3D%26%26r_U%3Dzg3zZggLLg%26WkawLL3e%26%26xkr%3DzZgLg%26%26%3DwlLZg_%3Deezcy%26oWgZee.WBm7gng.z%26raLk%3DZj3Zrco7.keBBz3z3cw3%26o; expires=Wed, 16-Aug-2023 19:08:19 GMT; path=/; domain=.xoyo.com; httponly", "wx12345678");
+//        getBalance("xoyokey=ZgzwL33ZL3eej0%3D%26%26xjarkI%3D%26%26a7Wko%3D%26%26r_U%3Dzg3zZggLLg%26WkawLL3e%26%26xkr%3DzZgLg%26%26%3DwlLZg_%3Deezcy%26oWgZee.WBm7gng.z%26raLk%3DZj3Zrco7.keBBz3z3cw3%26o; expires=Wed, 16-Aug-2023 19:08:19 GMT; path=/; domain=.xoyo.com; httponly", "wx12345678");
         return null;
     }
 

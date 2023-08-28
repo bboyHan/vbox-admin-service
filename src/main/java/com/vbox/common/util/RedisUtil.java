@@ -24,6 +24,25 @@ public class RedisUtil {
         this.redisTemplate = redisTemplate;
     }
 
+    // 设置键的值
+    public void set0Key(String key) {
+        redisTemplate.opsForValue().set(key, 0, 120, TimeUnit.SECONDS); // 设置初始值为0，过期时间为120秒
+    }
+
+    public Boolean isKeyAvailable(String key, int limit) {
+        Integer count = (Integer) redisTemplate.opsForValue().get(key);
+        if (count == null) {
+            log.warn("当前key ： {}，尚未消耗", key);
+            return null;
+        }else if (count < limit){
+            log.warn("当前key ： {}，消耗{} 次", key, count);
+            return true;
+        }else {
+            log.warn("当前次数： {}, 限制 {} 次，key: {}", count, limit, key);
+            return false;
+        }
+    }
+
     //=============================proxy============================
     // 设置键的值
     public void setKey(String ip, int port) {
@@ -50,7 +69,7 @@ public class RedisUtil {
 
     // 增加键的计数
     public void incrementCount(String key) {
-        redisTemplate.opsForValue().increment(key, 1); // 计数加1
+        redisTemplate.opsForValue().increment(key, 1);// 计数加1
     }
 
     // 删除键
@@ -588,7 +607,6 @@ public class RedisUtil {
      * 获取list缓存的长度
      *
      * @param key 键
-     * @return
      */
     public long lGetListSize(String key) {
         try {
@@ -604,7 +622,6 @@ public class RedisUtil {
      *
      * @param key   键
      * @param index 索引  index>=0时， 0 表头，1 第二个元素，依次类推；index<0时，-1，表尾，-2倒数第二个元素，依次类推
-     * @return
      */
     public Object lGetIndex(String key, long index) {
         try {
@@ -656,7 +673,6 @@ public class RedisUtil {
      *
      * @param key   键
      * @param value 值
-     * @return
      */
     public boolean lPushAll(String key, List<Object> value) {
         try {
@@ -674,7 +690,6 @@ public class RedisUtil {
      * @param key   键
      * @param value 值
      * @param time  时间(秒)
-     * @return
      */
     public boolean lSet(String key, List<Object> value, long time) {
         try {
@@ -693,7 +708,6 @@ public class RedisUtil {
      * @param key   键
      * @param index 索引
      * @param value 值
-     * @return
      */
     public boolean lUpdateIndex(String key, long index, Object value) {
         try {
@@ -776,8 +790,43 @@ public class RedisUtil {
             return ele;
         } catch (Exception e) {
             e.printStackTrace();
+            return null;
+        }
+    }
+
+
+    // ------------ set ----------------------
+    public boolean sAdd(String queueName, Object it) {
+        Long add;
+        try {
+            add = redisTemplate.opsForSet().add(queueName, JSONObject.toJSONString(it));
+            if (add == null) return false;
+            return add > 0;
+        } catch (Exception e) {
+            e.printStackTrace();
             return false;
         }
     }
+
+    public Object sPop(String queueName) {
+        Object ele;
+        try {
+            ele = redisTemplate.opsForSet().pop(queueName);
+            return ele;
+        } catch (Exception e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
+
+    public long sSize(String key) {
+        try {
+            return redisTemplate.opsForSet().size(key);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return 0;
+        }
+    }
+
 }
 

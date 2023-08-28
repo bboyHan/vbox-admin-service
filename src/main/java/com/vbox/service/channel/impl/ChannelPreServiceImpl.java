@@ -206,6 +206,7 @@ public class ChannelPreServiceImpl implements ChannelPreService {
                         cookie = payService.getCK(account, Base64.decodeStr(acPwd));
                         expire = gee4Service.tokenCheck(cookie, account);
                         if (!expire) {
+//                            cAccountMapper.stopByCaId("ck或密码有误，请更新", c.getId());
                             throw new NotFoundException("ck问题，请联系管理员");
                         }
                     }
@@ -432,6 +433,7 @@ public class ChannelPreServiceImpl implements ChannelPreService {
                 cookie = payService.getCK(account, Base64.decodeStr(acPwd));
                 expire = gee4Service.tokenCheck(cookie, account);
                 if (!expire) {
+//                    cAccountMapper.stopByCaId("ck或密码有误，请更新", c.getId());
                     throw new NotFoundException("ck问题，请联系管理员");
                 }
             }
@@ -680,6 +682,7 @@ public class ChannelPreServiceImpl implements ChannelPreService {
                         cookie = payService.getCK(account, Base64.decodeStr(acPwd));
                         expire = gee4Service.tokenCheck(cookie, account);
                         if (!expire) {
+//                            cAccountMapper.stopByCaId("ck或密码有误，请更新", c.getId());
                             throw new NotFoundException("ck问题，请联系管理员");
                         }
                     }
@@ -742,6 +745,7 @@ public class ChannelPreServiceImpl implements ChannelPreService {
                                 cAccountMapper.updateCkByID(cookie, c.getId());
                             } else {
                                 log.error("ck 更新失败");
+//                                cAccountMapper.stopByCaId("ck或密码有误，请更新", c.getId());
                                 throw new ServiceException("ck问题，请联系管理员");
                             }
                         }

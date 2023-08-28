@@ -34,6 +34,7 @@ public interface ChannelService {
     int updateTxCAccount(TxCAccountParam param) throws IOException;
 
     int updateSdoCAccount(CAccountParam param) throws IOException;
+    int updateXoyCAccount(CAccountParam param) throws IOException;
 
     int enableCAccount(CAEnableParam param) throws IOException;
 
@@ -41,7 +42,9 @@ public interface ChannelService {
 
     int deleteCAccount(Integer cid);
 
-    String getTxQuery(String orderId);
+    Object getTxQuery(String orderId);
+
+    Object getAccQuery(String acid);
 
     int batchChannelAccount(MultipartFile multipartFile);
 
@@ -50,4 +53,5 @@ public interface ChannelService {
     List<CAccount> listAllCAccount(CAccountParam param);
 
     int enableCAccountList(ChannelBatchAcListParam param);
+
 }

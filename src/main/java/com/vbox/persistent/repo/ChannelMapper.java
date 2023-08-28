@@ -11,8 +11,11 @@ import java.util.List;
 @Mapper
 public interface ChannelMapper extends BaseMapper<Channel> {
 
-    @Select("SELECT id FROM vbox_channel WHERE type = 1")
+    @Select("SELECT id FROM vbox_channel WHERE type = 1 and c_game = 'tx'")
     List<Integer> listCID2tx();
+
+    @Select("SELECT id FROM vbox_channel WHERE type = 1 and c_game = 'xoy'")
+    List<Integer> listCID2XOY();
 
     @Select("SELECT * FROM vbox_channel WHERE id = #{id}")
     CChannel getChannelById(Integer id);
