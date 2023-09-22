@@ -18,6 +18,7 @@ public interface PayService extends IService<PAccount> {
 
     int createPAccount(PAccountParam param);
 
+    void addProxy000(String area, String payIp, String pr);
     void addProxy(String area, String payIp, String pr);
 
     Object createOrder(OrderCreateExtParam orderCreateExtParam, String area, String pr) throws Exception;

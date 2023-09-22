@@ -4,6 +4,7 @@ import cn.hutool.core.codec.Base64;
 import cn.hutool.core.date.DateUtil;
 import cn.hutool.core.util.DesensitizedUtil;
 import cn.hutool.core.util.IdUtil;
+import cn.hutool.http.HttpRequest;
 import com.alibaba.fastjson2.JSONObject;
 import com.vbox.common.ResultOfList;
 import com.vbox.common.constant.CommonConstant;
@@ -12,10 +13,12 @@ import com.vbox.common.util.CommonUtil;
 import com.vbox.common.util.RedisUtil;
 import com.vbox.config.exception.NotFoundException;
 import com.vbox.config.exception.ServiceException;
+import com.vbox.config.local.ProxyInfoThreadHolder;
 import com.vbox.config.local.TokenInfoThreadHolder;
 import com.vbox.persistent.entity.*;
 import com.vbox.persistent.pojo.dto.CGatewayInfo;
 import com.vbox.persistent.pojo.dto.ChannelAccountExcel;
+import com.vbox.persistent.pojo.dto.TxWaterList;
 import com.vbox.persistent.pojo.param.CAEnableParam;
 import com.vbox.persistent.pojo.param.CAccountParam;
 import com.vbox.persistent.pojo.param.ChannelBatchAcListParam;
@@ -314,11 +317,11 @@ public class ChannelServiceImpl implements ChannelService {
 
         String ck = caParam.getCk();
         log.warn("param ck : {}", ck);
-//        String openId = CommonUtil.getCookieValue(ck, "openid");
-//        String openKey = CommonUtil.getCookieValue(ck, "openkey");
+        String openID = CommonUtil.getCookieValue(ck, "openid");
+        String openKey = CommonUtil.getCookieValue(ck, "openkey");
 //
-//        boolean isValid = txPayService.tokenCheck(openId, openKey);
-//        if (!isValid) throw new ServiceException("openID、Key传值错误，请核对");
+        boolean isValid = txPayService.tokenCheck(openID, openKey);
+        if (!isValid) throw new ServiceException("openID、Key传值错误，请核对");
 
         CAccount ca = new CAccount();
         BeanUtils.copyProperties(caParam, ca);
@@ -330,12 +333,14 @@ public class ChannelServiceImpl implements ChannelService {
         String payDesc = PayTypeEnum.of(caParam.getPayType());
         ca.setAcAccount(caParam.getAc_account());
         // ck - pwd - openID
-        ca.setAcPwd(caParam.getOpenKey());
+//        ca.setAcPwd(caParam.getOpenKey());
+        ca.setAcPwd(openID);
         ca.setAcRemark(caParam.getAc_remark());
         ca.setAcid(IdUtil.simpleUUID());
         ca.setUid(uid);
         // ck - openKey
-        ca.setCk(ck);
+//        ca.setCk(ck);
+        ca.setCk(openKey);
         ca.setDailyLimit(caParam.getDaily_limit());
         ca.setTotalLimit(caParam.getTotal_limit());
         ca.setStatus(caParam.getStatus());
@@ -467,24 +472,26 @@ public class ChannelServiceImpl implements ChannelService {
         CAccount cAccount = new CAccount();
 
         String ck = param.getCk();
-//        String openId = CommonUtil.getCookieValue(ck, "openid");
-//        String openKey = CommonUtil.getCookieValue(ck, "openkey");
+        String openID = CommonUtil.getCookieValue(ck, "openid");
+        String openKey = CommonUtil.getCookieValue(ck, "openkey");
 
 //        String openId = param.getOpenId();
 //        String openKey = param.getOpenKey();
-        String acAccount = param.getAc_account();
-//        boolean isValid = txPayService.tokenCheck(openId, openKey);
-//        if (!isValid) throw new ServiceException("openID、Key传值错误，请核对");
+//        String acAccount = param.getAc_account();
+        boolean isValid = txPayService.tokenCheck(openID, openKey);
+        if (!isValid) throw new ServiceException("openID、Key传值错误，请核对");
 
         cAccount.setId(param.getId());
-        cAccount.setAcPwd(acAccount);
-        cAccount.setCk(ck);
+//        cAccount.setAcPwd(acAccount);
+//        cAccount.setCk(ck);
+        cAccount.setAcPwd(openID);
+        cAccount.setCk(openKey);
 
         cAccount.setTotalLimit(param.getTotal_limit());
         cAccount.setDailyLimit(param.getDaily_limit());
         cAccount.setMin(param.getMin());
         cAccount.setMax(param.getMax());
-        cAccount.setAcRemark(param.getAc_remark());
+//        cAccount.setAcRemark(param.getAc_remark());
 
         //判断用户余额是否足够
         Integer uid = TokenInfoThreadHolder.getToken().getId();
@@ -667,6 +674,32 @@ public class ChannelServiceImpl implements ChannelService {
                     }
                 }
                 log.warn("jx3 验证结果... {}", true);
+
+                cAccount.setCk(ck);
+            }
+            //jx 走这个逻辑
+            if ("sdo_in".equals(channel.getCGame())) {
+                log.warn("sdo_in 验证开启...");
+                Set<String> keys = redisUtil.getKeysByPattern(CommonConstant.CHANNEL_PROXY + "*");
+                if (!keys.isEmpty()) {
+                    String randomKey = keys.iterator().next();
+                    redisUtil.del(randomKey);
+                }
+                payService.addProxy(null, "127.0.0.1", null);
+
+                String ck = sdoPayService.getInnerCK(caDB.getAcAccount(), Base64.decodeStr(caDB.getAcPwd()));
+                boolean expire = sdoPayService.tokenCheckInner(ck);
+
+                if (!expire) {
+                    redisUtil.del(CommonConstant.ACCOUNT_CK + caDB.getAcAccount());
+                    ck = sdoPayService.getInnerCK(caDB.getAcAccount(), Base64.decodeStr(caDB.getAcPwd()));
+                    expire = sdoPayService.tokenCheckInner(ck);
+                    if (!expire) {
+//                        caMapper.stopByCaId("ck或密码有误，请更新", param.getId());
+                        throw new NotFoundException("ck问题，请联系管理员");
+                    }
+                }
+                log.warn("sdo_in 验证结果... {}", true);
 
                 cAccount.setCk(ck);
             }
@@ -884,6 +917,8 @@ public class ChannelServiceImpl implements ChannelService {
         }
     }
 
+    @Autowired
+    private VboxProxyMapper vboxProxyMapper;
     //
     @Override
     public Object getTxQuery(String orderId) {
@@ -896,6 +931,41 @@ public class ChannelServiceImpl implements ChannelService {
             }
         } else if (po.getCChannelId().contains("sdo")) {
             formUrl = channelPreMapper.getAddressByPlatOid(po.getPlatformOid());
+            if (po.getCChannelId().contains("sdo_in")) {
+                payService.addProxy(null, "127.0.0.1", null);
+
+                CAccount ca = caMapper.getCAccountByAcid(po.getAcId());
+
+                String sdoLoginUrl = vboxProxyMapper.getEnvUrl("sdo_in_query");
+
+                String cookie = ca.getCk();
+
+                JSONObject dJson = new JSONObject();
+
+                String platformOid = po.getPlatformOid().split("\\|")[0];
+                log.warn("order id : {}, 处理后的 plat id: {}", orderId, platformOid);
+                dJson.put("queryCode", platformOid);
+                dJson.put("tgt", cookie);
+                dJson.put("proxy", ProxyInfoThreadHolder.getAddress());
+                String param = dJson.toJSONString();
+
+                log.warn("sdo in 查单参数： {}", param);
+                String qryResp = HttpRequest.post(sdoLoginUrl)
+                        .body(param)
+                        .execute().body();
+
+                JSONObject qryRes = JSONObject.parseObject(qryResp);
+                if (qryRes.getInteger("state") == 1) {
+                    Integer paidCount = qryRes.getInteger("paidCount");
+                    if (paidCount == 1) {
+                        qryRes.put("msg", "已支付");
+                        return qryRes;
+                    }else {
+                        qryRes.put("msg", "未支付");
+                        return qryRes;
+                    }
+                }
+            }
         } else if (po.getCChannelId().contains("wme")) {
             PayOrderEvent event = pOrderEventMapper.getPOrderEventByOid(po.getOrderId());
             formUrl = event.getExt();
@@ -908,11 +978,15 @@ public class ChannelServiceImpl implements ChannelService {
             return data;
         } else {
             CAccount ca = caMapper.getCAccountByAcid(po.getAcId());
-//            String openID = ca.getAcPwd();
-//            String openKey = ca.getCk();
-//            formUrl = "https://pay.qq.com/h5/trade-record/trade-record.php?appid=1450000186&_wv=1024&pf=2199&sessionid=openid&sessiontype=kp_accesstoken&openid=" + openID + "&openkey=" + openKey + "#/";
-            String qq = ca.getAcAccount();
-            formUrl = "https://pay.qq.com/h5/trade-record/trade-record.php?appid=1450000186&_wv=1024&pf=2199&sessionid=hy_gameid&sessiontype=st_dummy&openkey=openkey&openid=" + qq + "#/";
+            String openID = ca.getAcPwd();
+            String openKey = ca.getCk();
+//            formUrl = "https://pay.qq.com/h5/trade-record/trade-record.php?appid=1450000186&_wv=1024&pf=2199&sessionid=openid&sessiontype=kp_accesstoken&openid=5941CB1704D389951E4F7A700792CFF5&openkey=28C5A26217AF878E2C155BF2CCFF9977#/"
+            formUrl = "https://pay.qq.com/h5/trade-record/trade-record.php?appid=1450000186&_wv=1024&pf=2199&sessionid=openid&sessiontype=kp_accesstoken&openid=" + openID + "&openkey=" + openKey + "#/";
+//            String qq = ca.getAcAccount();
+//            List<TxWaterList> txWaterListList = txPayService.queryOrderAll(openID, openKey);
+
+//            formUrl = "https://pay.qq.com/h5/trade-record/trade-record.php?appid=1450000186&_wv=1024&pf=2199&sessionid=hy_gameid&sessiontype=st_dummy&openkey=openkey&openid=" + qq + "#/";
+//            return txWaterListList;
         }
 
         return formUrl;
@@ -938,8 +1012,16 @@ public class ChannelServiceImpl implements ChannelService {
             JSONObject data = payService.getBalanceJson2JXAcc(cgi.getCGateway(), caDB);
             return data;
         } else {
-            String qq = caDB.getAcAccount();
-            formUrl = "https://pay.qq.com/h5/trade-record/trade-record.php?appid=1450000186&_wv=1024&pf=2199&sessionid=hy_gameid&sessiontype=st_dummy&openkey=openkey&openid=" + qq + "#/";
+//            String qq = caDB.getAcAccount();
+//            formUrl = "https://pay.qq.com/h5/trade-record/trade-record.php?appid=1450000186&_wv=1024&pf=2199&sessionid=hy_gameid&sessiontype=st_dummy&openkey=openkey&openid=" + qq + "#/";
+            String openID = caDB.getAcPwd();
+            String openKey = caDB.getCk();
+            formUrl = "https://pay.qq.com/h5/trade-record/trade-record.php?appid=1450000186&_wv=1024&pf=2199&sessionid=openid&sessiontype=kp_accesstoken&openid=" + openID + "&openkey=" + openKey + "#/";
+//            String qq = caDB.getAcAccount();
+//            List<TxWaterList> txWaterListList = txPayService.queryOrderAll(openID, openKey);
+
+//            formUrl = "https://pay.qq.com/h5/trade-record/trade-record.php?appid=1450000186&_wv=1024&pf=2199&sessionid=hy_gameid&sessiontype=st_dummy&openkey=openkey&openid=" + qq + "#/";
+//            return txWaterListList;
         }
 
         return formUrl;

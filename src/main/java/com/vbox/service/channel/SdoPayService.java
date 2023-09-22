@@ -8,10 +8,14 @@ import java.util.List;
 
 public interface SdoPayService {
 
+    boolean tokenCheckInner(String cookie);
+
     boolean tokenCheck(String cookie);
 
     //2天内的，防止隔天凌晨的问题查单
     List<SdoWater> queryOrderBy2Day(String sessionId, String acid);
 
     String getCK(String account, String acPwd);
+
+    String getInnerCK(String account, String acPwd);
 }

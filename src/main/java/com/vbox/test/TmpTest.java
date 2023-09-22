@@ -7,19 +7,48 @@ public class TmpTest {
 
     public static void main(String[] args) {
 
+//        String tmp = "abcc";
+//        char[] chars = tmp.toCharArray();
+//        for (char c : chars) {
+//            System.out.println(c);
+//        }
+        //  abcdefg........z
+        int[] int1 = {1, 3, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+        int[] int2 = {1, 2, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1};
+//        "abz"
+        int i = 'z' - 'a';
+        System.out.println(i);
+
+        HashMap<Character, Integer> m = new HashMap<>();
+        m.put('a', 1);
+        m.put('b', 2);
+        m.put('c', 3);
+        m.put('f', 1);
+
+        for (Map.Entry<Character, Integer> x : m.entrySet()) {
+            Character key = x.getKey();
+            Integer value = x.getValue();
+            System.out.println(key);
+            System.out.println(value);
+            System.out.println("----------");
+        }
+    }
+
+    private static void extracted() {
         RunnableDemo R0 = new RunnableDemo("test-1111");
         R0.start();
 
-        RunnableDemo R1 = new RunnableDemo( "test-2222");
+        RunnableDemo R1 = new RunnableDemo("test-2222");
         R1.start();
 
-        RunnableDemo R2 = new RunnableDemo( "test-3333");
+        RunnableDemo R2 = new RunnableDemo("test-3333");
         R2.start();
     }
 
-    class A extends Thread{
+    class A extends Thread {
 
     }
+
     class ChaoShiThread implements Runnable {
 
         @Override

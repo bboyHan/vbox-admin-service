@@ -62,6 +62,7 @@ public class ChannelAccountTxTask {
     @Scheduled(cron = "0/5 * * * * ?")   //每 5s 执行一次, 搜集tx 账号
     public void collectTxAccList() {
         log.warn("collectTxAccList. start....");
+        payService.addProxy(null, "127.0.0.1", null);
 
         List<Integer> cidList = channelMapper.listCID2tx();
         for (Integer cid : cidList) {
@@ -89,7 +90,12 @@ public class ChannelAccountTxTask {
                 }
 
                 for (CAccount cAccount : randomTempList) {
-                    List<TxWaterList> txWaterList = txPayService.queryOrderTXACBy30(cAccount.getAcAccount());
+//                    List<TxWaterList> txWaterList = txPayService.queryOrderTXACBy30(cAccount.getAcAccount());
+                    List<TxWaterList> txWaterList = txPayService.queryOrderBy30(cAccount.getAcPwd(), cAccount.getCk());
+                    if (txWaterList == null) {
+                        log.error("谁tm空了，acc ->{}", cAccount.getAcAccount());
+                        continue;
+                    }
                     rl.addAll(txWaterList);
                 }
 

@@ -336,8 +336,11 @@ public class ChannelPreServiceImpl implements ChannelPreService {
             } else if (money == 100) {
                 money = 102;
                 remark = "100|102," + ckid + "|" + acid;
+            } else if (money == 30) {
+                money = 30;
+                remark = "30|30," + ckid + "|" + acid;
             } else {
-                throw new ServiceException("仅支持100、200的固额设置");
+                throw new ServiceException("仅支持30、100、200的固额设置");
             }
 
             if (platParam.contains("_input_charset")) {
@@ -607,7 +610,7 @@ public class ChannelPreServiceImpl implements ChannelPreService {
         int count = 0;
         int errCount = 0;
         LocalDateTime now = LocalDateTime.now();
-        payService.addProxy(null, "127.0.0.1", null);
+        payService.addProxy000(null, "127.0.0.1", null);
         String remark = "";
         String url = "";
 
@@ -630,7 +633,7 @@ public class ChannelPreServiceImpl implements ChannelPreService {
                 remark = "10|10|" + amount + ",null|" + acid;
             } else if (money == 30) {
                 money = 30;
-                amount = 3060;
+                amount = 3061;
                 remark = "30|30|" + amount + ",null|" + acid;
             } else if (money == 100) {
                 money = 102;

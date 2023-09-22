@@ -131,6 +131,239 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
         return 0;
     }
 
+
+    public void addProxy000(String area, String payIp, String pr) {
+//        String body = HttpRequest.get("http://1.14.96.183:8005/server?num=1&Ackey=1h1cf17").execute().body();
+//        String body = HttpRequest.get("http://1.14.96.183:8005/server?num=1&Ackey=1h3495e").execute().body();
+//        String body = HttpRequest.get("http://api.shenlongip.com/ip?key=tmocdhlc&sign=bdad24bb1b322eebc34be6c35e9c63c7&count=1&area=" + area).execute().body();
+//        String body = HttpRequest.get("http://api.shenlongip.com/ip?key=6sbdqwj2&sign=bdad24bb1b322eebc34be6c35e9c63c7&count=1&area=" + area).execute().body();
+//        String[] split = body.split(":");
+//        int port = Integer.parseInt(split[1].trim());
+//        String ipAddr = split[0];
+        log.info("传入: area - {}, pay ip - {}, pr - {}", area, payIp, pr);
+        String areaCity = null;
+        String ipAddr = null;
+        String ripAddr = null;
+        int port = 0;
+
+        if ("127.0.0.1".equals(payIp)) {
+            Set<String> keys = redisUtil.getKeysByPattern(CommonConstant.CHANNEL_PROXY + "*");
+            if (!keys.isEmpty()) {
+                String randomKey = keys.iterator().next();
+
+                if (redisUtil.isKeyAvailable(randomKey, 5)) {
+                    redisUtil.incrementCount(randomKey);
+                    // 提取逗号后的IP和端口值
+                    String ipPort = randomKey.substring(randomKey.indexOf(",") + 1);
+                    String[] addr = ipPort.split(":");
+
+                    ProxyInfo proxyInfo = new ProxyInfo();
+                    port = Integer.parseInt(addr[1]);
+                    ipAddr = addr[0];
+                    proxyInfo.setPort(port);
+                    proxyInfo.setIpAddr(ipAddr);
+
+                    log.warn("缓存取 proxy value - {}", proxyInfo);
+
+                    ProxyInfoThreadHolder.addProxy(proxyInfo);
+
+                    CommonUtil.ip2region(ipAddr);
+                } else {
+                    String bodyRandom = HttpRequest.get("http://api.shenlongip.com/ip?key=iah0c7fo&sign=94f84cf83d512b135be2a82f9028d353&mr=1&protocol=2&count=1&rip=1&pattern=json").execute().body();
+//                    String bodyRandom = HttpRequest.get("http://api.shenlongip.com/ip?key=r3zigii5&sign=70d160af41d5a0d87477c3beb7dbd50d&mr=1&protocol=2&count=1&rip=1&pattern=json").execute().body();
+                    log.info("127随机 - 全国area，获取代理 resp: {}", bodyRandom);
+                    JSONObject resp = null;
+                    try {
+                        resp = JSONObject.parseObject(bodyRandom);
+                        JSONArray list = resp.getJSONArray("data");
+                        JSONObject data = list.getJSONObject(0);
+                        ipAddr = data.getString("ip");
+                        ripAddr = data.getString("rip");
+                        port = data.getInteger("port");
+                    } catch (Exception exx) {
+                        log.info("127随机 - 代理解析失败 msg: {}", exx.getMessage());
+                    }
+
+                    ProxyInfo proxyInfo = new ProxyInfo();
+                    proxyInfo.setPort(port);
+                    proxyInfo.setIpAddr(ipAddr);
+
+                    log.warn("proxy value - {}", proxyInfo);
+
+                    ProxyInfoThreadHolder.addProxy(proxyInfo);
+
+                    CommonUtil.ip2region(ipAddr);
+                    CommonUtil.ip2region(ripAddr);
+
+                    redisUtil.setKey(ipAddr, port);
+                }
+
+            } else {
+                String bodyRandom = HttpRequest.get("http://api.shenlongip.com/ip?key=iah0c7fo&sign=94f84cf83d512b135be2a82f9028d353&mr=1&protocol=2&count=1&rip=1&pattern=json").execute().body();
+//                String bodyRandom = HttpRequest.get("http://api.shenlongip.com/ip?key=r3zigii5&sign=70d160af41d5a0d87477c3beb7dbd50d&mr=1&protocol=2&count=1&rip=1&pattern=json").execute().body();
+                log.info("127随机 - 全国area，获取代理 resp: {}", bodyRandom);
+                JSONObject resp = null;
+                try {
+                    resp = JSONObject.parseObject(bodyRandom);
+                    JSONArray list = resp.getJSONArray("data");
+                    JSONObject data = list.getJSONObject(0);
+                    ipAddr = data.getString("ip");
+                    ripAddr = data.getString("rip");
+                    port = data.getInteger("port");
+                } catch (Exception exx) {
+                    log.info("127随机 - 代理解析失败 msg: {}", exx.getMessage());
+                }
+
+                ProxyInfo proxyInfo = new ProxyInfo();
+                proxyInfo.setPort(port);
+                proxyInfo.setIpAddr(ipAddr);
+
+                log.warn("proxy value - {}", proxyInfo);
+
+                ProxyInfoThreadHolder.addProxy(proxyInfo);
+
+                CommonUtil.ip2region(ipAddr);
+                CommonUtil.ip2region(ripAddr);
+
+                redisUtil.setKey(ipAddr, port);
+            }
+
+
+        } else {
+            // shenlong
+            if (StringUtils.hasLength(payIp)) {
+                String location = CommonUtil.ip2region(payIp);
+                if (location == null) {
+                    throw new ServiceException("传入ip有误，请确认是否为正确Ipv4地址");
+                }
+                log.info("当前传入ip，查询location为 : {}", location);
+                String[] split = location.split("\\|");
+                String regionCity = split[3];
+                Location locCity = locationMapper.regionSearch(regionCity);
+                if (locCity != null) {
+                    areaCity = locCity.getArea();
+                    log.info("从库里取出【市区】, area : {} ,loc : {}", areaCity, locCity);
+                }
+                String region = split[2];
+                Location loc = locationMapper.regionSearch(region);
+                if (loc != null) {
+                    area = loc.getArea();
+                    log.info("从库里取出【省区】, area : {} ,loc : {}", area, loc);
+                }
+
+                if (StringUtils.hasLength(areaCity)) {
+                    String bodyCity = HttpRequest.get("http://api.shenlongip.com/ip?key=iah0c7fo&sign=94f84cf83d512b135be2a82f9028d353&mr=1&protocol=1&count=1&rip=1&pattern=json&area=" + areaCity).execute().body();
+//                    String bodyCity = HttpRequest.get("http://api.shenlongip.com/ip?key=r3zigii5&sign=70d160af41d5a0d87477c3beb7dbd50d&mr=1&protocol=1&count=1&rip=1&pattern=json&area=" + areaCity).execute().body();
+//                String bodyCity = HttpRequest.get("http://ip.quanminip.com/ip?secret=n7VuiYE6&num=1&port=1&type=json&cs=1&mr=1&sign=27ec7a99aa182aa07192281bbcb652d3&region=" + areaCity).execute().body();
+                    log.info("1- 市区area传入，获取代理 resp: {}", bodyCity);
+                    JSONObject resp = null;
+                    try { //市区
+                        resp = JSONObject.parseObject(bodyCity);
+                        JSONArray list = resp.getJSONArray("data");
+                        JSONObject data = list.getJSONObject(0);
+                        ipAddr = data.getString("ip");
+                        ripAddr = data.getString("rip");
+                        port = data.getInteger("port");
+                    } catch (Exception e) { //省区
+                        log.info("1- 代理解析失败 msg: {}", e.getMessage());
+                        if (StringUtils.hasLength(area)) {
+                            String body = HttpRequest.get("http://api.shenlongip.com/ip?key=iah0c7fo&sign=94f84cf83d512b135be2a82f9028d353&mr=1&protocol=2&count=1&rip=1&pattern=json&area=" + area).execute().body();
+//                            String body = HttpRequest.get("http://api.shenlongip.com/ip?key=r3zigii5&sign=70d160af41d5a0d87477c3beb7dbd50d&mr=1&protocol=2&count=1&rip=1&pattern=json&area=" + area).execute().body();
+//                        String body = HttpRequest.get("http://ip.quanminip.com/ip?secret=n7VuiYE6&num=1&port=1&type=json&cs=1&mr=1&sign=27ec7a99aa182aa07192281bbcb652d3&region=" + area).execute().body();
+                            log.info("2- 从省区area，获取代理 resp: {}", body);
+                            try {
+                                resp = JSONObject.parseObject(body);
+                                JSONArray list = resp.getJSONArray("data");
+                                JSONObject data = list.getJSONObject(0);
+                                ipAddr = data.getString("ip");
+                                ripAddr = data.getString("rip");
+                                port = data.getInteger("port");
+                            } catch (Exception ex) {
+                                log.info("2- 代理解析失败 msg: {}", ex.getMessage());
+//                                String bodyRandom = HttpRequest.get("http://api.shenlongip.com/ip?key=iah0c7fo&sign=94f84cf83d512b135be2a82f9028d353&mr=1&protocol=2&count=1&rip=1&pattern=json").execute().body();
+                                String bodyRandom = HttpRequest.get("http://api.shenlongip.com/ip?key=r3zigii5&sign=70d160af41d5a0d87477c3beb7dbd50d&mr=1&protocol=2&count=1&rip=1&pattern=json").execute().body();
+                                log.info("3- 全国area，获取代理 resp: {}", bodyRandom);
+                                try {
+                                    resp = JSONObject.parseObject(bodyRandom);
+                                    JSONArray list = resp.getJSONArray("data");
+                                    JSONObject data = list.getJSONObject(0);
+                                    ipAddr = data.getString("ip");
+                                    ripAddr = data.getString("rip");
+                                    port = data.getInteger("port");
+                                } catch (Exception exx) {
+                                    log.info("3- 代理解析失败 msg: {}", ex.getMessage());
+                                }
+                            }
+                        }
+
+                    }
+                } else if (!StringUtils.hasLength(areaCity) && StringUtils.hasLength(area)) {
+                    String body = HttpRequest.get("http://api.shenlongip.com/ip?key=iah0c7fo&sign=94f84cf83d512b135be2a82f9028d353&mr=1&protocol=2&count=1&rip=1&pattern=json&area=" + area).execute().body();
+//                    String body = HttpRequest.get("http://api.shenlongip.com/ip?key=r3zigii5&sign=70d160af41d5a0d87477c3beb7dbd50d&mr=1&protocol=2&count=1&rip=1&pattern=json&area=" + area).execute().body();
+//                String body = HttpRequest.get("http://ip.quanminip.com/ip?secret=n7VuiYE6&num=1&port=1&type=json&cs=1&mr=1&sign=27ec7a99aa182aa07192281bbcb652d3&region=" + area).execute().body();
+                    log.info("11- 从省区area，获取代理 resp: {}", body);
+                    JSONObject resp = null;
+                    try {
+                        resp = JSONObject.parseObject(body);
+                        JSONArray list = resp.getJSONArray("data");
+                        JSONObject data = list.getJSONObject(0);
+                        ipAddr = data.getString("ip");
+                        ripAddr = data.getString("rip");
+                        port = data.getInteger("port");
+                    } catch (Exception ex) {
+                        log.info("11- 代理解析失败 msg: {}", ex.getMessage());
+                        String bodyRandom = HttpRequest.get("http://api.shenlongip.com/ip?key=iah0c7fo&sign=94f84cf83d512b135be2a82f9028d353&mr=1&protocol=2&count=1&rip=1&pattern=json").execute().body();
+//                        String bodyRandom = HttpRequest.get("http://api.shenlongip.com/ip?key=r3zigii5&sign=70d160af41d5a0d87477c3beb7dbd50d&mr=1&protocol=2&count=1&rip=1&pattern=json").execute().body();
+//                    String bodyRandom = HttpRequest.get("http://ip.quanminip.com/ip?secret=n7VuiYE6&num=1&port=1&type=json&cs=1&mr=1&sign=27ec7a99aa182aa07192281bbcb652d3").execute().body();
+                        log.info("22- 全国area，获取代理 resp: {}", bodyRandom);
+                        try {
+                            resp = JSONObject.parseObject(bodyRandom);
+                            JSONArray list = resp.getJSONArray("data");
+                            JSONObject data = list.getJSONObject(0);
+                            ipAddr = data.getString("ip");
+                            ripAddr = data.getString("rip");
+                            port = data.getInteger("port");
+                        } catch (Exception exx) {
+                            log.info("22- 代理解析失败 msg: {}", exx.getMessage());
+                        }
+                    }
+
+                } else {
+                    String bodyRandom = HttpRequest.get("http://api.shenlongip.com/ip?key=iah0c7fo&sign=94f84cf83d512b135be2a82f9028d353&mr=1&protocol=2&count=1&rip=1&pattern=json").execute().body();
+//                    String bodyRandom = HttpRequest.get("http://api.shenlongip.com/ip?key=r3zigii5&sign=70d160af41d5a0d87477c3beb7dbd50d&mr=1&protocol=2&count=1&rip=1&pattern=json").execute().body();
+//                String bodyRandom = HttpRequest.get("http://ip.quanminip.com/ip?secret=n7VuiYE6&num=1&port=1&type=json&cs=1&mr=1&sign=27ec7a99aa182aa07192281bbcb652d3").execute().body();
+                    log.info("111- 全国area，获取代理 resp: {}", bodyRandom);
+                    JSONObject resp = null;
+                    try {
+                        resp = JSONObject.parseObject(bodyRandom);
+                        JSONArray list = resp.getJSONArray("data");
+                        JSONObject data = list.getJSONObject(0);
+                        ipAddr = data.getString("ip");
+                        ripAddr = data.getString("rip");
+                        port = data.getInteger("port");
+                    } catch (Exception exx) {
+                        log.info("222- 代理解析失败 msg: {}", exx.getMessage());
+                    }
+                }
+            }
+
+            ProxyInfo proxyInfo = new ProxyInfo();
+            proxyInfo.setPort(port);
+            proxyInfo.setIpAddr(ipAddr);
+
+            log.warn("proxy value - {}", proxyInfo);
+
+            ProxyInfoThreadHolder.addProxy(proxyInfo);
+
+            CommonUtil.ip2region(ipAddr);
+            CommonUtil.ip2region(ripAddr);
+
+
+        }
+
+
+    }
+
     public void addProxy(String area, String payIp, String pr) {
 //        String body = HttpRequest.get("http://1.14.96.183:8005/server?num=1&Ackey=1h1cf17").execute().body();
 //        String body = HttpRequest.get("http://1.14.96.183:8005/server?num=1&Ackey=1h3495e").execute().body();
@@ -701,27 +934,32 @@ public class PayServiceImpl extends ServiceImpl<PAccountMapper, PAccount> implem
                     }
                 }
                 if (channelId.contains("sdo")) {
-                    if (money == 200) {
-                        money = 204;
-                    } else if (money == 1) {
-                        money = 1;
-                    } else if (money == 100) {
-                        money = 102;
-                    } else {
-                        throw new UnSupportException("仅支持100、200的固额设置");
+                    if (!channelId.contains("sdo_in")) {
+                        if (money == 200) {
+                            money = 204;
+                        } else if (money == 1) {
+                            money = 1;
+                        } else if (money == 100) {
+                            money = 102;
+                        } else if (money == 30) {
+                            money = 30;
+                        } else {
+                            throw new UnSupportException("仅支持30、100、200的固额设置");
+                        }
+
+                        QueryWrapper<ChannelPre> queryWrapper = new QueryWrapper<>();
+                        queryWrapper.eq("status", 2);
+                        queryWrapper.eq("money", money);
+
+                        List<ChannelPre> channelPres = channelPreMapper.selectList(queryWrapper);
+                        removeSdoElements(channelPres);
+
+                        if (channelPres.size() == 0) {
+                            log.error("库存金额不足");
+                            throw new UnSupportException("该通道无库存金额，请联系管理员");
+                        }
                     }
 
-                    QueryWrapper<ChannelPre> queryWrapper = new QueryWrapper<>();
-                    queryWrapper.eq("status", 2);
-                    queryWrapper.eq("money", money);
-
-                    List<ChannelPre> channelPres = channelPreMapper.selectList(queryWrapper);
-                    removeSdoElements(channelPres);
-
-                    if (channelPres.size() == 0) {
-                        log.error("库存金额不足");
-                        throw new UnSupportException("该通道无库存金额，请联系管理员");
-                    }
                 }
 
 //                if (channelId.equals("tx_dy") || channelId.equals("tx_jd")) {

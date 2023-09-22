@@ -190,4 +190,7 @@ public interface POrderMapper extends BaseMapper<PayOrder> {
 
     @Select("select count(1) from vbox_pay_order where order_status != 1 and platform_oid like '%' #{acAccount} '%' and create_time >= DATE_SUB(NOW(), INTERVAL 8 MINUTE)")
     int getPOrderByPre8AndXoyAcc(String acAccount);
+
+    @Select("select count(1) from vbox_pay_order where platform_oid like '%' #{acAccount} '%'")
+    int getPOrderBy2TimeAndSdoInAcc(String acAccount);
 }

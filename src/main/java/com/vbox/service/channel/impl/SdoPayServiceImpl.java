@@ -1,6 +1,5 @@
 package com.vbox.service.channel.impl;
 
-import cn.hutool.http.HttpException;
 import cn.hutool.http.HttpRequest;
 import com.alibaba.fastjson2.JSONObject;
 import com.vbox.common.constant.CommonConstant;
@@ -9,7 +8,6 @@ import com.vbox.config.exception.ServiceException;
 import com.vbox.config.local.ProxyInfoThreadHolder;
 import com.vbox.persistent.entity.CAccount;
 import com.vbox.persistent.entity.ChannelPre;
-import com.vbox.persistent.entity.VboxProxy;
 import com.vbox.persistent.pojo.dto.SdoWater;
 import com.vbox.persistent.repo.CAccountMapper;
 import com.vbox.persistent.repo.ChannelPreMapper;
@@ -35,6 +33,24 @@ public class SdoPayServiceImpl implements SdoPayService {
     private VboxProxyMapper vboxProxyMapper;
 
     @Override
+    public boolean tokenCheckInner(String cookie) {
+        String payReqUrl = vboxProxyMapper.getEnvUrl("sdo_in_query");
+        JSONObject ckJson = new JSONObject();
+        ckJson.put("queryCode", "425C325F-20CE-452c-886A-AF66498E54E2");
+        ckJson.put("tgt", cookie);
+        ckJson.put("proxy", ProxyInfoThreadHolder.getAddress());
+        String odRes = HttpRequest.post(payReqUrl)
+                .body(ckJson.toJSONString())
+                .execute().body();
+        JSONObject qryRes = JSONObject.parseObject(odRes);
+        if (qryRes.getInteger("state") != 1 || odRes.contains("登录")) {
+            log.error("sdo in token过期,res : {}", odRes);
+            return false;
+        } else {
+            return true;
+        }
+    }
+
     public boolean tokenCheck(String cookie) {
         String formUrl = "https://pay.sdo.com/api/orderlist?page=1&range=1";
 
@@ -68,12 +84,12 @@ public class SdoPayServiceImpl implements SdoPayService {
 //        log.warn("tx token校验结果: {}", payRs!= null? payRs.trim(): null);
 
         JSONObject userResp = JSONObject.parseObject(payRs);
-        if (!userResp.getString("return_code").equals("0")){
+        if (!userResp.getString("return_code").equals("0")) {
 
             List<ChannelPre> pres = channelPreMapper.listChannelPreByCKID(ckid);
             CAccount ckAccount = cAccountMapper.getCAccountByAcid(ckid);
             for (ChannelPre pre : pres) {
-                cAccountMapper.stopByACID("查单账号"+ ckAccount.getAcRemark()+", ck过期，关闭账号", pre.getAcid());
+                cAccountMapper.stopByACID("查单账号" + ckAccount.getAcRemark() + ", ck过期，关闭账号", pre.getAcid());
                 log.error("查单账号{}, ck过期，关闭账号: {}", ckAccount.getAcRemark(), pre.getAcid());
             }
 
@@ -98,7 +114,6 @@ public class SdoPayServiceImpl implements SdoPayService {
         String cookie = null;
         try {
             String sdoLoginUrl = vboxProxyMapper.getEnvUrl("sdo_login");
-//        String loginReqUrl = "http://101.89.120.162:555/api/login";
             String loginResp = HttpRequest.get(sdoLoginUrl)
                     .form("username", acAccount)
                     .form("password", acPwd)
@@ -109,10 +124,47 @@ public class SdoPayServiceImpl implements SdoPayService {
             if (loginJson.getInteger("code") == 200) {
                 cookie = loginJson.getString("data");
             } else {
-                throw new ServiceException("当前sdo账号登录异常，获取ck失败， info : " + acAccount + ", resp: " +loginResp);
+                throw new ServiceException("当前sdo账号登录异常，获取ck失败， info : " + acAccount + ", resp: " + loginResp);
             }
         } catch (Exception e) {
-            throw new ServiceException("当前sdo账号登录异常，获取ck失败， info : " + acAccount + ", err: " +e.getMessage());
+            throw new ServiceException("当前sdo账号登录异常，获取ck失败， info : " + acAccount + ", err: " + e.getMessage());
+        }
+
+        redisUtil.set(CommonConstant.ACCOUNT_CK + acAccount, cookie, 7200); //2hour
+        log.info("login ---- ck: {}", cookie);
+
+        return cookie;
+    }
+
+    @Override
+    public String getInnerCK(String acAccount, String acPwd) {
+        Object v = redisUtil.get(CommonConstant.ACCOUNT_CK + acAccount);
+        if (v != null) {
+            log.warn("缓存池取出 ck, {}", v);
+            return v.toString();
+        }
+        String cookie = null;
+        try {
+            String sdoLoginUrl = vboxProxyMapper.getEnvUrl("sdo_in_login");
+            JSONObject data = new JSONObject();
+            data.put("user", acAccount);
+            data.put("password", acPwd);
+            data.put("proxy", ProxyInfoThreadHolder.getAddress());
+            String dJson = data.toJSONString();
+            System.out.println(dJson);
+            String loginResp = HttpRequest.post(sdoLoginUrl)
+                    .body(dJson)
+                    .header("Content-type", "application/json")
+                    .execute().body();
+
+            JSONObject loginJson = JSONObject.parseObject(loginResp);
+            if (loginJson.getInteger("state") == 1) {
+                cookie = loginJson.getString("tgt");
+            } else {
+                throw new ServiceException("当前sdo in账号登录异常，获取ck失败， info : " + acAccount + ", resp: " + loginResp);
+            }
+        } catch (Exception e) {
+            throw new ServiceException("当前sdo in账号登录异常，获取ck失败， info : " + acAccount + ", err: " + e.getMessage());
         }
 
         redisUtil.set(CommonConstant.ACCOUNT_CK + acAccount, cookie, 7200); //2hour

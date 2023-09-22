@@ -15,5 +15,7 @@ public interface TxPayService {
 
     List<TxWaterList> queryOrderBy30(String openId, String openKey);
 
-    List<TxWaterList> queryOrderTXACBy30(String acAccount);
+    List<TxWaterList> queryOrderAll(String openId, String openKey);
+
+    List<TxWaterList> queryOrderTXACBy30(String acAccount) throws InterruptedException;
 }

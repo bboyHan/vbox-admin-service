@@ -399,7 +399,7 @@ public class SaleServiceImpl implements SaleService {
         Integer exist = userMapper.isExistAccount(account);
         if (null != exist && exist != 0) throw new ServiceException("用户已存在!");
         List<Integer> subList = usMapper.listSidByUid(TokenInfoThreadHolder.getToken().getId());
-        if (subList.size() > 10) {
+        if (subList.size() > 30) {
             throw new ServiceException("子账号超出上限");
         }
         Set<String> roleValues = roleMapper.listRoleValueByUid(TokenInfoThreadHolder.getToken().getId());

@@ -10,6 +10,54 @@ public class SdoQyTest {
 
     public static void main(String[] args) {
 
+        String input = "{\"state\":1,\"queryCode\":\"EF10AACF-AF56-4d09-89B5-A1AFB0A0199B\",\"qrUrl\":\"https:\\/\\/mobilecodec.alipay.com\\/show.htm?code=gdxox0xobvgsvvmq24&picSize=S\"}";
+
+        Pattern pattern = Pattern.compile("code=([^&]+)");
+        Matcher matcher = pattern.matcher(input);
+
+        if (matcher.find()) {
+            String codeValue = matcher.group(1);
+            System.out.println("Code value: " + codeValue);
+        } else {
+            System.out.println("Code value not found.");
+        }
+
+//        JSONObject data = new JSONObject();
+//        data.put("user", "tv9qav3a");
+//        data.put("password", "qaz112233");
+//        String dJson = data.toJSONString();
+//        System.out.println(dJson);
+//        String body = HttpRequest.post("http://116.255.185.144:10999/login")
+//                .body(dJson)
+//                .execute().body();
+//        System.out.println(body);
+
+//        JSONObject ckJson = JSONObject.parseObject(body);
+//        ckJson.put("sum", "30");
+//
+//        String tgt = ckJson.getString("tgt");
+//        System.out.println(tgt);
+
+                JSONObject ckJson = new JSONObject();
+        ckJson.put("queryCode", "425C325F-20CE-452c-886A-AF66498E54E2");
+        String odRes = HttpRequest.post("http://116.255.185.144:10999/getqrcode")
+                .body(ckJson.toJSONString())
+                .execute().body();
+        JSONObject qryRes = JSONObject.parseObject(odRes);
+        if (qryRes.getInteger("state") != 1 || odRes.contains("登录")) {
+            System.out.println(odRes);
+        }
+
+//        JSONObject qryRes = JSONObject.parseObject(odRes);
+//        qryRes.put("tgt", tgt);
+
+//        JSONObject qryRes = new JSONObject();
+//        qryRes.put("queryCode", "425C325F-20CE-452c-886A-AF66498E54E2");
+//        qryRes.put("tgt", "ULSTGT-0dec9d6397db46ff90d00e621a3f9e4d");
+        String qryOdRes = HttpRequest.post("http://116.255.185.144:10999/queryOrder")
+                .body(qryRes.toJSONString())
+                .execute().body();
+        System.out.println(qryOdRes);
 //        String sessionId = "c1724d6720e5309b35c98f56b73abf31";
 //        String formUrl = "https://pay.sdo.com/api/orderlist?page=1&range=2";
 //
@@ -39,7 +87,7 @@ public class SdoQyTest {
 //            System.out.println("lalala");
 //        }
 //        "alipays://platformapi/startApp?appId=10000007&sourceId=excashierQrcodePay&actionType=route&qrcode=https://qr.alipay.com/upx05196bsaswqfo7l1m25af"
-        jx3();
+//        jx3();
     }
 
     private static void jx3() {

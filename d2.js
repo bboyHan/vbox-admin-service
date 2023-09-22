@@ -2745,7 +2745,7 @@ function get_w(param, user_resp) {
     geetest: 'captcha',
     lang: 'zh',
     ep: '123',
-    nglk: '9Orn',
+    EvZp: 'XpAi',
 	biht: '1426265548',
     em: {
       ph: 0,
